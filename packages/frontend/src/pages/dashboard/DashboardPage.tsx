@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useKpis, useFunnel, useRevenue } from '@/hooks/useReports';
 import { useActivities } from '@/hooks/useActivities';
 import { useContacts } from '@/hooks/useContacts';
@@ -33,13 +34,10 @@ export function DashboardPage() {
   const contactCount = isFree ? (contactsData?.meta?.total ?? 0) : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-semibold text-text-primary">
-          Olá, {user?.full_name?.split(' ')[0]} 👋
-        </h1>
-        <p className="text-sm text-text-secondary mt-1">
-          Aqui está o resumo do seu workspace hoje.
+        <p className="text-sm text-text-secondary">
+          Olá, {user?.full_name?.split(' ')[0]} — resumo do seu workspace hoje
         </p>
       </div>
 
@@ -78,7 +76,7 @@ export function DashboardPage() {
       {kpisLoading ? (
         <div className="flex justify-center py-8"><Spinner /></div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard label="Negócios em aberto" value={kpis?.openDeals ?? '—'} />
           <KpiCard
             label="Ganhos no mês"
@@ -96,19 +94,24 @@ export function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="card p-5">
-          <p className="text-sm font-medium text-text-secondary mb-4">Receita ao longo do tempo</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="card p-4">
+          <p className="text-sm font-medium text-text-secondary mb-3">Receita ao longo do tempo</p>
           <RevenueChart data={revenue ?? []} />
         </div>
-        <div className="card p-5">
-          <p className="text-sm font-medium text-text-secondary mb-4">Funil do pipeline</p>
+        <div className="card p-4">
+          <p className="text-sm font-medium text-text-secondary mb-3">Funil do pipeline</p>
           <FunnelChart data={funnel ?? []} />
         </div>
       </div>
 
-      <div className="card p-5">
-        <p className="text-sm font-medium text-text-secondary mb-4">Atividades recentes</p>
+      <div className="card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-text-secondary">Atividades recentes</p>
+          <Link to="/calendar" className="text-xs font-medium text-accent-green hover:underline">
+            Ver todas
+          </Link>
+        </div>
         <ActivityFeed activities={activitiesData?.data ?? []} />
       </div>
     </div>

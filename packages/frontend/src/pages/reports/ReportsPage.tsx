@@ -7,6 +7,7 @@ import { FunnelChart } from '@/components/dashboard/FunnelChart';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { api } from '@/services/api';
 import { contactsService } from '@/services/contacts.service';
 import { useTenant } from '@/hooks/useTenant';
@@ -113,12 +114,7 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Relatórios</h1>
-          <p className="text-sm text-text-secondary mt-0.5">Desempenho do seu time</p>
-        </div>
-      </div>
+      <PageHeader title="Relatórios" subtitle="Desempenho do seu time" />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-bg-border">
@@ -153,7 +149,7 @@ export function ReportsPage() {
           {kpisLoading ? (
             <div className="flex justify-center py-8"><Spinner /></div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <KpiCard label="Negócios em aberto" value={kpis?.openDeals ?? '—'} />
               <KpiCard
                 label="Ganhos no mês"
@@ -166,8 +162,8 @@ export function ReportsPage() {
             </div>
           )}
 
-          <div className="card p-5">
-            <div className="flex items-center justify-between mb-4">
+          <div className="card p-4">
+            <div className="flex items-center justify-between mb-3">
               <p className="text-sm font-medium text-text-secondary">Receita ao longo do tempo</p>
               <div className="flex gap-1">
                 {periodOptions.map((o) => (
@@ -189,8 +185,8 @@ export function ReportsPage() {
             {revenueLoading ? <div className="flex justify-center py-10"><Spinner /></div> : <RevenueChart data={revenue ?? []} period={period} />}
           </div>
 
-          <div className="card p-5">
-            <p className="text-sm font-medium text-text-secondary mb-4">Funil do pipeline</p>
+          <div className="card p-4">
+            <p className="text-sm font-medium text-text-secondary mb-3">Funil do pipeline</p>
             {funnelLoading ? <div className="flex justify-center py-10"><Spinner /></div> : <FunnelChart data={funnel ?? []} />}
           </div>
 

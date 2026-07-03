@@ -6,6 +6,7 @@ import { usePipelines } from '@/hooks/usePipeline';
 import { Badge } from '@/components/ui/Badge';
 import { TableSkeleton } from '@/components/ui/Skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { PageHeader } from '@/components/ui/PageHeader';
 import type { Deal } from '@/services/pipeline.service';
 
 const PAGE_SIZE = 20;
@@ -65,12 +66,7 @@ export function DealsListPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Negócios</h1>
-          <p className="text-sm text-text-secondary mt-0.5">{total} no total</p>
-        </div>
-      </div>
+      <PageHeader title="Negócios" subtitle={`${total} no total`} />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 items-center">
