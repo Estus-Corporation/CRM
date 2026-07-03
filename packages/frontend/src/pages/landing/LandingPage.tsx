@@ -296,11 +296,11 @@ function StatCounter({ value, prefix = '', suffix = '', label }: { value: number
   }, [value, prefix, suffix]);
 
   return (
-    <div className="stat-item">
-      <span ref={ref} className="font-display text-3xl sm:text-4xl font-bold text-text-primary tabular-nums">
+    <div className="stat-item min-w-0">
+      <span ref={ref} className="font-display text-4xl sm:text-5xl lg:text-6xl font-extrabold text-text-primary tabular-nums tracking-tight block truncate">
         {prefix}0{suffix}
       </span>
-      <p className="mt-1.5 text-sm text-text-secondary leading-snug max-w-[16ch]">{label}</p>
+      <p className="mt-2 text-sm text-text-secondary leading-snug max-w-[18ch]">{label}</p>
     </div>
   );
 }
@@ -519,7 +519,7 @@ export function LandingPage() {
       {/* 2. Social proof bar                                              */}
       {/* ---------------------------------------------------------------- */}
       <section id="prova" className="border-y" style={{ borderColor: 'var(--lp-border)', background: 'var(--lp-canvas-2)' }}>
-        <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-10">
+        <div className="max-w-6xl mx-auto px-6 py-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10">
           {stats.map((s) => (
             <StatCounter key={s.label} {...s} />
           ))}
@@ -529,26 +529,22 @@ export function LandingPage() {
       {/* ---------------------------------------------------------------- */}
       {/* 3. Pain / Solution                                               */}
       {/* ---------------------------------------------------------------- */}
-      <section className="pain-section max-w-5xl mx-auto px-6 py-24">
-        <div className="lp-reveal max-w-2xl mb-14">
-          <p className="text-accent-green text-sm font-semibold mb-3">O problema que você conhece</p>
-          <h2 className="font-display text-3xl md:text-4xl font-bold leading-tight">
-            Toda venda que escapa começou com um lead que ninguém anotou.
-          </h2>
-        </div>
-        <div className="space-y-4">
+      <section className="pain-section max-w-5xl mx-auto px-6 py-20">
+        <h2 className="lp-reveal font-display text-3xl md:text-4xl font-bold leading-tight max-w-2xl mb-14">
+          Toda venda que escapa começou com um lead que ninguém anotou.
+        </h2>
+        <div className="divide-y" style={{ borderColor: 'var(--lp-border)' }}>
           {painPoints.map(({ before, after }) => (
             <div
               key={before}
-              className="pain-row grid md:grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-6 rounded-2xl border p-5 md:p-6"
-              style={{ borderColor: 'var(--lp-border)', background: 'var(--lp-surface)' }}
+              className="pain-row grid md:grid-cols-[1fr_auto_1fr] items-center gap-4 md:gap-6 py-6 first:pt-0 last:pb-0"
             >
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-status-lost/15 text-status-lost flex items-center justify-center text-xs font-bold">✕</span>
                 <p className="text-sm text-text-secondary leading-relaxed">{before}</p>
               </div>
               <ArrowRight size={18} className="hidden md:block text-text-muted flex-shrink-0" />
-              <div className="flex items-start gap-3 md:pl-2 pt-3 md:pt-0 border-t md:border-t-0 md:border-l md:border-l-transparent" style={{ borderColor: 'var(--lp-border)' }}>
+              <div className="flex items-start gap-3 md:pl-2">
                 <span className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-accent-green/15 text-accent-green flex items-center justify-center text-xs font-bold">✓</span>
                 <p className="text-sm text-text-primary leading-relaxed font-medium">{after}</p>
               </div>
@@ -560,7 +556,7 @@ export function LandingPage() {
       {/* ---------------------------------------------------------------- */}
       {/* 4. Features — asymmetric bento                                   */}
       {/* ---------------------------------------------------------------- */}
-      <section id="features" className="max-w-6xl mx-auto px-6 py-24">
+      <section id="features" className="max-w-6xl mx-auto px-6 py-28">
         <div className="lp-reveal max-w-2xl mb-14">
           <p className="text-accent-green text-sm font-semibold mb-3">Tudo em um só lugar</p>
           <h2 className="font-display text-3xl md:text-4xl font-bold leading-tight">
@@ -569,12 +565,9 @@ export function LandingPage() {
         </div>
 
         <div className="features-grid grid lg:grid-cols-3 gap-5">
-          {/* Big feature — spans 2 cols, contains a live mini mockup */}
-          <div
-            className="feature-card min-w-0 lg:col-span-2 lg:row-span-2 rounded-2xl border p-7 flex flex-col"
-            style={{ borderColor: 'var(--lp-border)', background: 'var(--lp-surface)' }}
-          >
-            <div className="w-11 h-11 rounded-xl bg-accent-green/15 flex items-center justify-center mb-5">
+          {/* Big feature — tinted surface + corner glow marks it as the flagship tile */}
+          <div className="lp-feature-hero feature-card min-w-0 lg:col-span-2 lg:row-span-2 rounded-2xl border p-7 flex flex-col">
+            <div className="w-11 h-11 rounded-xl bg-accent-green/20 flex items-center justify-center mb-5">
               <BigFeatureIcon size={22} strokeWidth={2} className="text-accent-green" />
             </div>
             <h3 className="font-display text-xl font-bold mb-2.5">{bigFeature.title}</h3>
@@ -584,12 +577,11 @@ export function LandingPage() {
             </div>
           </div>
 
-          {/* Small features */}
+          {/* Small features — quieter treatment (no border), just spacing + divider on hover */}
           {smallFeatures.map(({ icon: Icon, title, description }) => (
             <div
               key={title}
-              className="feature-card min-w-0 rounded-2xl border p-6 transition-colors hover:border-accent-green/40 group"
-              style={{ borderColor: 'var(--lp-border)', background: 'var(--lp-surface)' }}
+              className="feature-card min-w-0 rounded-2xl p-6 transition-colors hover:bg-[var(--lp-surface)] group"
             >
               <div className="w-10 h-10 rounded-xl bg-accent-green/10 flex items-center justify-center mb-4 group-hover:bg-accent-green/20 transition-colors">
                 <Icon size={18} className="text-accent-green" />
@@ -630,10 +622,13 @@ export function LandingPage() {
             const card = (
               <div
                 ref={isPro ? proCardRef : undefined}
-                className={cn('rounded-2xl border p-7 flex flex-col gap-6 h-full', isPro && 'lp-pro-card')}
+                className={cn(
+                  'rounded-2xl border p-7 flex flex-col gap-6 h-full transition-transform',
+                  isPro ? 'lp-pro-card md:scale-[1.04]' : 'bg-transparent',
+                )}
                 style={{
-                  borderColor: isPro ? 'rgba(114,210,150,0.5)' : 'var(--lp-border)',
-                  background: isPro ? 'rgba(114,210,150,0.06)' : 'var(--lp-surface)',
+                  borderColor: isPro ? 'rgba(114,210,150,0.55)' : 'var(--lp-border)',
+                  background: isPro ? 'rgba(114,210,150,0.08)' : 'transparent',
                 }}
               >
                 {isPro && (
@@ -646,7 +641,7 @@ export function LandingPage() {
                   <p className="text-text-muted text-xs mt-1">{plan.description}</p>
                 </div>
                 <div className="flex items-end gap-1">
-                  <span className="font-display text-4xl font-bold">{plan.price}</span>
+                  <span className={cn('font-display font-bold', isPro ? 'text-5xl' : 'text-4xl')}>{plan.price}</span>
                   <span className="text-text-muted text-sm pb-1.5">{plan.period}</span>
                 </div>
                 <ul className="space-y-2.5 flex-1">
@@ -670,7 +665,7 @@ export function LandingPage() {
               </div>
             );
             return (
-              <div key={plan.name} className={cn('lp-reveal relative', isPro && 'md:-mt-4')}>
+              <div key={plan.name} className={cn('lp-reveal relative', isPro && 'md:-mt-6')}>
                 {card}
               </div>
             );
@@ -682,11 +677,8 @@ export function LandingPage() {
       {/* 7. FAQ                                                           */}
       {/* ---------------------------------------------------------------- */}
       <section id="faq" className="border-y" style={{ borderColor: 'var(--lp-border)', background: 'var(--lp-canvas-2)' }}>
-        <div className="max-w-2xl mx-auto px-6 py-24">
-          <div className="lp-reveal mb-12">
-            <p className="text-accent-green text-sm font-semibold mb-3">Antes de você perguntar</p>
-            <h2 className="font-display text-3xl md:text-4xl font-bold leading-tight">Perguntas frequentes</h2>
-          </div>
+        <div className="max-w-2xl mx-auto px-6 py-20">
+          <h2 className="lp-reveal font-display text-3xl md:text-4xl font-bold leading-tight mb-12">Perguntas frequentes</h2>
           <div className="space-y-3">
             {faqs.map((item) => (
               <FaqItem key={item.q} {...item} />
