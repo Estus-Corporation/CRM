@@ -132,22 +132,25 @@
   mask-image: radial-gradient(ellipse 80% 60% at 50% 30%, #000 35%, transparent 78%);
 }
 
-/* Animated border-glow for the PRO pricing card (driven on-scroll by GSAP) */
+/* PRO pricing card — the page's single loudest moment. Conic border-glow
+   (driven on-scroll by GSAP) plus a raised ambient shadow so it reads as the
+   default choice, not just a bigger card with the same treatment. */
 .lp-pro-card {
   position: relative;
+  box-shadow: 0 24px 60px -20px rgba(114, 210, 150, 0.35), 0 0 0 1px rgba(114, 210, 150, 0.08);
 }
 .lp-pro-card::before {
   content: '';
   position: absolute;
-  inset: -1px;
+  inset: -1.5px;
   border-radius: inherit;
-  padding: 1px;
+  padding: 1.5px;
   background: conic-gradient(
     from var(--lp-glow-angle, 0deg),
     transparent 0deg,
-    rgba(114, 210, 150, 0.9) 40deg,
-    rgba(114, 210, 150, 0.15) 110deg,
-    transparent 180deg,
+    rgba(114, 210, 150, 0.95) 30deg,
+    rgba(114, 210, 150, 0.25) 90deg,
+    transparent 160deg,
     transparent 360deg
   );
   -webkit-mask:
@@ -160,6 +163,15 @@
 }
 .lp-pro-card.is-glowing::before {
   opacity: 1;
+}
+
+/* Big bento feature — tinted surface + soft corner glow so it reads as the
+   flagship tile, not just a larger copy of the small cards beside it. */
+.lp-feature-hero {
+  background:
+    radial-gradient(120% 100% at 100% 0%, rgba(114, 210, 150, 0.14), transparent 60%),
+    var(--lp-surface-2);
+  border-color: rgba(114, 210, 150, 0.22) !important;
 }
 
 /* Final CTA — slow animated gradient wash */
