@@ -673,6 +673,7 @@ Motion (GSAP):
 - [x] **T6** — Pricing: card PRO com glow conic animado (`lp-pro-card`), badge "MAIS POPULAR", `-mt-4` ancoragem
 - [x] **T7** — `prefers-reduced-motion`: `useGsapContext` seta tudo visível + counters resolvem instantâneo (verificado via Playwright: zero elementos presos em opacity 0)
 - [x] **T8** — Mobile: headline `clamp(2.1rem…)`, `min-w-0` em colunas/cards (corrige overflow), mockup vira "peek" clipado, features em coluna única
+- [x] **T9** — Audit fix visual (skills `redesign-existing-projects` + `design-taste-frontend`, dials `DESIGN_VARIANCE=5 MOTION_INTENSITY=3 VISUAL_DENSITY=6`): corrige fingerprint AI-slop identificado no audit — cards idênticos repetidos (pain/features/pricing), 6 eyebrows (1 por seção), stats fracos, PRO card sem diferenciação real, `py-24` mecânico. Ver `Key implementation notes` no CLAUDE.md para detalhe de cada fix.
 
 ### Arquivos-chave
 
@@ -681,6 +682,7 @@ Motion (GSAP):
 - `packages/frontend/package.json` — adicionar `gsap`
 - `PRODUCT.md` — contexto estratégico de design (lido pela skill impeccable)
 
-### Branch
+### Branches
 
-`feat/m16-landing-page-redesign`
+- `feat/m16-landing-page-redesign` — redesign inicial (T1-T8)
+- `fix/m16-landing-visual-audit` — audit fix (T9)
