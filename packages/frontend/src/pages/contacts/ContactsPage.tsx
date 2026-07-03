@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
 import { Modal } from '@/components/ui/Modal';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { ContactForm } from '@/components/contacts/ContactForm';
 import { ImportContactsModal } from '@/components/contacts/ImportContactsModal';
 import { TableSkeleton } from '@/components/ui/Skeleton';
@@ -104,28 +105,26 @@ export function ContactsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Contatos</h1>
-          <p className="text-sm text-text-secondary mt-0.5">
-            {data?.meta?.total ?? 0} no total
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={handleExport} disabled={exportLoading}>
-            <Download size={14} />
-            {exportLoading ? 'Exportando…' : 'Exportar CSV'}
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
-            <Users size={14} />
-            Importar
-          </Button>
-          <Button size="sm" onClick={openCreate}>
-            <Plus size={14} />
-            Novo contato
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Contatos"
+        subtitle={`${data?.meta?.total ?? 0} no total`}
+        actions={
+          <>
+            <Button variant="secondary" size="sm" onClick={handleExport} disabled={exportLoading}>
+              <Download size={14} />
+              {exportLoading ? 'Exportando…' : 'Exportar CSV'}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
+              <Users size={14} />
+              Importar
+            </Button>
+            <Button size="sm" onClick={openCreate}>
+              <Plus size={14} />
+              Novo contato
+            </Button>
+          </>
+        }
+      />
 
       {/* Filters */}
       <div className="flex gap-3 items-center">
