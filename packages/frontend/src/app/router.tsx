@@ -16,11 +16,20 @@ import { CalendarPage } from '@/pages/calendar/CalendarPage';
 import { ReportsPage } from '@/pages/reports/ReportsPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { PrivacyPage, TermsPage } from '@/pages/legal/LegalPages';
 
 export const router = createBrowserRouter([
   {
     path: '/',
     element: <LandingPage />,
+  },
+  {
+    path: '/privacidade',
+    element: <PrivacyPage />,
+  },
+  {
+    path: '/termos',
+    element: <TermsPage />,
   },
   {
     path: '/login',
