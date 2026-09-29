@@ -14,7 +14,7 @@ if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) {
       {
         clientID: env.GOOGLE_CLIENT_ID,
         clientSecret: env.GOOGLE_CLIENT_SECRET,
-        callbackURL: `${env.FRONTEND_URL.replace(':5173', ':3001')}/api/v1/auth/google/callback`,
+        callbackURL: `${env.BACKEND_URL.replace(/\/$/, '')}/api/v1/auth/google/callback`,
       },
       (_accessToken: string, _refreshToken: string, profile: any, done: Function) => {
         done(null, profile);

@@ -61,7 +61,7 @@ export async function inviteUser(tenantId: string, input: z.infer<typeof inviteU
     const { Resend } = await import('resend');
     const resend = new Resend(env.RESEND_API_KEY);
     const result = await resend.emails.send({
-      from: 'TitanFlow <onboarding@resend.dev>',
+      from: env.EMAIL_FROM,
       to: input.email,
       subject: `Você foi convidado para ${workspaceName} no TitanFlow`,
       html: `
@@ -113,7 +113,7 @@ export async function resendInvite(tenantId: string, userId: string) {
     const { Resend } = await import('resend');
     const resend = new Resend(env.RESEND_API_KEY);
     const result = await resend.emails.send({
-      from: 'TitanFlow <onboarding@resend.dev>',
+      from: env.EMAIL_FROM,
       to: user.email,
       subject: `Seu acesso ao ${workspaceName} no TitanFlow`,
       html: `

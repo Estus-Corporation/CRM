@@ -14,7 +14,9 @@ const schema = z.object({
   STRIPE_PRICE_STARTER: z.string().optional(),
   STRIPE_PRICE_PRO: z.string().optional(),
   FRONTEND_URL: z.string().url().default('http://localhost:5173'),
+  BACKEND_URL: z.string().url().default('http://localhost:3001'),
   RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().default('TitanFlow <onboarding@resend.dev>'),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
 });

@@ -718,8 +718,8 @@ export function LandingPage() {
             <span className="font-display text-sm font-semibold">TitanFlow</span>
           </div>
           <div className="flex items-center gap-6 text-xs text-text-muted">
-            <a href="#" className="hover:text-text-secondary transition-colors">Termos de Uso</a>
-            <a href="#" className="hover:text-text-secondary transition-colors">Privacidade</a>
+            <a href="/termos" className="hover:text-text-secondary transition-colors">Termos de Uso</a>
+            <a href="/privacidade" className="hover:text-text-secondary transition-colors">Privacidade</a>
             <a href="mailto:contato@titanlabs.com.br" className="hover:text-text-secondary transition-colors">Contato</a>
           </div>
           <p className="text-xs text-text-muted">© {new Date().getFullYear()} TitanFlow. Todos os direitos reservados.</p>
