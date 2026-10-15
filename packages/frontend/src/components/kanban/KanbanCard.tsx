@@ -39,8 +39,7 @@ export function KanbanCard({ deal, onWon, onLost, onClick }: KanbanCardProps) {
       {...attributes}
       {...listeners}
       className={cn(
-        'bg-bg-surface border border-bg-border rounded-lg p-4 cursor-grab active:cursor-grabbing',
-        'hover:border-bg-border/80 transition-colors group',
+        'card card-interactive p-4 cursor-grab active:cursor-grabbing group',
         isDragging && 'opacity-40 ring-1 ring-accent-green',
       )}
       onClick={() => !isDragging && onClick(deal)}
@@ -59,7 +58,7 @@ export function KanbanCard({ deal, onWon, onLost, onClick }: KanbanCardProps) {
       )}
 
       {/* Footer: owner + date */}
-      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-bg-border">
+      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-white/[0.06]">
         <div className="flex items-center gap-1.5 text-xs text-text-muted">
           <User size={11} className="flex-shrink-0" />
           <span className="truncate">{deal.owner_name ?? 'Desconhecido'}</span>

@@ -72,10 +72,10 @@ export function RevenueChart({ data, period = 'month' }: RevenueChartProps) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={formatted} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="#1f2937" strokeDasharray="3 3" />
+        <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
         <XAxis
           dataKey="label"
-          tick={{ fill: '#9ca3af', fontSize: 11 }}
+          tick={{ fill: '#98a3b8', fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           interval={0}
@@ -89,7 +89,7 @@ export function RevenueChart({ data, period = 'month' }: RevenueChartProps) {
           domain={[0, (max: number) => Math.ceil(max * 1.15)]}
         />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff08' }} />
-        <Bar dataKey="totalValue" radius={[4, 4, 0, 0]} maxBarSize={48}>
+        <Bar dataKey="totalValue" radius={[8, 8, 2, 2]} maxBarSize={48}>
           {formatted.map((entry, idx) => (
             <Cell
               key={idx}

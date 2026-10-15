@@ -13,29 +13,13 @@ export function AppShell() {
   useTenant();
 
   return (
-    <div className="flex h-screen overflow-hidden bg-bg-primary">
-      {/* Mobile overlay */}
-      {mobileSidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 md:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
+    <div className="relative flex h-screen overflow-hidden bg-bg-primary">
+      <div aria-hidden className="app-backdrop" />
+      <Sidebar mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
 
-      {/* Sidebar — hidden on mobile unless toggled */}
-      <div
-        className={`
-          fixed inset-y-0 left-0 z-40 md:static md:z-auto
-          transform transition-transform duration-200
-          ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
-      >
-        <Sidebar onClose={() => setMobileSidebarOpen(false)} />
-      </div>
-
-      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+      <div className="relative z-10 flex flex-col flex-1 overflow-hidden min-w-0">
         {/* Mobile hamburger prepended inside the topbar area */}
-        <div className="md:hidden absolute top-0 left-0 z-50 h-12 flex items-center pl-3">
+        <div className="md:hidden absolute top-0 left-0 z-50 h-14 flex items-center pl-3">
           <button
             onClick={() => setMobileSidebarOpen(true)}
             className="p-1.5 rounded text-text-muted hover:text-text-primary"

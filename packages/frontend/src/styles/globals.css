@@ -30,12 +30,59 @@
 }
 
 @layer components {
+  /* Vidro líquido: translúcido, desfoca o fundo ambiente, borda com reflexo no canto superior */
   .card {
-    @apply bg-bg-surface border border-bg-border rounded-lg;
+    position: relative;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.045);
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.022) 45%, rgba(255, 255, 255, 0.018) 100%);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+      0 1px 2px rgba(0, 0, 0, 0.25),
+      0 18px 40px -24px rgba(0, 0, 0, 0.7);
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.04) 28%, rgba(255, 255, 255, 0) 55%, rgba(255, 255, 255, 0.05) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Card com hover — leve elevação, usado em itens clicáveis (kanban, KPIs) */
+  .card-interactive {
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), background 0.35s ease;
+  }
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    background: linear-gradient(165deg, rgba(255, 255, 255, 0.075) 0%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.022) 100%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.25),
+      0 24px 48px -24px rgba(0, 0, 0, 0.8);
+  }
+
+  /* Painéis flutuantes (dropdowns, resultados de busca, notificações) — vidro mais opaco */
+  .glass-panel {
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(16, 21, 33, 0.95);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+      0 24px 60px -16px rgba(0, 0, 0, 0.75);
   }
 
   .input-base {
-    @apply w-full bg-bg-surface border border-bg-border rounded px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:outline-none focus:ring-1 focus:ring-accent-green focus:border-accent-green transition-colors;
+    @apply w-full rounded-[10px] border border-white/[0.08] bg-white/[0.03] px-3.5 py-2 text-sm text-text-primary placeholder-text-muted transition-colors duration-200 hover:border-white/[0.12] focus:border-accent-green/50 focus:bg-white/[0.045] focus:outline-none focus:ring-2 focus:ring-accent-green/15;
   }
 
   .scrollbar-surface::-webkit-scrollbar {
@@ -256,4 +303,57 @@
 .fullcalendar-dark .fc-timegrid-slot-label {
   color: #4b5563;
   font-size: 11px;
+}
+
+/* ── Aurora Slate — luz ambiente do app (menu lateral + barra do topo) ─────── */
+
+/* Fio de luz aurora: verde → azul → violeta, esmaecendo nas pontas */
+.aurora-hairline {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(114, 210, 150, 0.55) 18%,
+    rgba(76, 201, 192, 0.45) 38%,
+    rgba(107, 140, 255, 0.45) 62%,
+    rgba(162, 123, 255, 0.4) 82%,
+    transparent 100%
+  );
+}
+
+/* Versão vertical, pro indicador do item ativo */
+.aurora-bar {
+  background: linear-gradient(180deg, #72d296 0%, #4cc9c0 35%, #6b8cff 70%, #a27bff 100%);
+}
+
+
+/* Fundo ambiente do app: campos de cor amplos e quase imperceptíveis + grão fino.
+   Dá profundidade pro vidro dos cards desfocar, sem virar "brilho". */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 720px at 90% -14%, rgba(107, 140, 255, 0.17), transparent 62%),
+    radial-gradient(950px 680px at 2% 110%, rgba(76, 201, 192, 0.11), transparent 60%),
+    radial-gradient(820px 540px at 58% 50%, rgba(162, 123, 255, 0.065), transparent 66%),
+    #0a0d15;
+}
+.app-backdrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* KPI principal: halo verde muito leve vindo do topo — o único destaque luminoso do dashboard */
+.kpi-highlight {
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(114, 210, 150, 0.12), transparent 55%),
+    linear-gradient(165deg, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.022) 45%, rgba(255, 255, 255, 0.018) 100%);
+}
+.kpi-highlight::before {
+  background: linear-gradient(145deg, rgba(114, 210, 150, 0.45) 0%, rgba(114, 210, 150, 0.08) 30%, rgba(255, 255, 255, 0) 55%, rgba(255, 255, 255, 0.05) 100%);
 }
