@@ -128,10 +128,10 @@ Brand palette — applied via Tailwind config:
 
 | Token | Hex | Usage |
 |---|---|---|
-| `bg-primary` | `#0c0f15` | Main background |
-| `bg-darker` | `#04080f` | Deeper bg (sidebar) |
-| `bg-surface` | `#111827` | Cards, modals, inputs |
-| `bg-border` | `#1f2937` | Borders, dividers |
+| `bg-primary` | `#0a0d15` | Main background (Aurora Slate) |
+| `bg-darker` | `#07090f` | Deeper bg (sidebar) |
+| `bg-surface` | `#131926` | Modals, solid surfaces (cards usam vidro `.card`) |
+| `bg-border` | `#1f2636` | Borders, dividers |
 | `accent-green` | `#72d296` | Primary CTA, active states, accent |
 | `accent-green-dim` | `#4a9b6f` | Hover states on green |
 | `text-primary` | `#ffffff` | Main text |
@@ -139,7 +139,7 @@ Brand palette — applied via Tailwind config:
 | `text-muted` | `#4b5563` | Placeholder, disabled |
 | `status-won` | `#72d296` | Won deal state |
 | `status-lost` | `#ef4444` | Lost deal state |
-| `status-open` | `#3b82f6` | Open deal state |
+| `status-open` | `#6b8cff` | Open deal state |
 
 Design language reference: **Linear** (clean, productivity-focused) + **Pipedrive** (pipeline UX).
 
@@ -331,8 +331,14 @@ See [plan.md](./plan.md) for current progress.
 | M16 | Redesign Landing Page — GSAP cinematic, Framer-style, conversão | ✅ Done |
 | M17 | Audit + fix Dashboard/Contatos/Negócios/Relatórios (hierarquia, densidade, espaçamento) | ✅ Done |
 | M18 T1 | Config prod: `BACKEND_URL` (callback Google), `EMAIL_FROM`, páginas `/privacidade` + `/termos`, `vercel.json` SPA, fix CI tsc | ✅ Done |
+| M19 T1 | Redesign: menu lateral animado, busca inline no topo, paleta Aurora Slate, cards em vidro líquido | ✅ Done |
+| M19 T2+ | Redesign das demais telas do menu (Relatórios, Pipeline, Negócios, Contatos, Calendário, Configurações) | 🔲 Próximo |
 
 ## Key implementation notes (context for future sessions)
+
+- **M19 T1 — redesign visual ✅** (base pro redesign das outras telas): **paleta "Aurora Slate"** em `tailwind.config.ts` — `bg.primary #0a0d15`, `darker #07090f`, `surface #131926`, `border #1f2636`, textos azulados, verde `#72d296` segue como acento da marca + tokens `aurora.{green,teal,blue,violet}` (usar como luz/gradiente, nunca preenchimento grande); `status.open` = `#6b8cff`. Fonte do app: **Geist** (Inter vira fallback). **Vidro líquido**: `.card` em `globals.css` é translúcido (`backdrop-filter`) com reflexo de borda via `::before` mascarado — por isso `.card` tem `position: relative`; `.card-interactive` (hover com elevação), `.glass-panel` (dropdowns/painéis flutuantes, quase opaco), `.kpi-highlight` (halo verde só no KPI principal), `.app-backdrop` (fundo ambiente fixo com gradientes + grão, montado no `AppShell`). **Regra de brilho**: só o botão `primary` e o KPI principal brilham — não espalhar. **Menu lateral**: `src/components/ui/AnimatedSidebar.tsx` (framer-motion) + `layout/Sidebar.tsx`; recolhe por botão ou **Ctrl+B**, estado em `uiStore` persistido (`titanflow-ui`); só a largura externa anima, filhos em wrapper de largura fixa (não animar `width` de conteúdo — trava). `MotionConfig reducedMotion="never"` de propósito: a máquina do usuário tem efeitos de animação do Windows desligados e o framer cortava tudo. **Busca**: `components/search/TopbarSearch.tsx` inline no topo (Ctrl+K foca); `SearchModal` removido. Topbar e cabeçalho do menu têm `h-14` (bordas alinhadas). `LogoIcon` aceita `variant="aurora"`.
+- **Preview visual local**: conta `preview@titanflow.local` / `Preview@1234` (workspace "Aurora Vendas", com contatos/negócios de exemplo) no banco local, usada pra screenshots com puppeteer-core + Chrome headless.
+- **Dev local sem Docker**: PostgreSQL 18 nativo do Windows (serviço `postgresql-x64-18`), usuário `postgres` / senha `maracujatitan`, banco `titancrm`.
 
 - **M18 T1 — config de produção ✅**: callback do Google OAuth usa `BACKEND_URL` (novo env, default `http://localhost:3001`) — antes derivava de `FRONTEND_URL.replace(':5173', ':3001')` e quebrava em prod. Remetente dos convites vem de `EMAIL_FROM` (default `TitanFlow <onboarding@resend.dev>`). Páginas públicas `/privacidade` e `/termos` em `src/pages/legal/LegalPages.tsx` (exigidas pelo Google para publicar o OAuth consent screen). `packages/frontend/vercel.json` com rewrite SPA (sem ele deep links como `/auth/callback` davam 404 no Vercel — se o Root Directory do Vercel for a raiz do repo, mover o arquivo). CI backend estava vermelho no main com 2 erros tsc (`deal.reopened` fora de `SUPPORTED_EVENTS`; `ipKeyGenerator(req)` → `ipKeyGenerator(req.ip ?? '')`) — corrigidos. Número WhatsApp já é real (`5516992386188`).
 - **Pendências para usuários reais (auditoria 2026-09-28)**: (1) rate limiter nunca atua — `tierRateLimiter` roda antes do `requireAuth` e faz `skip` quando `!req.user`; falta limite no `/auth/login` e `app.set('trust proxy', 1)`; (2) webhook Stripe `customer.subscription.updated` lê plano de `price.metadata.plan` e cai p/ `'free'` se ausente — rebaixa pagantes na renovação; `past_due`/`invoice.payment_failed` não tratados; (3) login por senha de usuário só-Google dá 500 (`bcrypt.compare` com hash null); (4) sem 'esqueci minha senha'; (5) convite manda senha temporária (`Math.random`) no e-mail; (6) tokens do Google no query string do `/auth/callback`; (7) zero testes automatizados. Sem domínio próprio o Resend só entrega pro dono da conta — em prod sem domínio, remover `RESEND_API_KEY` faz a UI mostrar a senha temporária.
