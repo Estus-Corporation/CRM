@@ -12,6 +12,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { RevenuePoint } from '@/services/reports.service';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface RevenueChartProps {
   data: RevenuePoint[];
@@ -41,7 +42,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
-    <div className="bg-bg-surface border border-bg-border rounded-lg shadow-xl px-4 py-3 text-sm min-w-[160px]">
+    <div className="glass-panel px-4 py-3 text-sm min-w-[160px]">
       <p className="text-text-secondary text-xs font-medium mb-2 uppercase tracking-wide">{d.label}</p>
       <p className="text-text-primary font-semibold text-base">{fmtFull(d.totalValue)}</p>
       <p className="text-text-muted text-xs mt-1">
@@ -52,6 +53,7 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
 }
 
 export function RevenueChart({ data, period = 'month' }: RevenueChartProps) {
+  const c = useChartColors();
   if (!data.length) {
     return (
       <div className="h-52 flex items-center justify-center text-text-muted text-sm">
@@ -72,28 +74,28 @@ export function RevenueChart({ data, period = 'month' }: RevenueChartProps) {
   return (
     <ResponsiveContainer width="100%" height={220}>
       <ComposedChart data={formatted} margin={{ top: 8, right: 4, left: 0, bottom: 0 }}>
-        <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.05)" strokeDasharray="3 3" />
+        <CartesianGrid vertical={false} stroke={c.grid} strokeDasharray="3 3" />
         <XAxis
           dataKey="label"
-          tick={{ fill: '#98a3b8', fontSize: 11 }}
+          tick={{ fill: c.axis, fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           interval={0}
         />
         <YAxis
           tickFormatter={fmt}
-          tick={{ fill: '#6b7280', fontSize: 11 }}
+          tick={{ fill: c.axisMuted, fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           width={64}
           domain={[0, (max: number) => Math.ceil(max * 1.15)]}
         />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff08' }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursor }} />
         <Bar dataKey="totalValue" radius={[8, 8, 2, 2]} maxBarSize={48}>
           {formatted.map((entry, idx) => (
             <Cell
               key={idx}
-              fill={entry.totalValue === maxVal ? '#72d296' : '#4a9b6f'}
+              fill={entry.totalValue === maxVal ? c.brand : c.brandDim}
               fillOpacity={entry.totalValue === maxVal ? 1 : 0.65}
             />
           ))}
@@ -101,7 +103,7 @@ export function RevenueChart({ data, period = 'month' }: RevenueChartProps) {
         <Line
           type="monotone"
           dataKey="totalValue"
-          stroke="#72d296"
+          stroke={c.amber}
           strokeWidth={1.5}
           strokeDasharray="4 3"
           dot={false}

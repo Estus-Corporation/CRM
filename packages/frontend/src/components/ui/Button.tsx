@@ -10,14 +10,14 @@ const buttonVariants = cva(
       variant: {
         // Ação principal: único elemento com brilho — discreto, só pra puxar o olho
         primary:
-          'bg-accent-green text-bg-darker shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_0_0_1px_rgba(114,210,150,0.5),0_8px_24px_-10px_rgba(114,210,150,0.55)] hover:bg-[#82dca4] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_0_0_1px_rgba(114,210,150,0.6),0_10px_28px_-10px_rgba(114,210,150,0.7)]',
+          'bg-accent-green text-[rgb(var(--on-accent))] shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_0_0_1px_rgb(var(--accent-green)/0.5),0_8px_24px_-10px_rgb(var(--accent-green)/0.55)] hover:brightness-110 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_0_0_1px_rgb(var(--accent-green)/0.6),0_10px_28px_-10px_rgb(var(--accent-green)/0.7)]',
         secondary:
-          'border border-white/[0.08] bg-white/[0.04] text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md hover:border-white/[0.14] hover:bg-white/[0.07]',
-        ghost: 'text-text-secondary hover:bg-white/[0.05] hover:text-text-primary',
+          'border border-fg/[0.08] bg-fg/[0.04] text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md hover:border-fg/[0.14] hover:bg-fg/[0.07]',
+        ghost: 'text-text-secondary hover:bg-fg/[0.05] hover:text-text-primary',
         danger: 'bg-status-lost text-white hover:bg-red-600',
         warning: 'bg-orange-500 text-white hover:bg-orange-600',
         outline:
-          'border border-white/[0.08] bg-white/[0.04] text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md hover:border-white/[0.14] hover:bg-white/[0.07]',
+          'border border-fg/[0.08] bg-fg/[0.04] text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] backdrop-blur-md hover:border-fg/[0.14] hover:bg-fg/[0.07]',
       },
       size: {
         sm: 'h-8 px-3 text-xs',

@@ -345,7 +345,7 @@ export function SettingsPage() {
             <p className="text-text-muted text-sm">Nenhum membro encontrado</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="data-table w-full text-sm">
             <thead>
               <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
                 <th className="text-left px-5 py-3 font-medium">Membro</th>

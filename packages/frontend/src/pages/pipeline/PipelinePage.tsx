@@ -265,10 +265,10 @@ export function PipelinePage() {
   const handleCreateFirstPipeline = async () => {
     const pipeline = await createPipeline.mutateAsync({ name: 'Pipeline de Vendas' });
     const defaultStages = [
-      { name: 'Qualificação', color: '#6366f1' },
-      { name: 'Proposta',     color: '#f59e0b' },
-      { name: 'Negociação',   color: '#3b82f6' },
-      { name: 'Fechamento',   color: '#10b981' },
+      { name: 'Qualificação', color: '#F5B547' },
+      { name: 'Proposta',     color: '#D99A3A' },
+      { name: 'Negociação',   color: '#38B27E' },
+      { name: 'Fechamento',   color: '#4FD69C' },
     ];
     for (const stage of defaultStages) {
       await pipelineService.createStage(pipeline.id, stage);

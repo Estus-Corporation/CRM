@@ -13,7 +13,7 @@ export function PageHeader({ title, subtitle, actions }: PageHeaderProps) {
           <p className="text-sm text-text-secondary mt-0.5">{subtitle}</p>
         )}
       </div>
-      {actions && <div className="flex gap-2 flex-shrink-0">{actions}</div>}
+      {actions && <div className="flex flex-shrink-0 items-center gap-2">{actions}</div>}
     </div>
   );
 }

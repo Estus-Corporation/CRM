@@ -1,5 +1,6 @@
 "use client"
 
+import { motion } from 'framer-motion';
 import { useState, useCallback, useMemo } from 'react';
 import {
   ChevronLeft,
@@ -164,11 +165,11 @@ function MonthView({
   return (
     <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
       {/* Day headers */}
-      <div className="grid grid-cols-7 border-b border-bg-border">
+      <div className="data-head grid grid-cols-7">
         {WEEK_DAYS_SHORT.map((d) => (
           <div
             key={d}
-            className="py-2 text-center text-xs font-medium text-text-secondary uppercase tracking-wider"
+            className="py-2.5 text-center"
           >
             {d}
           </div>
@@ -737,7 +738,7 @@ export function EventManagerCalendar({
   return (
     <div className="flex flex-col h-full gap-0 overflow-hidden rounded-xl border border-bg-border bg-bg-primary">
       {/* ── Toolbar ── */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-bg-border bg-bg-surface flex-shrink-0">
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b-[1.5px] border-fg/[0.14] px-4 py-3">
         {/* Nav */}
         <div className="flex items-center gap-1">
           <button
@@ -761,25 +762,32 @@ export function EventManagerCalendar({
         </div>
 
         {/* Title */}
-        <h2 className="flex-1 min-w-0 text-sm font-semibold text-text-primary truncate capitalize">
+        <h2 className="min-w-0 flex-1 truncate text-[17px] font-semibold capitalize text-text-primary">
           {headerTitle()}
         </h2>
 
         {/* View switcher */}
-        <div className="flex items-center gap-0.5 bg-bg-border rounded-lg p-0.5">
+        <div className="flex h-10 items-stretch overflow-hidden rounded-xl border border-fg/[0.1] bg-field shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
           {viewButtons.map(({ key, label, icon }) => (
             <button
               key={key}
               onClick={() => setView(key)}
               className={cn(
-                'flex items-center gap-1.5 px-2.5 h-6 rounded text-xs font-medium transition-colors',
-                view === key
-                  ? 'bg-bg-surface text-text-primary shadow-sm'
-                  : 'text-text-muted hover:text-text-secondary',
+                'relative flex items-center gap-1.5 px-3.5 text-[13px] font-medium transition-colors duration-200',
+                view === key ? 'text-[rgb(var(--on-accent))]' : 'text-text-secondary hover:text-text-primary',
               )}
             >
-              {icon}
-              <span className="hidden sm:inline">{label}</span>
+              {view === key && (
+                <motion.span
+                  layoutId="calendar-view-pill"
+                  className="absolute inset-0 rounded-[11px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
+                  transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.15 }}
+                />
+              )}
+              <span className="relative flex items-center gap-1.5">
+                {icon}
+                <span className="hidden sm:inline">{label}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -787,11 +795,11 @@ export function EventManagerCalendar({
         {/* New event */}
         <Button
           variant="primary"
-          size="sm"
+          size="lg"
           onClick={() => openNew()}
-          className="flex-shrink-0"
+          className="flex-shrink-0 px-6 text-[15px]"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus size={18} strokeWidth={2.25} />
           Novo evento
         </Button>
       </div>

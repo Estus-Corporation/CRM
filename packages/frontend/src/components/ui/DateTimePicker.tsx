@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { dialogMotion, overlayMotion } from '@/lib/motion';
 import { DayPicker } from 'react-day-picker';
 import { ptBR } from 'react-day-picker/locale';
 import { ChevronLeft, ChevronRight, CalendarDays, X, Clock } from 'lucide-react';
@@ -116,13 +118,17 @@ function DateTimeModal({ value, onChange, onClose, title }: DateTimeModalProps) 
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
     >
       {/* Overlay — clique fora confirma e fecha */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      <motion.div
+        className="absolute inset-0 bg-black/55"
         onClick={handleConfirmOrClose}
+        {...overlayMotion}
       />
 
       {/* Modal card */}
-      <div className="relative z-10 flex flex-col rounded-2xl border border-bg-border bg-bg-surface shadow-2xl overflow-hidden w-full max-w-[520px]">
+      <motion.div
+        {...dialogMotion}
+        className="relative z-10 flex w-full max-w-[520px] flex-col overflow-hidden rounded-2xl border border-fg/[0.08] bg-bg-surface shadow-[0_32px_80px_-20px_rgba(0,0,0,0.55)]"
+      >
 
         {/* Header — [← prev] [icon + title + next →] [spacer] [✕] */}
         <div className="flex items-center gap-1 px-3 py-3 border-b border-bg-border flex-shrink-0">
@@ -282,7 +288,7 @@ function DateTimeModal({ value, onChange, onClose, title }: DateTimeModalProps) 
             Confirmar
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>,
     document.body,
   );
@@ -348,6 +354,7 @@ export function DateTimePicker({
       </button>
 
       {/* Modal */}
+      <AnimatePresence>
       {open && (
         <DateTimeModal
           value={value}
@@ -356,6 +363,7 @@ export function DateTimePicker({
           title={modalTitle}
         />
       )}
+      </AnimatePresence>
     </div>
   );
 }

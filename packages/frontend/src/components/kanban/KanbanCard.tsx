@@ -58,7 +58,7 @@ export function KanbanCard({ deal, onWon, onLost, onClick }: KanbanCardProps) {
       )}
 
       {/* Footer: owner + date */}
-      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+      <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-fg/[0.06]">
         <div className="flex items-center gap-1.5 text-xs text-text-muted">
           <User size={11} className="flex-shrink-0" />
           <span className="truncate">{deal.owner_name ?? 'Desconhecido'}</span>

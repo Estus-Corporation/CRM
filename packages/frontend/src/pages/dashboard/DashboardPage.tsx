@@ -54,12 +54,12 @@ export function DashboardPage() {
                 {contactCount} / {FREE_CONTACT_LIMIT}
               </p>
             </div>
-            <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="h-1.5 bg-fg/[0.06] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all"
                 style={{
                   width: `${Math.min((contactCount / FREE_CONTACT_LIMIT) * 100, 100)}%`,
-                  backgroundColor: contactCount >= FREE_CONTACT_LIMIT ? '#ef4444' : contactCount >= FREE_CONTACT_LIMIT * 0.8 ? '#f59e0b' : '#72d296',
+                  backgroundColor: contactCount >= FREE_CONTACT_LIMIT ? 'rgb(var(--status-lost))' : contactCount >= FREE_CONTACT_LIMIT * 0.8 ? 'rgb(var(--accent-amber))' : 'rgb(var(--accent-green))',
                 }}
               />
             </div>

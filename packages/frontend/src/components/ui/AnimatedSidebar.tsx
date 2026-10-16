@@ -4,11 +4,14 @@ import { AnimatePresence, MotionConfig, motion, type Transition } from 'framer-m
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SilkShader } from './SilkShader';
 
 // Animações sempre ligadas: em máquinas com "efeitos de animação" do Windows desligados o navegador
 // reporta prefers-reduced-motion e o framer-motion cortava hover, deslize e fades do menu.
 export const SIDEBAR_COLLAPSED = 72;
 export const SIDEBAR_EXPANDED = 264;
+/** Altura do rodapé do menu — a faixa de vidro que atravessa a base do app usa a mesma */
+export const SIDEBAR_FOOTER_HEIGHT = 128;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 // Mola física sem bounce: o painel e o conteúdo ao lado assentam juntos, sem tranco
@@ -28,6 +31,19 @@ interface SidebarContextProps {
 const SidebarContext = createContext<SidebarContextProps>({ expanded: true, layoutGroup: 'desktop' });
 
 export const useSidebar = () => useContext(SidebarContext);
+
+/**
+ * Fundo do menu: shader "Silk" com blur leve + película escura pra legibilidade.
+ * Largura fixa (expandida) — recolher só recorta, não redimensiona nem reinicia o shader.
+ */
+function SidebarSurface() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden" style={{ width: SIDEBAR_EXPANDED }}>
+      <SilkShader className="absolute inset-[-12px] h-[calc(100%+24px)] w-[calc(100%+24px)] blur-[6px]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-[#03120E]/70 via-[#03120E]/58 to-[#03120E]/72" />
+    </div>
+  );
+}
 
 /**
  * Desktop: painel no fluxo do layout — ao recolher/expandir, o conteúdo ao lado acompanha.
@@ -50,7 +66,8 @@ export function DesktopSidebar({
           <motion.aside
             className={cn(
               // Translúcido: o fundo ambiente do app aparece de leve através do menu
-              'relative z-20 hidden h-full flex-shrink-0 overflow-hidden border-r border-white/[0.06] bg-[#07090f]/70 backdrop-blur-2xl md:block',
+              // Transparente: o shader "Silk" de fundo é do AppShell e passa contínuo por trás do menu
+              'force-dark sidebar-ink relative z-20 hidden h-full flex-shrink-0 overflow-hidden md:block',
               className,
             )}
             initial={false}
@@ -93,7 +110,7 @@ export function MobileSidebar({
             />
             <motion.aside
               key="drawer"
-              className="fixed inset-y-0 left-0 z-50 flex flex-col border-r border-white/[0.06] bg-[#07090f]/95 backdrop-blur-2xl md:hidden"
+              className="force-dark sidebar-ink fixed inset-y-0 left-0 z-50 flex flex-col overflow-hidden border-r border-fg/[0.08] bg-[#03120E] md:hidden"
               style={{ width: SIDEBAR_EXPANDED }}
               initial={{ x: '-100%' }}
               animate={{ x: 0 }}
@@ -102,11 +119,12 @@ export function MobileSidebar({
             >
               <button
                 onClick={onClose}
-                className="absolute right-3 top-4 z-10 rounded-md p-1.5 text-text-muted transition-colors hover:bg-white/[0.05] hover:text-text-primary"
+                className="absolute right-3 top-4 z-10 rounded-md p-1.5 text-text-muted transition-colors hover:bg-fg/[0.05] hover:text-text-primary"
                 aria-label="Fechar menu"
               >
                 <X size={18} />
               </button>
+              <SidebarSurface />
               <div className="relative flex h-full flex-col">{children}</div>
             </motion.aside>
           </SidebarContext.Provider>
@@ -197,15 +215,15 @@ export function SidebarLink({ to, label, icon, onNavigate }: SidebarLinkProps) {
             transition={hoverSpring}
           >
             {!isActive && (
-              <span className="absolute inset-0 rounded-[10px] bg-white/[0.04] opacity-0 transition-opacity duration-300 ease-out group-hover/link:opacity-100" />
+              <span className="absolute inset-0 rounded-[10px] bg-fg/[0.04] opacity-0 transition-opacity duration-300 ease-out group-hover/link:opacity-100" />
             )}
             {isActive && (
               <motion.span
                 layoutId={`sidebar-active-${layoutGroup}`}
-                className="absolute inset-0 rounded-[10px] bg-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                className="absolute inset-0 rounded-[10px] bg-fg/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
                 transition={pillSpring}
               >
-                <span className="aurora-bar absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full" />
+                <span className="brand-bar absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full" />
               </motion.span>
             )}
             <span

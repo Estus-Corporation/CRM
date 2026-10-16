@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion';
+import { dialogMotion, overlayMotion } from '@/lib/motion';
 import { useRef, useState } from 'react';
 import { Smartphone, Upload, X, Check, Loader2, Users } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -103,8 +105,12 @@ export function ImportContactsModal({ onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-md bg-bg-surface border border-bg-border rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div className="absolute inset-0 bg-black/55" onClick={onClose} {...overlayMotion} />
+      <motion.div
+        {...dialogMotion}
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-fg/[0.08] bg-bg-surface shadow-[0_32px_80px_-20px_rgba(0,0,0,0.55)]"
+      >
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-bg-border shrink-0">
@@ -244,7 +250,7 @@ export function ImportContactsModal({ onClose }: Props) {
             <Button onClick={onClose} className="w-full mt-2">Fechar</Button>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

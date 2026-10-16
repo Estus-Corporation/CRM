@@ -1,35 +1,36 @@
 import type { Config } from 'tailwindcss';
 
+const v = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // "Aurora Slate" — ardósia azulada escura; o verde da marca segue como acento principal
+        // Paleta "Ink · Esmeralda · Âmbar" — 3 cores. Valores vêm de variáveis CSS (globals.css)
+        // que trocam entre tema escuro e claro; `<alpha-value>` mantém os modificadores /10, /20...
         bg: {
-          primary: '#0a0d15',
-          darker: '#07090f',
-          surface: '#131926',
-          border: '#1f2636',
+          primary: v('--bg-primary'),
+          darker: v('--bg-darker'),
+          surface: v('--bg-surface'),
+          border: v('--bg-border'),
         },
         accent: {
-          green: '#72d296',
-          'green-dim': '#4a9b6f',
+          green: v('--accent-green'),
+          'green-dim': v('--accent-green-dim'),
+          amber: v('--accent-amber'),
         },
-        // Tons da aurora — usar como luz (gradientes, hairlines, brilhos), não como preenchimento
-        aurora: {
-          green: '#72d296',
-          teal: '#4cc9c0',
-          blue: '#6b8cff',
-          violet: '#a27bff',
-        },
-        'text-primary': '#eef1f7',
-        'text-secondary': '#9aa4b8',
-        'text-muted': '#677086',
+        // Tinta de sobreposição: branco no escuro, tinta escura no claro — usar em vez de `white/[x]`
+        fg: v('--fg'),
+        // Fundo de campos: branco no claro, um degrau acima do fundo no escuro
+        field: v('--field-bg'),
+        'text-primary': v('--text-primary'),
+        'text-secondary': v('--text-secondary'),
+        'text-muted': v('--text-muted'),
         status: {
-          won: '#72d296',
-          lost: '#ef4444',
-          open: '#6b8cff',
+          won: v('--accent-green'),
+          lost: v('--status-lost'),
+          open: v('--accent-amber'),
         },
       },
       fontFamily: {

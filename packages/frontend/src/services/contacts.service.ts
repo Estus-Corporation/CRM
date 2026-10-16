@@ -10,6 +10,7 @@ export interface Contact {
   company_name?: string;
   job_title?: string;
   source?: string;
+  niche?: string | null;
   tags: string[];
   owner_id?: string;
   owner_name?: string;
@@ -27,6 +28,7 @@ export interface CreateContactInput {
   companyName?: string;
   jobTitle?: string;
   source?: string;
+  niche?: string;
   tags?: string[];
   ownerId?: string;
 }
@@ -35,6 +37,7 @@ export interface ContactsListParams {
   type?: string;
   owner?: string;
   search?: string;
+  niche?: string;
   page?: number;
   limit?: number;
 }
@@ -43,6 +46,7 @@ export const contactsService = {
   list: (params?: ContactsListParams) =>
     api.get('/contacts', { params }).then((r) => r.data),
   get: (id: string) => api.get(`/contacts/${id}`).then((r) => r.data.data as Contact),
+  listNiches: () => api.get('/contacts/niches').then((r) => r.data.data as string[]),
   create: (input: CreateContactInput) =>
     api.post('/contacts', input).then((r) => r.data.data as Contact),
   update: (id: string, input: Partial<CreateContactInput>) =>

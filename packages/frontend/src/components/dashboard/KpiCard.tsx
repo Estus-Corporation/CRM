@@ -21,7 +21,7 @@ export function KpiCard({ label, value, sub, icon: Icon, highlight }: KpiCardPro
               'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border',
               highlight
                 ? 'border-accent-green/25 bg-accent-green/10 text-accent-green'
-                : 'border-white/[0.06] bg-white/[0.03] text-text-secondary',
+                : 'border-fg/[0.06] bg-fg/[0.03] text-text-secondary',
             )}
           >
             <Icon size={16} strokeWidth={1.75} />

@@ -85,10 +85,11 @@ export function TopbarSearch() {
     <div ref={rootRef} className="relative w-full max-w-[480px]">
       <div
         className={cn(
-          'flex h-10 items-center gap-2.5 rounded-xl border px-3.5 transition-[border-color,background-color,box-shadow] duration-200',
+          'flex h-10 items-center gap-2.5 rounded-xl border-[1.5px] px-3.5 transition-[border-color,background-color,box-shadow] duration-200',
           focused
-            ? 'border-accent-green/40 bg-white/[0.06] shadow-[0_0_0_3px_rgba(114,210,150,0.10)]'
-            : 'border-white/[0.07] bg-white/[0.035] hover:border-white/[0.12] hover:bg-white/[0.05]',
+            // Brilho de foco difuso (blur grande, sem anel duro)
+            ? 'border-accent-green bg-field shadow-[0_0_18px_1px_rgb(var(--accent-green)/0.28)]'
+            : 'border-accent-green/70 bg-field hover:border-accent-green',
         )}
       >
         {isFetching ? (
@@ -118,7 +119,7 @@ export function TopbarSearch() {
             <X size={15} />
           </button>
         ) : (
-          <kbd className="hidden flex-shrink-0 rounded-md border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 font-sans text-[11px] text-text-muted sm:inline">
+          <kbd className="hidden flex-shrink-0 rounded-md border border-fg/[0.08] bg-fg/[0.03] px-1.5 py-0.5 font-sans text-[11px] text-text-muted sm:inline">
             Ctrl K
           </kbd>
         )}
@@ -156,13 +157,13 @@ export function TopbarSearch() {
                           onClick={() => goTo(item)}
                           className={cn(
                             'mx-2 flex w-[calc(100%-16px)] items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors duration-150',
-                            active ? 'bg-white/[0.07] text-text-primary' : 'text-text-secondary',
+                            active ? 'bg-fg/[0.07] text-text-primary' : 'text-text-secondary',
                           )}
                         >
                           <span
                             className={cn(
                               'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border transition-colors',
-                              active ? 'border-accent-green/30 text-accent-green' : 'border-white/[0.06] text-text-muted',
+                              active ? 'border-accent-green/30 text-accent-green' : 'border-fg/[0.06] text-text-muted',
                             )}
                           >
                             <Icon size={15} strokeWidth={1.75} />

@@ -18,6 +18,7 @@ export async function listContacts(tenantId: string, query: ListContactsQuery) {
       'c.company_name',
       'c.job_title',
       'c.source',
+      'c.niche',
       'c.tags',
       'c.owner_id',
       'c.created_at',
@@ -28,6 +29,7 @@ export async function listContacts(tenantId: string, query: ListContactsQuery) {
 
   if (query.type) base = base.where('c.type', query.type);
   if (query.owner) base = base.where('c.owner_id', query.owner);
+  if (query.niche) base = base.where('c.niche', query.niche);
   if (query.search) {
     const term = `%${query.search}%`;
     base = base.where((q) =>
@@ -41,6 +43,7 @@ export async function listContacts(tenantId: string, query: ListContactsQuery) {
   const countQuery = db('contacts').where('tenant_id', tenantId);
   if (query.type) countQuery.where('type', query.type);
   if (query.owner) countQuery.where('owner_id', query.owner);
+  if (query.niche) countQuery.where('niche', query.niche);
   if (query.search) {
     const term = `%${query.search}%`;
     countQuery.where((q) =>
@@ -57,13 +60,23 @@ export async function listContacts(tenantId: string, query: ListContactsQuery) {
   return paginatedResponse(contacts, Number(count), page, limit);
 }
 
+/** Nichos distintos já usados no workspace — alimenta o filtro e as sugestões do formulário */
+export async function listNiches(tenantId: string): Promise<string[]> {
+  const rows = await db('contacts')
+    .where({ tenant_id: tenantId })
+    .whereNotNull('niche')
+    .distinct('niche')
+    .orderBy('niche', 'asc');
+  return rows.map((r: { niche: string }) => r.niche);
+}
+
 export async function getContact(tenantId: string, id: string) {
   const contact = await db('contacts as c')
     .leftJoin('users as u', 'c.owner_id', 'u.id')
     .where({ 'c.id': id, 'c.tenant_id': tenantId })
     .select(
       'c.id', 'c.tenant_id', 'c.type', 'c.full_name', 'c.email', 'c.phone',
-      'c.company_name', 'c.job_title', 'c.source', 'c.tags', 'c.owner_id',
+      'c.company_name', 'c.job_title', 'c.source', 'c.niche', 'c.tags', 'c.owner_id',
       'c.custom_fields', 'c.created_at', 'c.updated_at',
       db.raw("u.full_name as owner_name"),
       db.raw("u.email as owner_email"),
@@ -99,6 +112,7 @@ export async function createContact(tenantId: string, input: CreateContactInput)
       company_name: input.companyName || null,
       job_title: input.jobTitle || null,
       source: input.source || null,
+      niche: input.niche?.trim() || null,
       tags: input.tags ? JSON.stringify(input.tags) : '{}',
       owner_id: input.ownerId || null,
       custom_fields: input.customFields ? JSON.stringify(input.customFields) : '{}',
@@ -122,6 +136,7 @@ export async function updateContact(
   if (input.companyName !== undefined) updates.company_name = input.companyName || null;
   if (input.jobTitle !== undefined) updates.job_title = input.jobTitle || null;
   if (input.source !== undefined) updates.source = input.source || null;
+  if (input.niche !== undefined) updates.niche = input.niche.trim() || null;
   if (input.tags !== undefined) updates.tags = JSON.stringify(input.tags);
   if (input.ownerId !== undefined) updates.owner_id = input.ownerId || null;
   if (input.customFields !== undefined) updates.custom_fields = JSON.stringify(input.customFields);

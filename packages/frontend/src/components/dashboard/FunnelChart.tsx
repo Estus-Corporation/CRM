@@ -1,11 +1,13 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import type { FunnelStage } from '@/services/reports.service';
+import { useChartColors } from '@/hooks/useChartColors';
 
 interface FunnelChartProps {
   data: FunnelStage[];
 }
 
 export function FunnelChart({ data }: FunnelChartProps) {
+  const c = useChartColors();
   if (!data.length) {
     return (
       <div className="h-44 flex items-center justify-center text-text-muted text-sm">
@@ -20,29 +22,29 @@ export function FunnelChart({ data }: FunnelChartProps) {
         <defs>
           {data.map((entry) => (
             <linearGradient key={entry.stage_id} id={`funnel-${entry.stage_id}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={entry.color || '#72d296'} stopOpacity={0.9} />
-              <stop offset="100%" stopColor={entry.color || '#72d296'} stopOpacity={0.25} />
+              <stop offset="0%" stopColor={entry.color || c.brand} stopOpacity={0.9} />
+              <stop offset="100%" stopColor={entry.color || c.brand} stopOpacity={0.25} />
             </linearGradient>
           ))}
         </defs>
         <XAxis
           dataKey="name"
-          tick={{ fill: '#98a3b8', fontSize: 11 }}
+          tick={{ fill: c.axis, fontSize: 11 }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis hide />
         <Tooltip
           contentStyle={{
-            backgroundColor: 'rgba(16,21,33,0.92)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            backgroundColor: c.tooltipBg,
+            border: `1px solid ${c.tooltipBorder}`,
             borderRadius: 10,
             fontSize: 12,
           }}
-          labelStyle={{ color: '#eef1f7' }}
-          itemStyle={{ color: '#72d296' }}
+          labelStyle={{ color: c.tooltipText }}
+          itemStyle={{ color: c.brand }}
           formatter={(v: number) => [v, 'Negócios']}
-          cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+          cursor={{ fill: c.cursor }}
         />
         <Bar dataKey="deal_count" radius={[8, 8, 2, 2]}>
           {data.map((entry) => (

@@ -10,6 +10,8 @@ router.post('/import', requireAuth, requireTier('pro'), ContactsController.csvUp
 router.post('/import-bulk', requireAuth, ContactsController.importContactsBulk);
 router.get('/export', requireAuth, requireTier('pro'), ContactsController.exportContacts);
 router.get('/', requireAuth, ContactsController.listContacts);
+// Antes de '/:id' pra não ser capturada como id
+router.get('/niches', requireAuth, ContactsController.listNiches);
 router.get('/:id', requireAuth, ContactsController.getContact);
 router.post('/', requireAuth, ContactsController.createContact);
 router.patch('/:id', requireAuth, ContactsController.updateContact);

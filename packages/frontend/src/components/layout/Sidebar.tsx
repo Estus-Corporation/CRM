@@ -25,6 +25,7 @@ import {
   SidebarSection,
   SidebarTooltip,
   useSidebar,
+  SIDEBAR_FOOTER_HEIGHT,
 } from '@/components/ui/AnimatedSidebar';
 
 const PLAN_LABEL: Record<string, string> = {
@@ -62,7 +63,7 @@ function SidebarHeader({ onToggle }: { onToggle?: () => void }) {
   const { expanded } = useSidebar();
 
   return (
-    <div className="flex h-14 flex-shrink-0 items-center border-b border-white/[0.06] pl-6 pr-3">
+    <div className="flex h-14 flex-shrink-0 items-center pl-6 pr-3">
       {/* Recolhido: o logo vira o botão de expandir no hover */}
       <button
         type="button"
@@ -76,8 +77,8 @@ function SidebarHeader({ onToggle }: { onToggle?: () => void }) {
       >
         <LogoIcon
           size={22}
-          variant="aurora"
-          className={cn('transition-opacity duration-200', !expanded && 'group-hover/logo:opacity-0')}
+          variant="brand"
+          className={cn('text-accent-green transition-opacity duration-200', !expanded && 'group-hover/logo:opacity-0')}
         />
         {!expanded && (
           <PanelLeftOpen
@@ -100,7 +101,7 @@ function SidebarHeader({ onToggle }: { onToggle?: () => void }) {
             tabIndex={expanded ? 0 : -1}
             aria-label="Recolher menu"
             title="Recolher menu (Ctrl+B)"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-white/[0.05] hover:text-text-primary"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-colors duration-200 hover:bg-fg/[0.05] hover:text-text-primary"
           >
             <PanelLeftClose size={18} strokeWidth={1.75} />
           </button>
@@ -121,7 +122,7 @@ function UserCard({ onNavigate }: { onNavigate?: () => void }) {
       <NavLink
         to="/settings"
         onClick={onNavigate}
-        className="flex h-14 items-center gap-3 rounded-[10px] px-[6px] transition-colors duration-300 hover:bg-white/[0.04]"
+        className="flex h-14 items-center gap-3 rounded-[10px] px-[6px] transition-colors duration-300 hover:bg-fg/[0.04]"
       >
         <Avatar name={user.full_name} className="h-9 w-9 flex-shrink-0 text-[13px]" />
         <SidebarLabel className="flex min-w-0 flex-1 items-center gap-2">
@@ -158,7 +159,8 @@ function SidebarContent({ onNavigate, onToggle }: { onNavigate?: () => void; onT
         ))}
       </nav>
 
-      <div className="flex flex-col gap-1 border-t border-white/[0.06] p-3">
+      {/* Altura fixa: a faixa de vidro do AppShell (SIDEBAR_FOOTER_HEIGHT) se alinha a este rodapé */}
+      <div className="flex flex-shrink-0 flex-col justify-center gap-1 p-3" style={{ height: SIDEBAR_FOOTER_HEIGHT }}>
         <SidebarLink to="/settings" label="Configurações" icon={<Settings {...ICON} />} onNavigate={onNavigate} />
         <UserCard onNavigate={onNavigate} />
       </div>

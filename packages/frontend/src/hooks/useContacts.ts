@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { contactsService, type ContactsListParams, type CreateContactInput } from '@/services/contacts.service';
 import { toast } from 'sonner';
 
@@ -6,12 +6,24 @@ export const contactsKeys = {
   all: ['contacts'] as const,
   list: (params?: ContactsListParams) => [...contactsKeys.all, 'list', params] as const,
   detail: (id: string) => [...contactsKeys.all, 'detail', id] as const,
+  niches: () => [...contactsKeys.all, 'niches'] as const,
 };
 
 export function useContacts(params?: ContactsListParams) {
   return useQuery({
     queryKey: contactsKeys.list(params),
     queryFn: () => contactsService.list(params),
+    // Mantém a lista anterior enquanto o novo filtro carrega — a lista anima a diferença em vez de piscar
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** Nichos já usados no workspace (filtro + sugestões do formulário). Invalida junto com contactsKeys.all. */
+export function useContactNiches() {
+  return useQuery({
+    queryKey: contactsKeys.niches(),
+    queryFn: () => contactsService.listNiches(),
+    staleTime: 60_000,
   });
 }
 

@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { useUsers } from '@/hooks/useUsers';
+import { useContactNiches } from '@/hooks/useContacts';
 import type { Contact } from '@/services/contacts.service';
 
 function formatPhone(value: string): string {
@@ -29,6 +30,7 @@ const schema = z.object({
   companyName: z.string().optional(),
   jobTitle: z.string().optional(),
   source: z.string().optional(),
+  niche: z.string().max(100).optional(),
   customSource: z.string().optional(),
   ownerId: z.string().optional(),
 });
@@ -100,12 +102,14 @@ export function ContactForm({ defaultValues, onSubmit, onCancel, isSubmitting }:
       phone: defaultValues?.phone ?? '',
       companyName: defaultValues?.company_name ?? '',
       jobTitle: defaultValues?.job_title ?? '',
+      niche: defaultValues?.niche ?? '',
       source: isExistingCustom ? 'custom' : existingSource,
       customSource: isExistingCustom ? existingSource : '',
       ownerId: defaultValues?.owner_id ?? '',
     },
   });
 
+  const { data: niches = [] } = useContactNiches();
   const typeValue = useWatch({ control, name: 'type' });
   const isClient = typeValue === 'client';
 
@@ -186,6 +190,21 @@ export function ContactForm({ defaultValues, onSubmit, onCancel, isSubmitting }:
           )}
         />
       </div>
+
+      {/* Nicho: texto livre com sugestões dos nichos já usados no workspace */}
+      <Input
+        {...register('niche')}
+        id="niche"
+        label="Nicho"
+        placeholder="Ex.: Saúde, Tecnologia, Varejo"
+        list="contact-niche-options"
+        autoComplete="off"
+      />
+      <datalist id="contact-niche-options">
+        {niches.map((n) => (
+          <option key={n} value={n} />
+        ))}
+      </datalist>
 
       <Controller
         control={control}
