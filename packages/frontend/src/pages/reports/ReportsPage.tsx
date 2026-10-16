@@ -1,3 +1,5 @@
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { motion } from 'framer-motion';
 import { useState, useRef } from 'react';
 import { Download, Upload, Trophy, Activity, BarChart3, FileDown, Lock } from 'lucide-react';
 import { useKpis, useFunnel, useRevenue, useActivitiesReport, useLeaderboard } from '@/hooks/useReports';
@@ -117,7 +119,7 @@ export function ReportsPage() {
       <PageHeader title="Relatórios" subtitle="Desempenho do seu time" />
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-bg-border">
+      <div className="flex h-10 w-fit items-stretch overflow-hidden rounded-xl border border-fg/[0.1] bg-field shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
         {tabs.map((tab) => {
           const isGated = GATED_TABS.includes(tab.id) && !hasStarterPlus;
           return (
@@ -128,16 +130,25 @@ export function ReportsPage() {
                 setActiveTab(tab.id);
               }}
               className={cn(
-                'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px',
+                'relative flex items-center gap-1.5 px-4 text-[13px] font-medium transition-colors duration-200',
                 activeTab === tab.id
-                  ? 'border-accent-green text-text-primary'
-                  : 'border-transparent text-text-secondary hover:text-text-primary',
+                  ? 'text-[rgb(var(--on-accent))]'
+                  : 'text-text-secondary hover:text-text-primary',
                 isGated && 'opacity-60',
               )}
             >
-              {tab.icon}
-              {tab.label}
-              {isGated && <Lock size={11} className="ml-0.5 text-text-muted" />}
+              {activeTab === tab.id && (
+                <motion.span
+                  layoutId="reports-tab-pill"
+                  className="absolute inset-0 rounded-[11px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
+                  transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.15 }}
+                />
+              )}
+              <span className="relative flex items-center gap-1.5">
+                {tab.icon}
+                {tab.label}
+                {isGated && <Lock size={11} className="ml-0.5 text-text-muted" />}
+              </span>
             </button>
           );
         })}
@@ -164,23 +175,8 @@ export function ReportsPage() {
 
           <div className="card p-4">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-medium text-text-secondary">Receita ao longo do tempo</p>
-              <div className="flex gap-1">
-                {periodOptions.map((o) => (
-                  <button
-                    key={o.value}
-                    onClick={() => setPeriod(o.value)}
-                    className={cn(
-                      'px-3 py-1 rounded text-xs font-medium transition-colors',
-                      period === o.value
-                        ? 'bg-accent-green text-bg-darker'
-                        : 'bg-bg-surface text-text-secondary border border-bg-border hover:text-text-primary',
-                    )}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
+              <p className="text-[15px] font-medium text-text-primary">Receita ao longo do tempo</p>
+              <SegmentedControl layoutId="reports-period-pill" options={periodOptions} value={period} onChange={setPeriod} />
             </div>
             {revenueLoading ? <div className="flex justify-center py-10"><Spinner /></div> : <RevenueChart data={revenue ?? []} period={period} />}
           </div>
@@ -195,7 +191,7 @@ export function ReportsPage() {
               <div className="px-5 py-4 border-b border-bg-border">
                 <p className="text-sm font-medium text-text-primary">Detalhamento por etapa</p>
               </div>
-              <table className="w-full text-sm">
+              <table className="data-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
                     <th className="text-left px-5 py-3 font-medium">Etapa</th>
@@ -209,7 +205,7 @@ export function ReportsPage() {
                     <tr key={s.stage_id} className="border-b border-bg-border last:border-0 hover:bg-bg-surface/50">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || '#72d296' }} />
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || 'rgb(var(--accent-green))' }} />
                           <span className="text-text-primary">{s.name}</span>
                         </div>
                       </td>
@@ -243,7 +239,7 @@ export function ReportsPage() {
                   {!activities?.byType.length ? (
                     <p className="px-5 py-8 text-sm text-text-muted text-center">Nenhuma atividade registrada</p>
                   ) : (
-                    <table className="w-full text-sm">
+                    <table className="data-table w-full text-sm">
                       <thead>
                         <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
                           <th className="text-left px-5 py-3 font-medium">Tipo</th>
@@ -278,7 +274,7 @@ export function ReportsPage() {
                   {!activities?.byUser.length ? (
                     <p className="px-5 py-8 text-sm text-text-muted text-center">Nenhuma atividade registrada</p>
                   ) : (
-                    <table className="w-full text-sm">
+                    <table className="data-table w-full text-sm">
                       <thead>
                         <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
                           <th className="text-left px-5 py-3 font-medium">Usuário</th>
@@ -324,7 +320,7 @@ export function ReportsPage() {
                 <p className="text-sm font-medium text-text-primary">Ranking de vendedores</p>
                 <p className="text-xs text-text-muted mt-0.5">Baseado em negócios ganhos</p>
               </div>
-              <table className="w-full text-sm">
+              <table className="data-table w-full text-sm">
                 <thead>
                   <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
                     <th className="text-left px-5 py-3 font-medium w-12">#</th>

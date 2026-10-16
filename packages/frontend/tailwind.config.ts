@@ -1,31 +1,42 @@
 import type { Config } from 'tailwindcss';
 
+const v = (name: string) => `rgb(var(${name}) / <alpha-value>)`;
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
+        // Paleta "Ink · Esmeralda · Âmbar" — 3 cores. Valores vêm de variáveis CSS (globals.css)
+        // que trocam entre tema escuro e claro; `<alpha-value>` mantém os modificadores /10, /20...
         bg: {
-          primary: '#0c0f15',
-          darker: '#04080f',
-          surface: '#111827',
-          border: '#1f2937',
+          primary: v('--bg-primary'),
+          darker: v('--bg-darker'),
+          surface: v('--bg-surface'),
+          border: v('--bg-border'),
         },
         accent: {
-          green: '#72d296',
-          'green-dim': '#4a9b6f',
+          green: v('--accent-green'),
+          'green-dim': v('--accent-green-dim'),
+          amber: v('--accent-amber'),
         },
-        'text-primary': '#ffffff',
-        'text-secondary': '#9ca3af',
-        'text-muted': '#4b5563',
+        // Tinta de sobreposição: branco no escuro, tinta escura no claro — usar em vez de `white/[x]`
+        fg: v('--fg'),
+        // Fundo de campos: branco no claro, um degrau acima do fundo no escuro
+        field: v('--field-bg'),
+        'text-primary': v('--text-primary'),
+        'text-secondary': v('--text-secondary'),
+        'text-muted': v('--text-muted'),
         status: {
-          won: '#72d296',
-          lost: '#ef4444',
-          open: '#3b82f6',
+          won: v('--accent-green'),
+          lost: v('--status-lost'),
+          open: v('--accent-amber'),
         },
       },
       fontFamily: {
+        // Geist: neutra e precisa — tira o ar "template" do Inter padrão
         sans: [
+          'Geist',
           'Inter',
           'ui-sans-serif',
           'system-ui',

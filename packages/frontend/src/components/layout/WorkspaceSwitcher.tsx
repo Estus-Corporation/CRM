@@ -67,19 +67,20 @@ export function WorkspaceSwitcher() {
         onClick={() => setOpen((v) => !v)}
         disabled={switching}
         className={cn(
-          'flex items-center gap-2 px-3 py-1.5 rounded-lg border border-bg-border bg-bg-surface',
-          'text-sm text-text-secondary hover:text-text-primary hover:border-accent-green/40 transition-colors',
-          open && 'border-accent-green/40 text-text-primary',
+          // Esmeralda profundo fixo (não o token): branco sobre o verde claro do tema escuro perderia contraste
+          'flex h-10 items-center gap-2 rounded-[10px] bg-[#0E8F5A] px-3.5 text-sm text-white',
+          'shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition-colors hover:bg-[#0B7D4E]',
+          open && 'bg-[#0B7D4E]',
           switching && 'opacity-50 cursor-wait',
         )}
       >
-        <Building2 size={13} className="text-accent-green flex-shrink-0" />
+        <Building2 size={15} className="flex-shrink-0 text-white/90" />
         <span className="max-w-[140px] truncate font-medium">
           {switching ? 'Trocando...' : (current?.name ?? '—')}
         </span>
         <ChevronDown
-          size={12}
-          className={cn('text-text-muted transition-transform flex-shrink-0', open && 'rotate-180')}
+          size={14}
+          className={cn('flex-shrink-0 text-white/80 transition-transform', open && 'rotate-180')}
         />
       </button>
 

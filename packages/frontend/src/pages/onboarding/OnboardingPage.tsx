@@ -23,10 +23,10 @@ type PipelineForm = z.infer<typeof pipelineSchema>;
 type InviteForm = z.infer<typeof inviteSchema>;
 
 const DEFAULT_STAGES = [
-  { name: 'Prospecção', color: '#3b82f6' },
-  { name: 'Qualificação', color: '#8b5cf6' },
-  { name: 'Proposta', color: '#f59e0b' },
-  { name: 'Fechamento', color: '#72d296' },
+  { name: 'Prospecção', color: '#8A90A0' },
+  { name: 'Qualificação', color: '#F5B547' },
+  { name: 'Proposta', color: '#38B27E' },
+  { name: 'Fechamento', color: '#4FD69C' },
 ];
 
 export function OnboardingPage() {

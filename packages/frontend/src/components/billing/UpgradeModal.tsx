@@ -1,5 +1,7 @@
 import { Zap, Check, X } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
+import { AnimatePresence, motion } from 'framer-motion';
+import { centerTransform, dialogMotion, overlayMotion } from '@/lib/motion';
 import { useUpgradeStore } from '@/store/upgradeStore';
 import { useCreateCheckoutSession } from '@/hooks/useBilling';
 import { Button } from '@/components/ui/Button';
@@ -52,9 +54,18 @@ export function UpgradeModal() {
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && closeUpgrade()}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 animate-fade-in" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-2xl bg-bg-surface border border-bg-border rounded-lg shadow-xl animate-fade-in p-6 focus:outline-none">
+      <AnimatePresence>
+        {open && (
+      <Dialog.Portal forceMount>
+        <Dialog.Overlay asChild forceMount>
+          <motion.div className="fixed inset-0 z-40 bg-black/55" {...overlayMotion} />
+        </Dialog.Overlay>
+        <Dialog.Content asChild forceMount>
+          <motion.div
+            {...dialogMotion}
+            transformTemplate={centerTransform}
+            className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-2xl rounded-2xl border border-fg/[0.08] bg-bg-surface p-6 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.55)] focus:outline-none"
+          >
           <div className="flex items-start justify-between mb-6">
             <div>
               <Dialog.Title className="text-lg font-semibold text-text-primary flex items-center gap-2">
@@ -126,8 +137,11 @@ export function UpgradeModal() {
           <p className="text-xs text-text-muted text-center mt-4">
             Cancele a qualquer momento. Pagamentos processados com segurança pelo Stripe.
           </p>
+          </motion.div>
         </Dialog.Content>
       </Dialog.Portal>
+        )}
+      </AnimatePresence>
     </Dialog.Root>
   );
 }

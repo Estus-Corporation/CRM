@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Download, Trash2, Pencil, Users, User } from 'lucide-react';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/hooks/useContacts';
@@ -10,13 +11,20 @@ import { Modal } from '@/components/ui/Modal';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ContactForm } from '@/components/contacts/ContactForm';
 import { ImportContactsModal } from '@/components/contacts/ImportContactsModal';
-import { TableSkeleton } from '@/components/ui/Skeleton';
+import { NicheFilter } from '@/components/contacts/NicheFilter';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { DataList, DataListBody, DataListHead, DataListRow, DataListSkeleton, listSpring } from '@/components/ui/DataList';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 
-const TYPE_FILTER_OPTIONS = [
+// Mesma grade no cabeçalho de colunas e em cada card — mantém as colunas alinhadas entre cards
+const ROW_GRID =
+  'grid-cols-[minmax(0,1fr)_92px_76px] md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_92px_76px] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_92px_76px]';
+
+
+const TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'Todos' },
   { value: 'lead', label: 'Leads' },
   { value: 'contact', label: 'Contatos' },
@@ -42,6 +50,7 @@ export function ContactsPage() {
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [nicheFilter, setNicheFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
@@ -52,6 +61,7 @@ export function ContactsPage() {
   const { data, isLoading } = useContacts({
     search: debouncedSearch || undefined,
     type: typeFilter || undefined,
+    niche: nicheFilter || undefined,
   });
 
   const createContact = useCreateContact();
@@ -72,6 +82,7 @@ export function ContactsPage() {
     companyName?: string;
     jobTitle?: string;
     source?: string;
+    niche?: string;
   }) => {
     if (editContact) {
       await updateContact.mutateAsync({ id: editContact.id, input: formData });
@@ -118,8 +129,8 @@ export function ContactsPage() {
               <Users size={14} />
               Importar
             </Button>
-            <Button size="sm" onClick={openCreate}>
-              <Plus size={14} />
+            <Button size="lg" onClick={openCreate} className="px-6 text-[15px]">
+              <Plus size={18} strokeWidth={2.25} />
               Novo contato
             </Button>
           </>
@@ -127,41 +138,36 @@ export function ContactsPage() {
       />
 
       {/* Filters */}
-      <div className="flex gap-3 items-center">
-        <div className="relative flex-1 max-w-xs">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-xs flex-1">
+          <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
-            className="input-base pl-8"
+            className="input-base h-10 pl-9"
             placeholder="Buscar nome, e-mail, empresa…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <div className="flex gap-1">
-          {TYPE_FILTER_OPTIONS.map((o) => (
-            <button
-              key={o.value}
-              onClick={() => setTypeFilter(o.value)}
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                typeFilter === o.value
-                  ? 'bg-accent-green text-bg-darker'
-                  : 'bg-bg-surface text-text-secondary border border-bg-border hover:text-text-primary'
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
+        <SegmentedControl
+          layoutId="contacts-filter-pill"
+          options={TYPE_FILTER_OPTIONS}
+          value={typeFilter}
+          onChange={setTypeFilter}
+        />
+
+        <div className="ml-auto">
+          <NicheFilter value={nicheFilter} onChange={setNicheFilter} />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
-        {isLoading ? (
-          <TableSkeleton rows={6} />
-        ) : contacts.length === 0 ? (
+      {/* Lista: card único com o padrão compartilhado (DataList) */}
+      {isLoading ? (
+        <DataListSkeleton grid={ROW_GRID} cells={3} />
+      ) : contacts.length === 0 ? (
+        <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={listSpring}>
           <EmptyState
             icon={Users}
-            title={debouncedSearch ? 'Nenhum resultado' : 'Nenhum contato ainda'}
+            title={debouncedSearch || nicheFilter ? 'Nenhum resultado' : 'Nenhum contato ainda'}
             description={
               debouncedSearch
                 ? `Nada encontrado para "${debouncedSearch}". Tente outro termo.`
@@ -169,87 +175,82 @@ export function ContactsPage() {
             }
             action={!debouncedSearch ? { label: 'Adicionar contato', onClick: openCreate } : undefined}
           />
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
-                <th className="text-left px-4 py-3 font-medium">Nome</th>
-                <th className="text-left px-4 py-3 font-medium hidden md:table-cell">Empresa</th>
-                <th className="text-left px-4 py-3 font-medium hidden lg:table-cell">Telefone</th>
-                <th className="text-left px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 w-20" />
-              </tr>
-            </thead>
-            <tbody>
-              {contacts.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-b border-bg-border last:border-0 hover:bg-bg-surface/50 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/contacts/${c.id}`)}
+        </motion.div>
+      ) : (
+        <DataList>
+          <DataListHead grid={ROW_GRID}>
+            <span>Nome</span>
+            <span className="hidden md:block">Empresa</span>
+            <span className="hidden md:block">Nicho</span>
+            <span className="hidden lg:block">Telefone</span>
+            <span>Tipo</span>
+            <span />
+          </DataListHead>
+
+          <DataListBody>
+            {contacts.map((c, i) => (
+              <DataListRow key={c.id} grid={ROW_GRID} index={i} onClick={() => navigate(`/contacts/${c.id}`)}>
+                <div className="flex min-w-0 items-center gap-3">
+                  {c.type === 'client' ? (
+                    c.has_photo ? (
+                      <img
+                        src={contactsService.photoUrl(c.id)}
+                        alt={c.full_name}
+                        className="h-10 w-10 flex-shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <Avatar name={c.full_name} className="h-10 w-10" />
+                    )
+                  ) : (
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-fg/[0.06]">
+                      <User size={16} className="text-text-muted" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-[14.5px] font-medium text-text-primary">{c.full_name}</p>
+                    {(c.job_title || c.email) && <p className="truncate text-xs text-text-muted">{c.job_title ?? c.email}</p>}
+                  </div>
+                </div>
+                <span className="hidden truncate text-sm text-text-secondary md:block">{c.company_name ?? '—'}</span>
+                <span className="hidden min-w-0 items-center md:flex">
+                  {c.niche ? (
+                    <span className="inline-block max-w-full truncate rounded-md bg-fg/[0.05] px-2 py-0.5 text-[12.5px] font-medium text-text-secondary">
+                      {c.niche}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-text-muted">—</span>
+                  )}
+                </span>
+                <span className="hidden truncate text-sm text-text-secondary lg:block">{c.phone ?? '—'}</span>
+                <span>
+                  <Badge variant={typeBadgeVariant[c.type] ?? 'default'}>{typeLabel[c.type] ?? c.type}</Badge>
+                </span>
+                <div
+                  className="flex justify-end gap-1 opacity-60 transition-opacity duration-200 group-hover:opacity-100"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {c.type === 'client' ? (
-                        c.has_photo ? (
-                          <img
-                            src={contactsService.photoUrl(c.id)}
-                            alt={c.full_name}
-                            className="h-9 w-9 rounded-full object-cover flex-shrink-0"
-                          />
-                        ) : (
-                          <Avatar name={c.full_name} size="md" />
-                        )
-                      ) : (
-                        <div className="h-9 w-9 rounded-full bg-bg-border flex items-center justify-center flex-shrink-0">
-                          <User size={14} className="text-text-muted" />
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-medium text-text-primary">{c.full_name}</p>
-                        {c.job_title && (
-                          <p className="text-xs text-text-muted">{c.job_title}</p>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary hidden md:table-cell">
-                    {c.company_name ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary hidden lg:table-cell">
-                    {c.phone ?? '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant={typeBadgeVariant[c.type] ?? 'default'}>{typeLabel[c.type] ?? c.type}</Badge>
-                  </td>
-                  <td
-                    className="px-4 py-3"
-                    onClick={(e) => e.stopPropagation()}
+                  <button
+                    onClick={() => openEdit(c)}
+                    className="rounded-lg p-2 text-text-muted transition-colors hover:bg-fg/[0.06] hover:text-text-primary"
+                    title="Editar"
                   >
-                    <div className="flex gap-1 justify-end">
-                      <button
-                        onClick={() => openEdit(c)}
-                        className="p-1.5 rounded text-text-muted hover:text-text-primary hover:bg-bg-border transition-colors"
-                        title="Editar"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      {canDelete && (
-                        <button
-                          onClick={() => handleDelete(c.id)}
-                          className="p-1.5 rounded text-text-muted hover:text-status-lost hover:bg-status-lost/10 transition-colors"
-                          title="Excluir"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+                    <Pencil size={14} />
+                  </button>
+                  {canDelete && (
+                    <button
+                      onClick={() => handleDelete(c.id)}
+                      className="rounded-lg p-2 text-text-muted transition-colors hover:bg-status-lost/10 hover:text-status-lost"
+                      title="Excluir"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+              </DataListRow>
+            ))}
+          </DataListBody>
+        </DataList>
+      )}
 
       {/* Pagination hint */}
       {data?.meta && data.meta.totalPages > 1 && (
@@ -273,7 +274,9 @@ export function ContactsPage() {
       </Modal>
 
       {/* Import Modal */}
-      {importOpen && <ImportContactsModal onClose={() => setImportOpen(false)} />}
+      <AnimatePresence>
+        {importOpen && <ImportContactsModal onClose={() => setImportOpen(false)} />}
+      </AnimatePresence>
     </div>
   );
 }

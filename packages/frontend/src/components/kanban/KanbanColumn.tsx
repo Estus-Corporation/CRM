@@ -64,9 +64,13 @@ export function KanbanColumn({
     >
       {/* Column header card */}
       <div
-        className="rounded-lg mb-3 overflow-hidden border border-bg-border bg-bg-surface"
-        style={{ borderLeft: `3px solid ${stage.color}` }}
+        className="card mb-3 overflow-hidden"
       >
+        <span
+          aria-hidden
+          className="absolute bottom-3 left-0 top-3 w-[3px] rounded-r-full"
+          style={{ background: stage.color }}
+        />
         <div className="flex items-start justify-between px-4 py-3">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <button

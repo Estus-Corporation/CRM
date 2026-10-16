@@ -33,6 +33,15 @@ export async function listContacts(req: Request, res: Response, next: NextFuncti
   }
 }
 
+export async function listNiches(req: Request, res: Response, next: NextFunction) {
+  try {
+    const niches = await ContactsService.listNiches(req.user!.tenantId);
+    res.json({ data: niches });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getContact(req: Request, res: Response, next: NextFunction) {
   try {
     const contact = await ContactsService.getContact(req.user!.tenantId, req.params.id);

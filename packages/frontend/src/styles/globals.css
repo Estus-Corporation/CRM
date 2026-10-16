@@ -3,6 +3,78 @@
 @tailwind utilities;
 
 @layer base {
+  /* ── Paleta "Ink · Esmeralda · Âmbar" ────────────────────────────────────
+     Triplets RGB (sem vírgula) pra Tailwind compor com alpha: rgb(var(--x) / a).
+     Escuro é o padrão; o AppShell aplica data-theme="light" no <html>.
+     `.force-dark` reaplica os valores escuros num trecho (ex.: menu lateral sobre o shader). */
+  :root,
+  .force-dark {
+    color-scheme: dark;
+    --bg-primary: 13 15 20;        /* #0D0F14 */
+    --bg-darker: 9 11 15;          /* #090B0F */
+    --bg-surface: 22 25 32;        /* #161920 */
+    --bg-border: 37 41 51;         /* #252933 */
+    --text-primary: 237 239 243;
+    --text-secondary: 160 166 179;
+    --text-muted: 108 114 128;
+    --accent-green: 79 214 156;    /* Esmeralda #4FD69C */
+    --accent-green-dim: 56 178 126;
+    --accent-amber: 245 181 71;    /* Âmbar #F5B547 */
+    --status-lost: 239 96 96;
+    --fg: 255 255 255;             /* tinta de sobreposição */
+    --on-accent: 9 11 15;          /* texto sobre botão verde */
+    --field-bg: 25 29 38;          /* fundo de campos (busca, filtros, inputs) — um degrau acima do fundo */
+
+    --card-top: 0.055;
+    --card-bottom: 0.018;
+    --card-edge: 0.045;
+    --card-shine: 0.16;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 10px -2px rgba(0, 0, 0, 0.3), 0 22px 44px -18px rgba(0, 0, 0, 0.85);
+    --card-shadow-hover: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 18px -4px rgba(0, 0, 0, 0.35), 0 30px 56px -20px rgba(0, 0, 0, 0.95);
+    --panel-bg: rgba(20, 23, 30, 0.95);
+    --chrome-bg: rgba(13, 15, 20, 0.55);   /* topbar */
+    --chrome-shadow: 0 1px 0 rgba(0, 0, 0, 0.25), 0 10px 24px -10px rgba(0, 0, 0, 0.7);
+    --sidebar-bg: rgba(9, 11, 15, 0.72);
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --bg-primary: 245 245 241;     /* papel #F5F5F1 */
+    --bg-darker: 238 238 233;      /* #EEEEE9 */
+    --bg-surface: 255 255 255;
+    --bg-border: 225 225 218;      /* #E1E1DA */
+    --text-primary: 21 23 28;
+    --text-secondary: 82 88 100;
+    --text-muted: 134 139 150;
+    --accent-green: 15 157 99;     /* Esmeralda #0F9D63 */
+    --accent-green-dim: 11 128 80;
+    --accent-amber: 196 128 12;    /* Âmbar #C4800C */
+    --status-lost: 214 52 52;
+    --fg: 20 22 28;
+    --on-accent: 255 255 255;
+    --field-bg: 234 236 239;       /* cinza neutro frio (#EAECEF) — sem puxar pro bege do papel */
+
+    --card-top: 0.82;
+    --card-bottom: 0.62;
+    --card-edge: 0.07;
+    --card-shine: 0.9;
+    --card-shadow: 0 1px 2px rgba(20, 22, 28, 0.07), 0 4px 12px -2px rgba(20, 22, 28, 0.06), 0 18px 40px -14px rgba(20, 22, 28, 0.2);
+    --card-shadow-hover: 0 2px 4px rgba(20, 22, 28, 0.08), 0 10px 22px -6px rgba(20, 22, 28, 0.1), 0 28px 56px -18px rgba(20, 22, 28, 0.28);
+    --panel-bg: rgba(255, 255, 255, 0.96);
+    --chrome-bg: rgba(245, 245, 241, 0.7);
+    --chrome-shadow: 0 1px 0 rgba(20, 22, 28, 0.06), 0 4px 10px -4px rgba(20, 22, 28, 0.1), 0 12px 30px -10px rgba(20, 22, 28, 0.24);
+    --sidebar-bg: rgba(238, 238, 233, 0.78);
+  }
+
+  /* Troca de tema suave: cores atravessam juntas, sem piscar */
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.35s ease, fill 0.35s ease, stroke 0.35s ease, box-shadow 0.45s ease !important;
+  }
+
   * {
     @apply border-bg-border;
   }
@@ -30,12 +102,74 @@
 }
 
 @layer components {
+  /* Vidro líquido: translúcido, desfoca o fundo ambiente, borda com reflexo no canto superior.
+     No escuro é um véu branco sobre a tinta; no claro, uma lâmina branca leitosa sobre o papel. */
   .card {
-    @apply bg-bg-surface border border-bg-border rounded-lg;
+    position: relative;
+    border-radius: 16px;
+    border: 1px solid rgb(var(--fg) / var(--card-edge));
+    background: linear-gradient(165deg, rgb(255 255 255 / var(--card-top)) 0%, rgb(255 255 255 / var(--card-bottom)) 100%);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / calc(var(--card-shine) * 0.4)), var(--card-shadow);
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(145deg, rgb(255 255 255 / var(--card-shine)) 0%, rgb(255 255 255 / 0.03) 30%, rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.04) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
 
+  /* Card com hover — leve elevação, usado em itens clicáveis (kanban, KPIs) */
+  .card-interactive {
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.35s ease;
+  }
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--fg) / calc(var(--card-edge) * 1.8));
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / calc(var(--card-shine) * 0.5)), var(--card-shadow-hover);
+  }
+
+  /* Painéis flutuantes (dropdowns, resultados de busca, notificações) */
+  .glass-panel {
+    border-radius: 14px;
+    border: 1px solid rgb(var(--fg) / 0.08);
+    background: var(--panel-bg);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06), 0 24px 60px -16px rgb(0 0 0 / 0.4);
+  }
+
+  /* CSS puro (sem @apply de tokens): não depende do servidor ter recarregado o tailwind.config */
   .input-base {
-    @apply w-full bg-bg-surface border border-bg-border rounded px-3 py-2 text-text-primary placeholder-text-muted text-sm focus:outline-none focus:ring-1 focus:ring-accent-green focus:border-accent-green transition-colors;
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgb(var(--fg) / 0.1);
+    background: rgb(var(--field-bg));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: rgb(var(--text-primary));
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .input-base::placeholder {
+    color: rgb(var(--text-muted));
+  }
+  .input-base:hover {
+    border-color: rgb(var(--fg) / 0.14);
+  }
+  .input-base:focus {
+    outline: none;
+    border-color: rgb(var(--accent-green) / 0.5);
+    background: rgb(var(--field-bg));
+    box-shadow: 0 0 16px 0 rgb(var(--accent-green) / 0.22);
   }
 
   .scrollbar-surface::-webkit-scrollbar {
@@ -256,4 +390,102 @@
 .fullcalendar-dark .fc-timegrid-slot-label {
   color: #4b5563;
   font-size: 11px;
+}
+
+/* ── Ambiente do app ─────────────────────────────────────────────────────── */
+
+/* Indicador vertical do item ativo do menu: esmeralda → âmbar */
+.brand-bar {
+  background: linear-gradient(180deg, rgb(var(--accent-green)) 0%, rgb(var(--accent-green)) 55%, rgb(var(--accent-amber)) 100%);
+}
+
+/* KPI principal: halo esmeralda muito leve vindo do topo — o único destaque luminoso do dashboard */
+.kpi-highlight {
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgb(var(--accent-green) / 0.13), transparent 55%),
+    linear-gradient(165deg, rgb(255 255 255 / var(--card-top)) 0%, rgb(255 255 255 / var(--card-bottom)) 100%);
+}
+.kpi-highlight::before {
+  background: linear-gradient(145deg, rgb(var(--accent-green) / 0.5) 0%, rgb(var(--accent-green) / 0.08) 30%, rgb(255 255 255 / 0) 55%, rgb(255 255 255 / 0.04) 100%);
+}
+
+/* Menu lateral sobre o shader "Silk": textos mais claros que o tema escuro padrão
+   + sombra sutil, pra continuarem legíveis nas regiões claras do verde. */
+.sidebar-ink {
+  --text-secondary: 238 245 241;
+  --text-muted: 200 218 209;
+  text-shadow: 0 1px 2px rgba(3, 18, 14, 0.55);
+}
+
+/* ── Pasta (aba + corpo da área da direita) ─────────────────────────────────
+   Opaca por padrão; com html.folder-glass vira translúcida e desfoca o shader de fundo.
+   Os cards dentro dela ficam sólidos nesse modo, pra leitura não depender do fundo. */
+.folder-surface {
+  background-color: rgb(var(--bg-primary) / var(--folder-alpha, 1));
+  transition: background-color 0.45s cubic-bezier(0.22, 1, 0.36, 1), backdrop-filter 0.45s ease;
+}
+html.folder-glass {
+  --folder-alpha: 0.8;
+}
+html.folder-glass .folder-surface {
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+html.folder-glass .folder-surface .card {
+  background: rgb(var(--bg-surface));
+}
+html.folder-glass .folder-surface .kpi-highlight {
+  background: radial-gradient(120% 80% at 0% 0%, rgb(var(--accent-green) / 0.13), transparent 55%), rgb(var(--bg-surface));
+}
+
+/* ── Tabelas no padrão da lista de Contatos (ver DataList) ──────────────────
+   Cabeçalho verde do botão principal + faixa inferior mais escura; linhas com traço de 1,5px
+   entrando em cascata. Fora de @layer de propósito: vence as classes antigas de borda/cor nas <tr>. */
+.data-head,
+.data-table thead tr {
+  background-color: rgb(var(--accent-green));
+  color: rgb(var(--on-accent));
+  border-bottom: 6px solid rgb(var(--accent-green-dim));
+}
+.data-head,
+.data-table thead th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.data-table tbody tr {
+  border-bottom: 1.5px solid rgb(var(--fg) / 0.14);
+  animation: dataRowIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.data-table tbody tr:last-child {
+  border-bottom: 0;
+}
+.data-table tbody tr:hover {
+  background-color: rgb(var(--fg) / 0.03);
+}
+.data-table tbody td {
+  padding-top: 0.875rem;
+  padding-bottom: 0.875rem;
+}
+.data-table tbody tr:nth-child(2) { animation-delay: 45ms; }
+.data-table tbody tr:nth-child(3) { animation-delay: 90ms; }
+.data-table tbody tr:nth-child(4) { animation-delay: 135ms; }
+.data-table tbody tr:nth-child(5) { animation-delay: 180ms; }
+.data-table tbody tr:nth-child(6) { animation-delay: 225ms; }
+.data-table tbody tr:nth-child(7) { animation-delay: 270ms; }
+.data-table tbody tr:nth-child(8) { animation-delay: 315ms; }
+.data-table tbody tr:nth-child(n + 9) { animation-delay: 360ms; }
+@keyframes dataRowIn {
+  from { opacity: 0; transform: translateY(14px); filter: blur(6px); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* Lista em card (Contatos, Negócios): contorno no mesmo verde do botão principal.
+   Sem o reflexo ::before do vidro, que clarearia o traço verde no canto superior. */
+.data-list-card {
+  border: 2.5px solid rgb(var(--accent-green));
+}
+.data-list-card::before {
+  display: none;
 }
