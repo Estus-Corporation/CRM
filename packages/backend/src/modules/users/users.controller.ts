@@ -41,3 +41,20 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
     next(err);
   }
 }
+
+export async function listInvites(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json({ data: await UsersService.listTenantInvites(req.user!.tenantId) });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function cancelInvite(req: Request, res: Response, next: NextFunction) {
+  try {
+    await UsersService.cancelInvite(req.user!.tenantId, req.params.inviteId);
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}

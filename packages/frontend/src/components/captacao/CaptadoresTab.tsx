@@ -41,7 +41,7 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
         <EmptyState
           icon={Users}
           title="Nenhum captador ainda"
-          description="Adicione quem vai ligar para os leads pelo e-mail da conta dela no TitanFlow. Cada captador só enxerga os leads que você atribuir a ele."
+          description="Convide quem vai ligar para os leads pelo e-mail. A pessoa aceita o convite na caixa de entrada, e cada captador só enxerga os leads que você atribuir a ele."
           action={isAdmin ? { label: 'Adicionar captador', onClick: onNewCaptador } : undefined}
         />
       </motion.div>

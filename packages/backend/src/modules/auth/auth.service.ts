@@ -106,8 +106,10 @@ export async function issueSession(user: Record<string, any>, tenantId: string, 
 }
 
 export async function register(input: RegisterInput) {
-  const existingSlug = await db('tenants').where({ slug: input.slug }).first();
-  if (existingSlug) throw Object.assign(new Error('Slug already taken'), { status: 409 });
+  // Nem todo mundo tem empresa: o espaço nasce com o nome da pessoa e pode ser renomeado depois
+  const workspaceName = input.workspaceName || `Espaço de ${input.fullName.trim().split(/\s+/)[0]}`;
+  let slug = input.slug ?? generateSlug(workspaceName);
+  if (await db('tenants').where({ slug }).first()) slug = generateSlug(workspaceName);
 
   // Uma conta por e-mail — o login acha a conta só pelo e-mail
   if (await emailInUse(input.email)) {
@@ -117,7 +119,7 @@ export async function register(input: RegisterInput) {
   const passwordHash = await bcrypt.hash(input.password, 12);
 
   const { tenant, user } = await db.transaction(async (trx) => {
-    const [tenant] = await trx('tenants').insert({ name: input.workspaceName, slug: input.slug }).returning('*');
+    const [tenant] = await trx('tenants').insert({ name: workspaceName, slug }).returning('*');
     const [user] = await trx('users')
       .insert({
         tenant_id: tenant.id,

@@ -14,10 +14,20 @@ export interface TeamMember {
   created_at: string;
 }
 
-/** Adiciona ao workspace uma conta que já existe (a pessoa se cadastrou antes) */
+/** Convida pelo e-mail: a pessoa aceita ou recusa na caixa de entrada dela */
 export interface InviteUserInput {
   email: string;
   role: UserRole;
+}
+
+/** Convite criado (has_account: o e-mail já tem conta no TitanFlow) */
+export interface SentInvite {
+  id: string;
+  email: string;
+  role: UserRole;
+  has_account: boolean;
+  full_name: string | null;
+  avatar_url: string | null;
 }
 
 export interface UpdateUserInput {
@@ -31,8 +41,8 @@ export const usersService = {
     return data;
   },
 
-  async invite(input: InviteUserInput): Promise<TeamMember> {
-    const { data } = await api.post<{ data: TeamMember }>('/users/invite', input);
+  async invite(input: InviteUserInput): Promise<SentInvite> {
+    const { data } = await api.post<{ data: SentInvite }>('/users/invite', input);
     return data.data;
   },
 

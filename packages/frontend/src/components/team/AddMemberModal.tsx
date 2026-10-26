@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Check, Copy, MessageCircle, UserCheck, UserX } from 'lucide-react';
+import { Check, Copy, MailCheck, MessageCircle, UserPlus } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersService, type TeamMember } from '@/services/users.service';
+import { usersService, type SentInvite } from '@/services/users.service';
 import { useTenant } from '@/hooks/useTenant';
 import type { UserRole } from '@/store/authStore';
 import { Modal } from '@/components/ui/Modal';
@@ -29,7 +29,7 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-type Result = { kind: 'added'; member: TeamMember } | { kind: 'no_account'; email: string };
+type Result = { kind: 'sent'; invite: SentInvite };
 
 interface Props {
   open: boolean;
@@ -39,8 +39,8 @@ interface Props {
 }
 
 /**
- * Adiciona ao workspace alguém que JÁ tem conta no TitanFlow (busca pelo e-mail).
- * Sem conta: mostra o link de cadastro pra mandar à pessoa — depois é só adicionar de novo.
+ * Convida alguém pelo e-mail. A pessoa recebe o convite na caixa de entrada (e por e-mail) e aceita
+ * ou recusa. Sem conta ainda: o convite aparece quando ela se cadastrar — mostramos o link pra mandar.
  */
 export function AddMemberModal({ open, onClose, fixedRole }: Props) {
   const qc = useQueryClient();
@@ -62,16 +62,14 @@ export function AddMemberModal({ open, onClose, fixedRole }: Props) {
 
   const add = useMutation({
     mutationFn: usersService.invite,
-    onSuccess: (member) => {
-      qc.invalidateQueries({ queryKey: ['users'] });
-      qc.invalidateQueries({ queryKey: ['captacao'] });
-      setResult({ kind: 'added', member });
+    onSuccess: (invite) => {
+      qc.invalidateQueries({ queryKey: ['invites', 'tenant'] });
+      setResult({ kind: 'sent', invite });
     },
-    onError: (err, input) => {
+    onError: (err) => {
       const code = (err as { response?: { data?: { code?: string } } }).response?.data?.code;
-      if (code === 'account_not_found') setResult({ kind: 'no_account', email: input.email });
-      else if (code === 'already_member') toast.error('Essa pessoa já faz parte deste workspace');
-      else toast.error('Não foi possível adicionar');
+      if (code === 'already_member') toast.error('Essa pessoa já faz parte deste workspace');
+      else toast.error('Não foi possível enviar o convite');
     },
   });
 
@@ -87,11 +85,11 @@ export function AddMemberModal({ open, onClose, fixedRole }: Props) {
 
   const signupUrl = `${window.location.origin}/register`;
   const inviteMessage = [
-    `Olá! Quero te adicionar ao ${tenant?.name ?? 'nosso workspace'} no TitanFlow.`,
+    `Olá! Te convidei para o ${tenant?.name ?? 'nosso workspace'} no TitanFlow.`,
     '',
     `1. Crie sua conta grátis: ${signupUrl}`,
-    result?.kind === 'no_account' ? `2. Use este e-mail: ${result.email}` : '',
-    '3. Me avise que eu te adiciono na equipe.',
+    result ? `2. Use este e-mail: ${result.invite.email}` : '',
+    '3. Aceite o convite na caixa de entrada.',
   ]
     .filter(Boolean)
     .join('\n');
@@ -106,64 +104,68 @@ export function AddMemberModal({ open, onClose, fixedRole }: Props) {
     }
   };
 
-  const title = fixedRole === 'captador' ? 'Adicionar captador' : 'Adicionar membro';
+  const title = fixedRole === 'captador' ? 'Convidar captador' : 'Convidar membro';
 
   return (
     <Modal
       open={open}
       onClose={handleClose}
-      title={result?.kind === 'added' ? 'Adicionado à equipe' : result?.kind === 'no_account' ? 'Essa pessoa ainda não tem conta' : title}
+      title={result ? 'Convite enviado' : title}
       description={
         result
           ? undefined
-          : 'Digite o e-mail da conta da pessoa no TitanFlow. Ela passa a ver este workspace no seletor dela.'
+          : 'Digite o e-mail da pessoa. Ela recebe o convite na caixa de entrada e escolhe se quer participar.'
       }
     >
-      {result?.kind === 'added' ? (
+      {result ? (
         <div className="space-y-4">
           <div className="flex items-center gap-3 rounded-lg bg-accent-green/10 px-4 py-3">
-            <Avatar name={result.member.full_name} src={result.member.avatar_url ?? undefined} className="h-10 w-10" />
+            <Avatar
+              name={result.invite.full_name ?? result.invite.email}
+              src={result.invite.avatar_url ?? undefined}
+              className="h-10 w-10"
+            />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-text-primary">{result.member.full_name}</p>
-              <p className="truncate text-xs text-text-muted">{result.member.email}</p>
+              <p className="truncate text-sm font-medium text-text-primary">{result.invite.full_name ?? result.invite.email}</p>
+              {result.invite.full_name && <p className="truncate text-xs text-text-muted">{result.invite.email}</p>}
             </div>
-            <span className="flex items-center gap-1 text-xs font-medium text-accent-green">
-              <UserCheck size={14} /> {ROLE_LABEL[result.member.role]}
+            <span className="flex flex-shrink-0 items-center gap-1 text-xs font-medium text-accent-green">
+              <MailCheck size={14} /> {ROLE_LABEL[result.invite.role]}
             </span>
           </div>
-          <p className="text-xs text-text-muted">
-            Ela recebeu um aviso na caixa de entrada e já pode trocar para este workspace no seletor do menu.
-          </p>
-          <div className="flex justify-end">
-            <Button onClick={handleClose}>Concluir</Button>
-          </div>
-        </div>
-      ) : result?.kind === 'no_account' ? (
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 rounded-lg bg-accent-amber/10 px-4 py-3 text-sm text-text-secondary">
-            <UserX size={18} className="mt-0.5 flex-shrink-0 text-accent-amber" />
-            <p>
-              Não existe conta com <strong className="text-text-primary">{result.email}</strong>. Mande o link de cadastro
-              para a pessoa; quando ela criar a conta, é só adicionar de novo.
+
+          {result.invite.has_account ? (
+            <p className="text-xs text-text-muted">
+              O convite está na caixa de entrada dela. Quando aceitar, ela entra na equipe e você recebe um aviso.
             </p>
-          </div>
-          <pre className="whitespace-pre-wrap rounded-lg border border-fg/[0.08] bg-fg/[0.03] p-3 font-sans text-xs text-text-secondary">
-            {inviteMessage}
-          </pre>
+          ) : (
+            <>
+              <p className="text-xs text-text-muted">
+                Essa pessoa ainda não tem conta. O convite fica guardado e aparece na caixa de entrada dela assim que se
+                cadastrar com esse e-mail. Mande o link:
+              </p>
+              <pre className="whitespace-pre-wrap rounded-lg border border-fg/[0.08] bg-fg/[0.03] p-3 font-sans text-xs text-text-secondary">
+                {inviteMessage}
+              </pre>
+            </>
+          )}
+
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="ghost" onClick={() => setResult(null)}>
-              Voltar
-            </Button>
-            <Button variant="secondary" asChild>
-              <a href={`https://wa.me/?text=${encodeURIComponent(inviteMessage)}`} target="_blank" rel="noopener noreferrer">
-                <MessageCircle size={15} />
-                WhatsApp
-              </a>
-            </Button>
-            <Button onClick={copy}>
-              {copied ? <Check size={15} /> : <Copy size={15} />}
-              {copied ? 'Copiado' : 'Copiar mensagem'}
-            </Button>
+            {!result.invite.has_account && (
+              <>
+                <Button variant="secondary" asChild>
+                  <a href={`https://wa.me/?text=${encodeURIComponent(inviteMessage)}`} target="_blank" rel="noopener noreferrer">
+                    <MessageCircle size={15} />
+                    WhatsApp
+                  </a>
+                </Button>
+                <Button variant="secondary" onClick={copy}>
+                  {copied ? <Check size={15} /> : <Copy size={15} />}
+                  {copied ? 'Copiado' : 'Copiar'}
+                </Button>
+              </>
+            )}
+            <Button onClick={handleClose}>Concluir</Button>
           </div>
         </div>
       ) : (
@@ -172,7 +174,7 @@ export function AddMemberModal({ open, onClose, fixedRole }: Props) {
             {...register('email')}
             id="member-email"
             type="email"
-            label="E-mail da conta *"
+            label="E-mail *"
             placeholder="tarcisio@email.com"
             autoComplete="off"
             error={errors.email?.message}
@@ -199,7 +201,8 @@ export function AddMemberModal({ open, onClose, fixedRole }: Props) {
               Cancelar
             </Button>
             <Button type="submit" disabled={add.isPending}>
-              {add.isPending ? 'Procurando…' : 'Adicionar'}
+              <UserPlus size={15} />
+              {add.isPending ? 'Enviando…' : 'Enviar convite'}
             </Button>
           </div>
         </form>

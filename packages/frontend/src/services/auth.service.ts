@@ -2,8 +2,8 @@ import { api } from './api';
 import type { User, UserRole } from '@/store/authStore';
 
 export interface RegisterInput {
-  workspaceName: string;
-  slug: string;
+  workspaceName?: string;
+  slug?: string;
   fullName: string;
   email: string;
   password: string;

@@ -1,7 +1,7 @@
 import { db } from '../../db';
 import { z } from 'zod';
 import { getPaginationParams, paginatedResponse } from '../../shared/utils/paginate';
-import { createNotification } from '../notifications/notifications.service';
+import { cancelInvite, createInvite, listTenantInvites } from '../invites/invites.service';
 
 /**
  * Equipe de um workspace = vínculos (user_tenants). A conta da pessoa existe por conta própria:
@@ -19,13 +19,6 @@ export const inviteUserSchema = z.object({
   email: z.string().trim().email(),
   role: roleEnum.default('seller'),
 });
-
-const ROLE_LABEL: Record<string, string> = {
-  admin: 'Admin',
-  manager: 'Gerente',
-  seller: 'Vendedor',
-  captador: 'Captador',
-};
 
 function httpError(message: string, status: number, code?: string) {
   return Object.assign(new Error(message), { status, code });
@@ -46,42 +39,15 @@ export async function listUsers(tenantId: string, query: Record<string, unknown>
   return paginatedResponse(users, Number(count), page, limit);
 }
 
-/** Adiciona ao workspace uma conta que JÁ existe (a pessoa se cadastra antes, por conta própria) */
-export async function inviteUser(tenantId: string, actorId: string, input: z.infer<typeof inviteUserSchema>) {
-  const user = await db('users').whereRaw('lower(email) = lower(?)', [input.email]).andWhere({ is_active: true }).first();
-  if (!user) throw httpError('No account with this email', 404, 'account_not_found');
-
-  const existing = await db('user_tenants').where({ user_id: user.id, tenant_id: tenantId }).first();
-  if (existing?.is_active) throw httpError('Already a member of this workspace', 409, 'already_member');
-
-  if (existing) {
-    await db('user_tenants').where({ id: existing.id }).update({ role: input.role, is_active: true, updated_at: new Date() });
-  } else {
-    await db('user_tenants').insert({ user_id: user.id, tenant_id: tenantId, role: input.role });
-  }
-
-  // O aviso vai pro workspace onde a pessoa está agora (é lá que ela olha a caixa de entrada)
-  const [tenant, actor] = await Promise.all([
-    db('tenants').where({ id: tenantId }).first('name'),
-    db('users').where({ id: actorId }).first('full_name'),
-  ]);
-  await createNotification({
-    tenantId: user.tenant_id,
-    userId: user.id,
-    type: 'workspace.added',
-    title: `Você foi adicionado a ${tenant?.name ?? 'um workspace'}`,
-    body: `${actor?.full_name ?? 'Um admin'} te adicionou como ${ROLE_LABEL[input.role]}. Troque de workspace no seletor do menu.`,
-  }).catch(() => {});
-
-  return {
-    id: user.id,
-    email: user.email,
-    full_name: user.full_name,
-    avatar_url: user.avatar_url,
-    role: input.role,
-    is_active: true,
-  };
+/**
+ * Convida alguém pro workspace pelo e-mail. Não cria o vínculo: a pessoa aceita ou recusa na caixa
+ * de entrada (ver modules/invites). Quem ainda não tem conta vê o convite ao se cadastrar.
+ */
+export function inviteUser(tenantId: string, actorId: string, input: z.infer<typeof inviteUserSchema>) {
+  return createInvite(tenantId, actorId, input);
 }
+
+export { listTenantInvites, cancelInvite };
 
 async function assertNotLastAdmin(tenantId: string, userId: string) {
   const membership = await db('user_tenants').where({ tenant_id: tenantId, user_id: userId }).first();

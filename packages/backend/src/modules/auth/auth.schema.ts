@@ -2,12 +2,14 @@ import { z } from 'zod';
 import { keyPeopleSchema } from '../tenants/tenants.service';
 
 export const registerSchema = z.object({
-  workspaceName: z.string().min(2).max(100),
+  // Opcionais: sem nome de empresa o espaço vira "Espaço de <nome>" (renomeável em Configurações)
+  workspaceName: z.string().trim().min(2).max(100).optional(),
   slug: z
     .string()
     .min(2)
     .max(50)
-    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, and hyphens only'),
+    .regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers, and hyphens only')
+    .optional(),
   fullName: z.string().min(2).max(255),
   email: z.string().email(),
   password: z.string().min(8),

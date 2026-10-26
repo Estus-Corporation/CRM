@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificationsService } from '@/services/notifications.service';
+import { useMyInvites } from './useInvites';
 
 export function useNotifications() {
   const qc = useQueryClient();
@@ -10,11 +11,15 @@ export function useNotifications() {
     refetchInterval: 30_000,
   });
 
-  const { data: unreadCount = 0 } = useQuery({
+  const { data: unread = 0 } = useQuery({
     queryKey: ['notifications', 'unread-count'],
     queryFn: notificationsService.unreadCount,
     refetchInterval: 30_000,
   });
+
+  // Convites pendentes também contam como novidade na caixa de entrada
+  const { data: invites = [] } = useMyInvites();
+  const unreadCount = unread + invites.length;
 
   const markRead = useMutation({
     mutationFn: notificationsService.markRead,

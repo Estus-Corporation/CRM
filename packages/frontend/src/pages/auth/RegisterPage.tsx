@@ -10,23 +10,12 @@ import { GoogleButton } from '@/components/auth/GoogleButton';
 import { useState } from 'react';
 
 const schema = z.object({
-  workspaceName: z.string().min(2, 'Nome da empresa é obrigatório'),
   fullName: z.string().min(2, 'Seu nome é obrigatório'),
   email: z.string().email('Digite um e-mail válido'),
   password: z.string().min(8, 'Senha deve ter pelo menos 8 caracteres'),
 });
 
 type FormData = z.infer<typeof schema>;
-
-function generateSlug(name: string) {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .slice(0, 50) || 'workspace';
-}
 
 export function RegisterPage() {
   const navigate = useNavigate();
@@ -43,8 +32,6 @@ export function RegisterPage() {
     setServerError('');
     try {
       const result = await authService.register({
-        workspaceName: data.workspaceName,
-        slug: generateSlug(data.workspaceName),
         fullName: data.fullName,
         email: data.email,
         password: data.password,
@@ -71,19 +58,11 @@ export function RegisterPage() {
 
         <div className="card p-6 space-y-5">
           <div>
-            <h1 className="text-lg font-semibold text-text-primary">Crie seu workspace</h1>
+            <h1 className="text-lg font-semibold text-text-primary">Criar conta</h1>
             <p className="text-sm text-text-secondary mt-1">Comece em minutos, grátis</p>
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <Input
-              {...register('workspaceName')}
-              id="workspaceName"
-              label="Nome da empresa"
-              placeholder="Minha Empresa"
-              error={errors.workspaceName?.message}
-              autoComplete="organization"
-            />
             <Input
               {...register('fullName')}
               id="fullName"
@@ -118,7 +97,7 @@ export function RegisterPage() {
             )}
 
             <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? 'Criando workspace…' : 'Começar grátis'}
+              {isSubmitting ? 'Criando conta…' : 'Criar conta'}
             </Button>
           </form>
 
@@ -134,7 +113,7 @@ export function RegisterPage() {
           <GoogleButton label="Continuar com Google" />
 
           <p className="text-sm text-text-secondary text-center">
-            Já tem um workspace?{' '}
+            Já tem conta?{' '}
             <Link to="/login" className="text-accent-green hover:underline">
               Entrar
             </Link>

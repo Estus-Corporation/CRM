@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Check, MoreHorizontal, Pencil, Power, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useDeleteUser, useUpdateUser, useUsers } from '@/hooks/useUsers';
+import { useCancelInvite, useTenantInvites } from '@/hooks/useInvites';
 import { useTenant, useUpdateTenant, type KeyPerson } from '@/hooks/useTenant';
 import { useAuthStore, type UserRole } from '@/store/authStore';
 import type { TeamMember } from '@/services/users.service';
@@ -213,6 +214,8 @@ export function TeamPanel() {
   const updateTenant = useUpdateTenant();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
+  const { data: invites = [] } = useTenantInvites(currentUser?.role === 'admin' || currentUser?.role === 'manager');
+  const cancelInvite = useCancelInvite();
 
   const keyPeople = tenant?.key_people ?? [];
   // Ativos primeiro dentro de cada grupo
@@ -292,6 +295,37 @@ export function TeamPanel() {
                 })}
             </TitleGroup>
           ))}
+
+          {/* Convidados que ainda não responderam */}
+          {invites.length > 0 && (
+            <TitleGroup title="Convites pendentes">
+              {invites.map((i) => (
+                <MemberCard
+                  key={i.id}
+                  name={i.full_name ?? i.email}
+                  email={i.full_name ? i.email : 'Ainda sem conta no TitanFlow'}
+                  avatarUrl={i.avatar_url}
+                  title={ROLE_LABEL[i.role]}
+                  muted
+                  meta="Aguardando resposta"
+                  actions={
+                    isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => cancelInvite.mutate(i.id)}
+                        disabled={cancelInvite.isPending}
+                        title="Cancelar convite"
+                        aria-label="Cancelar convite"
+                        className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-status-lost/10 hover:text-status-lost"
+                      >
+                        <X size={14} />
+                      </button>
+                    )
+                  }
+                />
+              ))}
+            </TitleGroup>
+          )}
         </div>
       )}
 
