@@ -16,6 +16,11 @@ export interface Tenant {
   pitch: string | null;
   logo_url: string | null;
   email: string | null;
+  /** Contatos e redes — atalhos na página "Sobre a empresa" */
+  phone: string | null;
+  instagram: string | null;
+  website: string | null;
+  address: string | null;
   /** Quem é quem: fundador, cofundador, captadores… */
   key_people: KeyPerson[];
   /** Membros ativos do workspace, o mais antigo primeiro */
@@ -48,6 +53,10 @@ export interface UpdateTenantInput {
   pitch?: string | null;
   /** data URL (ImageCropModal) ou null pra remover */
   logo?: string | null;
+  phone?: string | null;
+  instagram?: string | null;
+  website?: string | null;
+  address?: string | null;
 }
 
 const tenantKeys = {

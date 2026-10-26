@@ -127,10 +127,10 @@ export function MobileSidebar({
             >
               <button
                 onClick={onClose}
-                className="absolute right-3 top-4 z-10 rounded-md p-1.5 text-text-muted transition-colors hover:bg-fg/[0.05] hover:text-text-primary"
+                className="absolute left-5 top-[15px] z-10 rounded-md p-1.5 text-text-muted transition-colors hover:bg-fg/[0.05] hover:text-text-primary"
                 aria-label="Fechar menu"
               >
-                <X size={18} />
+                <X size={21} />
               </button>
               <SidebarSurface />
               <div className="relative flex h-full flex-col">{children}</div>

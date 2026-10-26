@@ -14,7 +14,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { ImageCropModal } from '@/components/ui/ImageCropModal';
 import { CompanyLogo } from '@/components/company/CompanyLogo';
 import { CreateWorkspaceModal } from '@/components/layout/CreateWorkspaceModal';
-import { cn } from '@/lib/utils';
+import { cn, withPhoneMask } from '@/lib/utils';
 
 const ROLE_LABEL: Record<string, string> = { admin: 'Admin', manager: 'Gerente', seller: 'Vendedor', captador: 'Captador' };
 
@@ -163,7 +163,7 @@ function ProfileSection() {
         <div className="grid gap-4 sm:grid-cols-2">
           <Input {...register('fullName')} id="me-name" label="Nome *" error={errors.fullName?.message} />
           <Input {...register('jobTitle')} id="me-job" label="Cargo" placeholder="Ex.: SDR, Consultor comercial" />
-          <Input {...register('phone')} id="me-phone" label="Telefone / WhatsApp" placeholder="(16) 99999-0000" />
+          <Input {...withPhoneMask(register('phone'))} id="me-phone" label="Telefone / WhatsApp" placeholder="(16) 99999-0000" />
         </div>
         <TextArea
           {...register('bio')}

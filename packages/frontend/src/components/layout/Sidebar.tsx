@@ -127,8 +127,8 @@ function SidebarHeader({ onToggle, onNavigate }: { onToggle?: () => void; onNavi
   const closeInbox = useCallback(() => setInboxOpen(false), []);
 
   return (
-    // Mobile: pr-12 deixa espaço pro X de fechar a gaveta
-    <div className={cn('relative flex h-16 flex-shrink-0 items-center pl-4', mobile ? 'pr-12' : 'pr-3')}>
+    // Mobile: o X de fechar a gaveta fica na ponta esquerda; notas vão pra direita
+    <div className={cn('relative flex h-16 flex-shrink-0 items-center pr-3', mobile ? 'pl-16' : 'pl-4')}>
       {onToggle && (
         <button
           type="button"
@@ -154,6 +154,8 @@ function SidebarHeader({ onToggle, onNavigate }: { onToggle?: () => void; onNavi
         style={{ pointerEvents: expanded ? 'auto' : 'none' }}
         aria-hidden={!expanded}
       >
+        {/* Celular: caixa de entrada fica na barra de cima (Topbar), não no menu */}
+        {!mobile && (
         <button
           ref={inboxRef}
           type="button"
@@ -170,6 +172,7 @@ function SidebarHeader({ onToggle, onNavigate }: { onToggle?: () => void; onNavi
             </span>
           )}
         </button>
+        )}
         <button
           type="button"
           onClick={() => {
@@ -186,7 +189,7 @@ function SidebarHeader({ onToggle, onNavigate }: { onToggle?: () => void; onNavi
         </button>
       </motion.div>
 
-      <NotificationPanel open={inboxOpen} onClose={closeInbox} anchorRef={inboxRef} />
+      {!mobile && <NotificationPanel open={inboxOpen} onClose={closeInbox} anchorRef={inboxRef} />}
     </div>
   );
 }

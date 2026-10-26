@@ -1,5 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { Building2, Mail, MessageSquareText, Pencil, Tags, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Building2, Globe, MapPin, MessageSquareText, Pencil, Phone, Tags, Users } from 'lucide-react';
+import { QuickLink } from '@/components/ui/QuickLink';
+import { GmailIcon, InstagramIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
+import { instagramHandle, instagramUrl, websiteLabel, websiteUrl, whatsappUrl } from '@/lib/captacao';
 import { TeamRoster, buildRoster } from '@/components/company/TeamRoster';
 import { useTenant, isCompanyProfileComplete } from '@/hooks/useTenant';
 import { useAuthStore } from '@/store/authStore';
@@ -40,31 +44,74 @@ export function CompanyPage() {
     );
   }
 
+  const hasLinks = !!(tenant?.phone || tenant?.instagram || tenant?.website || tenant?.address || tenant?.email);
+
   const editButton = isAdmin && (
-    <Button variant="secondary" size="sm" onClick={() => navigate('/settings#empresa')}>
+    // Celular: só o ícone, botão redondo no canto superior direito do card
+    <Button
+      variant="secondary"
+      size="sm"
+      onClick={() => navigate('/settings#empresa')}
+      aria-label="Editar perfil da empresa"
+      className="max-md:absolute max-md:right-3 max-md:top-3 max-md:h-9 max-md:w-9 max-md:rounded-full max-md:px-0"
+    >
       <Pencil size={14} />
-      Editar
+      <span className="max-md:hidden">Editar</span>
     </Button>
   );
 
   return (
     // mobile-sections: no celular cada parte vira um bloco translúcido separado (ver globals.css)
     <div className="mobile-sections space-y-4 max-md:space-y-3">
-      <header className="flex flex-wrap items-center gap-4">
+      <header className="relative flex flex-wrap items-center gap-4">
         <CompanyLogo name={tenant?.name} logoUrl={tenant?.logo_url} className="h-16 w-16 flex-shrink-0 text-2xl" />
-        <div className="min-w-0 flex-1">
+        <div className={cn('min-w-0 flex-1', isAdmin && 'max-md:pr-8')}>
           <h1 className="truncate text-2xl font-semibold text-text-primary">{tenant?.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
             {tenant?.service_type && <span>{tenant.service_type}</span>}
-            {tenant?.email && (
-              <a href={`mailto:${tenant.email}`} className="flex items-center gap-1.5 transition-colors hover:text-accent-green">
-                <Mail size={14} />
-                {tenant.email}
-              </a>
-            )}
           </div>
         </div>
         {editButton}
+
+        {/* Atalhos de um clique, no mesmo padrão do card de lead */}
+        {hasLinks && (
+          <div className="flex basis-full flex-wrap gap-2 border-t border-fg/[0.06] pt-4 max-sm:justify-center">
+            {tenant?.phone && (
+              <QuickLink href={`tel:${tenant.phone.replace(/[^\d+]/g, '')}`} label="Ligar" className="text-text-primary">
+                <Phone size={18} fill="currentColor" strokeWidth={1} />
+              </QuickLink>
+            )}
+            {tenant?.phone && (
+              <QuickLink href={whatsappUrl(tenant.phone)} label="WhatsApp" className="text-[#25D366]">
+                <WhatsAppIcon size={20} />
+              </QuickLink>
+            )}
+            {tenant?.instagram && (
+              <QuickLink href={instagramUrl(tenant.instagram)} label={`Instagram ${instagramHandle(tenant.instagram)}`} >
+                <InstagramIcon size={23} />
+              </QuickLink>
+            )}
+            {tenant?.website && (
+              <QuickLink href={websiteUrl(tenant.website)} label={`Site: ${websiteLabel(tenant.website)}`} className="text-text-primary">
+                <Globe size={19} />
+              </QuickLink>
+            )}
+            {tenant?.address && (
+              <QuickLink
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(tenant.address)}`}
+                label={`Endereço: ${tenant.address}`}
+                className="text-text-secondary"
+              >
+                <MapPin size={19} />
+              </QuickLink>
+            )}
+            {tenant?.email && (
+              <QuickLink href={`mailto:${tenant.email}`} label={`E-mail: ${tenant.email}`}>
+                <GmailIcon size={19} />
+              </QuickLink>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Conteúdo à esquerda; quem faz parte fica fixo na coluna da direita */}

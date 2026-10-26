@@ -128,7 +128,8 @@ export function SettingsPage() {
   }, [location.hash, location.key, hasTenant]);
 
   return (
-    <div className="space-y-6">
+    // mobile-sections: no celular cada parte vira um bloco translúcido separado (ver globals.css)
+    <div className="mobile-sections space-y-6 max-md:space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-text-primary">Configurações</h1>
@@ -142,30 +143,42 @@ export function SettingsPage() {
       </div>
 
       {/* Conteúdo à esquerda; equipe fixa na coluna da direita */}
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-6">
+      <div className="mobile-split grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="mobile-split min-w-0 space-y-6 max-md:flex max-md:flex-col max-md:space-y-0">
           {/* Perfil da empresa — o que a equipe lê em "Sobre a empresa" */}
           {isAdmin && (
-            <div id="empresa" className="card scroll-mt-6 overflow-hidden">
-              <div className="border-b border-bg-border px-5 py-4">
+            // Celular: o card se desfaz e título + cada grupo do formulário viram blocos separados
+            <div
+              id="empresa"
+              className="card mobile-split scroll-mt-6 overflow-hidden max-md:flex max-md:flex-col max-md:!overflow-visible max-md:!border-0 max-md:before:!hidden"
+            >
+              <div className="border-b border-bg-border px-5 py-4 max-md:border-b-0">
                 <p className="text-sm font-medium text-text-primary">Perfil da empresa</p>
                 <p className="mt-0.5 text-xs text-text-muted">
                   Aparece para toda a equipe em "Sobre a empresa" — é onde os captadores aprendem o que vender e como abordar.
                 </p>
               </div>
-              <div className="p-5">
-                <CompanyProfileForm tenant={tenant} />
+              <div className="mobile-split p-5">
+                <CompanyProfileForm tenant={tenant} className="mobile-split max-md:flex max-md:flex-col max-md:space-y-0" />
               </div>
             </div>
           )}
 
-          <BillingSection isAdmin={isAdmin} />
+          {/* div: no celular vira o bloco translúcido e o card fica dentro (ver .mobile-split) */}
+          <div>
+            <BillingSection isAdmin={isAdmin} />
+          </div>
 
           {/* Integrations sections — gated by starter tier */}
-          <WebhooksSection isAdmin={isAdmin} />
-          <ApiKeysSection isAdmin={isAdmin} />
+          <div>
+            <WebhooksSection isAdmin={isAdmin} />
+          </div>
+          <div>
+            <ApiKeysSection isAdmin={isAdmin} />
+          </div>
 
           {/* WhatsApp support */}
+          <div>
           <div className="card overflow-hidden">
             <div className="px-5 py-4 border-b border-bg-border">
               <p className="text-sm font-medium text-text-primary">Suporte via WhatsApp</p>
@@ -185,6 +198,7 @@ export function SettingsPage() {
                 Abrir WhatsApp
               </a>
             </div>
+          </div>
           </div>
         </div>
 

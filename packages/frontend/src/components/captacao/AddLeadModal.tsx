@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { withPhoneMask } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { Check } from 'lucide-react';
@@ -117,7 +118,7 @@ export function AddLeadModal({ open, onClose }: { open: boolean; onClose: () => 
       >
         <Input {...register('fullName')} id="lead-name" label="Nome *" placeholder="Maria Souza" autoFocus error={errors.fullName?.message} />
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input {...register('phone')} id="lead-phone" label="Telefone / WhatsApp" placeholder="(16) 99999-0000" inputMode="tel" />
+          <Input {...withPhoneMask(register('phone'))} id="lead-phone" label="Telefone / WhatsApp" placeholder="(16) 99999-0000" inputMode="tel" />
           <Input {...register('email')} id="lead-email" type="email" label="E-mail" placeholder="maria@empresa.com" error={errors.email?.message} />
           <Input {...register('companyName')} id="lead-company" label="Empresa" placeholder="Padaria Pão Bom" />
           <Input {...register('jobTitle')} id="lead-job" label="Cargo" placeholder="Sócia" />

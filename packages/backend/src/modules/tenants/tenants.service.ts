@@ -31,12 +31,17 @@ export const updateTenantSchema = z.object({
   offer: longText.nullable().optional(),
   pitch: longText.nullable().optional(),
   logo: logoSchema.optional(),
+  phone: z.string().trim().max(40).nullable().optional(),
+  instagram: z.string().trim().max(255).nullable().optional(),
+  website: z.string().trim().max(255).nullable().optional(),
+  address: z.string().trim().max(500).nullable().optional(),
 });
 
 // Toda a equipe lê o workspace (inclusive captador) — nada de dados de cobrança aqui
 const PUBLIC_COLUMNS = [
   'id', 'name', 'slug', 'plan', 'max_users', 'created_at',
   'service_type', 'about', 'offer', 'pitch', 'logo_url', 'email', 'key_people',
+  'phone', 'instagram', 'website', 'address',
 ];
 
 /** Membros ativos do workspace (foto, papel, desde quando) — o mais antigo primeiro */
@@ -68,6 +73,9 @@ export async function updateTenant(tenantId: string, input: z.infer<typeof updat
   if (input.pitch !== undefined) updates.pitch = input.pitch?.trim() || null;
   if (input.logo !== undefined) updates.logo_url = input.logo;
   if (input.email !== undefined) updates.email = input.email || null;
+  for (const key of ['phone', 'instagram', 'website', 'address'] as const) {
+    if (input[key] !== undefined) updates[key] = input[key] || null;
+  }
   if (input.keyPeople !== undefined) updates.key_people = JSON.stringify(input.keyPeople);
 
   await db('tenants').where({ id: tenantId }).update(updates);

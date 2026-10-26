@@ -4,25 +4,29 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Building2, CalendarClock, CalendarPlus, Check, CheckCircle2, Globe, Info, Instagram, Link2, Lock, Mail, MapPin, Pencil, Phone, Star, Trophy, Video,
+  Building2, CalendarClock, CalendarPlus, Check, CheckCircle2, ChevronDown, Globe, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
 } from 'lucide-react';
 import { useUpdateMyLead } from '@/hooks/useCaptacao';
 import type { CallStatus, MeetingMode, MyLead } from '@/services/captacao.service';
 import { DateTimePicker } from '@/components/ui/DateTimePicker';
+import { SelectDropdown } from '@/components/ui/SelectDropdown';
 import {
   CALL_STATUS,
   CALL_STATUS_ORDER,
   formatBRL,
-  formatDay,
   googleUrl,
   instagramHandle,
   instagramUrl,
+  LEAD_PAIN_LABEL,
+  leadPains,
+  type LeadPain,
   websiteLabel,
   websiteUrl,
   whatsappUrl,
 } from '@/lib/captacao';
-import { GoogleIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
+import { GmailIcon, InstagramIcon, GoogleIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { Button } from '@/components/ui/Button';
+import { QuickLink } from '@/components/ui/QuickLink';
 import { listSpring } from '@/components/ui/DataList';
 import { cn } from '@/lib/utils';
 
@@ -31,34 +35,14 @@ const MEETING_MODES = [
   { value: 'presencial', label: 'Presencial', hint: 'Encontro no local', icon: MapPin },
 ] as const;
 
-/** Botão-ícone de atalho (WhatsApp, Instagram, Google, site): abre direto no perfil/página do lead */
-function QuickLink({
-  href,
-  label,
-  className,
-  children,
-}: {
-  href: string;
-  label: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      title={label}
-      aria-label={label}
-      className={cn(
-        'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-fg/[0.08] bg-fg/[0.04] transition-transform duration-150 hover:-translate-y-0.5 hover:bg-fg/[0.08]',
-        className,
-      )}
-    >
-      {children}
-    </a>
-  );
-}
+const PAIN_ICON: Record<LeadPain, typeof Globe> = {
+  no_site: Globe,
+  no_instagram: Instagram,
+  no_marketing: Megaphone,
+  no_google: MapPinOff,
+  few_reviews: MessageSquare,
+  low_rating: StarHalf,
+};
 
 function InfoRow({ icon: Icon, children }: { icon: typeof MapPin; children: React.ReactNode }) {
   return (
@@ -105,6 +89,9 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
   const [meetingLocation, setMeetingLocation] = useState(lead.meeting_location ?? '');
   const locked = lead.outcome !== null;
   const concluded = !!lead.concluded_at && !locked;
+  // Formulário da ligação fica recolhido até o captador abrir pela setinha
+  const [open, setOpen] = useState(false);
+  const expanded = open || locked || concluded;
   const isMeeting = status === 'meeting';
   const meetingMissing = isMeeting && (!meetingAt || !meetingMode);
 
@@ -148,10 +135,19 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
     );
   };
 
-  const reopen = () => update.mutate({ id: lead.id, concluded: false });
+  const reopen = () => {
+    setOpen(true);
+    update.mutate({ id: lead.id, concluded: false });
+  };
 
   const company = [lead.job_title, lead.company_name].filter(Boolean).join(' · ');
-  const hasDetails = lead.address || lead.email || lead.website;
+  const hasDetails = lead.address || lead.website || lead.instagram;
+  const pains = leadPains(lead);
+  const about =
+    lead.lead_context?.trim() ||
+    (lead.niche
+      ? `${lead.company_name || lead.full_name} atua no ramo de ${lead.niche.toLowerCase()}.`
+      : null);
 
   return (
     <motion.li
@@ -164,11 +160,26 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
       className={cn('card overflow-hidden', concluded && 'opacity-80')}
     >
       {/* Cabeçalho: quem é o lead */}
-      <div className="flex flex-wrap items-start gap-4 p-4 md:p-5">
-        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-accent-green/15 text-base font-semibold uppercase text-accent-green">
-          {(lead.company_name || lead.full_name).trim().charAt(0)}
+      <div className="relative flex flex-wrap items-start gap-4 p-4 md:p-5">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-fg/[0.08] text-text-primary">
+          <Building2 size={20} />
         </div>
-        <div className="min-w-0 flex-1">
+        {/* Celular: setinha só como ícone, no canto superior direito do card */}
+        {!locked && !concluded && (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label={open ? 'Recolher lead' : 'Abrir lead para preencher'}
+            className={cn(
+              'absolute right-2 top-3 flex h-9 w-9 items-center justify-center transition-colors sm:hidden',
+              open ? 'text-accent-green' : 'text-text-secondary',
+            )}
+          >
+            <ChevronDown size={20} className={cn('transition-transform duration-300', open && 'rotate-180')} />
+          </button>
+        )}
+        <div className="min-w-0 flex-1 max-sm:pr-7">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             <p className="truncate text-[15.5px] font-semibold text-text-primary">{lead.full_name}</p>
             {lead.google_rating !== null && (
@@ -187,52 +198,106 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
               </span>
             )}
             {lead.niche && <span className="rounded-md bg-fg/[0.05] px-2 py-0.5 font-medium text-text-secondary">{lead.niche}</span>}
-            {/* "Sem site" é argumento de venda — fica em destaque */}
-            {!lead.website && (
-              <span className="rounded-md bg-accent-amber/15 px-2 py-0.5 font-medium text-accent-amber">Sem site</span>
-            )}
-            <span>Recebido em {formatDay(lead.assigned_for)}</span>
           </div>
         </div>
 
         {/* Atalhos de um clique */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Celular: faixa própria de ponta a ponta, com divisória e o mesmo fundo do resultado */}
+        <div className="flex flex-wrap items-center gap-2 max-sm:-mx-4 max-sm:-mb-4 max-sm:w-[calc(100%+2rem)] max-sm:justify-center max-sm:border-t max-sm:border-fg/[0.06] max-sm:bg-fg/[0.015] max-sm:py-3">
           {lead.phone && (
-            <a
-              href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}
-              className="flex h-10 items-center gap-2 rounded-xl border border-fg/[0.08] bg-fg/[0.04] px-3 text-sm font-medium text-text-primary transition-colors hover:bg-fg/[0.08]"
-              title="Ligar"
-            >
-              <Phone size={15} />
-              {lead.phone}
-            </a>
+            <QuickLink href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`} label="Ligar" className="text-text-primary">
+              <Phone size={18} fill="currentColor" strokeWidth={1} />
+            </QuickLink>
           )}
           {lead.phone && (
             <QuickLink href={whatsappUrl(lead.phone)} label="Abrir no WhatsApp" className="text-[#25D366]">
-              <WhatsAppIcon size={18} />
+              <WhatsAppIcon size={20} />
             </QuickLink>
           )}
           {lead.instagram && (
-            <QuickLink href={instagramUrl(lead.instagram)} label={`Instagram ${instagramHandle(lead.instagram)}`} className="text-[#E1306C]">
-              <Instagram size={18} />
+            <QuickLink href={instagramUrl(lead.instagram)} label={`Instagram ${instagramHandle(lead.instagram)}`} >
+              <InstagramIcon size={23} />
             </QuickLink>
           )}
           <QuickLink href={googleUrl(lead)} label={lead.maps_url ? 'Página no Google' : 'Buscar no Google Maps'}>
-            <GoogleIcon size={17} />
+            <GoogleIcon size={19} />
           </QuickLink>
           {lead.website && (
-            <QuickLink href={websiteUrl(lead.website)} label={`Site: ${websiteLabel(lead.website)}`} className="text-text-secondary">
-              <Globe size={17} />
+            <QuickLink href={websiteUrl(lead.website)} label={`Site: ${websiteLabel(lead.website)}`} className="text-text-primary">
+              <Globe size={19} />
             </QuickLink>
+          )}
+          {lead.email && (
+            <QuickLink href={`mailto:${lead.email}`} label={`E-mail: ${lead.email}`}>
+              <GmailIcon size={19} />
+            </QuickLink>
+          )}
+          {!locked && !concluded && (
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+              aria-label={open ? 'Recolher lead' : 'Abrir lead para preencher'}
+              title={open ? 'Recolher' : 'Preencher resultado da ligação'}
+              className={cn(
+                'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border transition-colors max-sm:hidden',
+                open
+                  ? 'border-accent-green/40 bg-accent-green/10 text-accent-green'
+                  : 'border-fg/[0.08] bg-fg/[0.04] text-text-secondary hover:bg-fg/[0.08] hover:text-text-primary',
+              )}
+            >
+              <ChevronDown size={18} className={cn('transition-transform duration-300', open && 'rotate-180')} />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Contexto que o admin deixou sobre a empresa */}
-      {lead.lead_context && !concluded && (
-        <div className="flex gap-2 border-t border-fg/[0.06] px-4 py-3 text-sm md:px-5">
-          <Info size={15} className="mt-0.5 flex-shrink-0 text-accent-amber" />
-          <p className="min-w-0 whitespace-pre-line break-words text-text-secondary">{lead.lead_context}</p>
+
+      {/* Corpo recolhível: dados do lugar + resultado da ligação */}
+      <AnimatePresence initial={false}>
+      {expanded && (
+      <motion.div
+        key="body"
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: 'auto', opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ type: 'spring', visualDuration: 0.32, bounce: 0.08 }}
+        className="overflow-hidden"
+      >
+      {/* Sobre o lead: contexto que o admin deixou (ou um resumo montado com o que se sabe) */}
+      {(about || pains.length > 0) && !concluded && (
+        <div className="space-y-4 border-t border-fg/[0.06] px-4 py-4 text-sm md:px-5">
+          {about && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Sobre o lead</p>
+              <p className="mt-1 whitespace-pre-line break-words text-text-secondary">{about}</p>
+            </div>
+          )}
+          {/* Dores prováveis = argumentos de venda, em destaque */}
+          {pains.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-text-muted">Possíveis dores</p>
+                <span className="text-[11px] text-text-muted">use como argumento na ligação</span>
+              </div>
+              <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {pains.map((p) => {
+                  const Icon = PAIN_ICON[p];
+                  return (
+                    <li
+                      key={p}
+                      className="flex min-w-0 items-center gap-2.5 rounded-xl border border-fg/[0.06] bg-fg/[0.03] px-2.5 py-2"
+                    >
+                      <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-accent-amber/[0.12] text-accent-amber">
+                        <Icon size={14} />
+                      </span>
+                      <span className="min-w-0 text-[12.5px] font-medium leading-tight text-text-primary">{LEAD_PAIN_LABEL[p]}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
@@ -257,13 +322,6 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
             <InfoRow icon={Instagram}>
               <a href={instagramUrl(lead.instagram)} target="_blank" rel="noopener noreferrer" className="hover:text-text-primary hover:underline">
                 {instagramHandle(lead.instagram)}
-              </a>
-            </InfoRow>
-          )}
-          {lead.email && (
-            <InfoRow icon={Mail}>
-              <a href={`mailto:${lead.email}`} className="hover:text-text-primary hover:underline">
-                {lead.email}
               </a>
             </InfoRow>
           )}
@@ -315,7 +373,15 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
         ) : (
           <>
             <p className="mb-2.5 text-xs font-medium uppercase tracking-[0.06em] text-text-muted">O que aconteceu na ligação?</p>
-            <div className="flex flex-wrap gap-2">
+            <SelectDropdown
+              title="Resultado"
+              placeholder="Selecionar resultado"
+              options={CALL_STATUS_ORDER.filter((s) => s !== 'pending').map((s) => ({ value: s, label: CALL_STATUS[s].label }))}
+              value={status}
+              onChange={setStatus}
+              className="sm:hidden"
+            />
+            <div className="flex flex-wrap gap-2 max-sm:hidden">
               {CALL_STATUS_ORDER.filter((s) => s !== 'pending').map((s) => {
                 const active = status === s;
                 return (
@@ -359,7 +425,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+                    <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
                       <DateTimePicker
                         value={meetingAt}
                         onChange={setMeetingAt}
@@ -442,7 +508,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
                     </div>
 
                     {meetingMode && (
-                      <div className="relative mt-3">
+                      <div className="relative mt-3 max-w-3xl">
                         {meetingMode === 'online' ? (
                           <Link2 size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
                         ) : (
@@ -486,6 +552,9 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
           </>
         )}
       </div>
+      </motion.div>
+      )}
+      </AnimatePresence>
     </motion.li>
   );
 });

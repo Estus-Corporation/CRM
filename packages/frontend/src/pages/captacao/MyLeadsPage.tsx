@@ -112,12 +112,19 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
           </div>
         )}
 
-        <div className={cn('flex flex-wrap items-center gap-3', view === 'meetings' && 'hidden')}>
+        {view !== 'meetings' && (
+        <div className="flex flex-wrap items-center gap-3">
           {view === 'leads' && (
-            <SegmentedControl layoutId="my-leads-scope" options={SCOPE_OPTIONS} value={scope} onChange={setScope} />
+            <SegmentedControl
+              layoutId="my-leads-scope"
+              options={SCOPE_OPTIONS}
+              value={scope}
+              onChange={setScope}
+              className="max-sm:w-full max-sm:[&>button]:flex-1"
+            />
           )}
           {/* Celular: um botão só com todas as opções (seletor nativo do sistema) */}
-          <label className="relative flex-1 sm:hidden">
+          <label className="relative basis-full sm:hidden">
             <span className="sr-only">Filtrar por status</span>
             <select
               value={status}
@@ -148,6 +155,7 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
             ))}
           </div>
         </div>
+        )}
 
         {isLoading ? (
           <div className="space-y-3">

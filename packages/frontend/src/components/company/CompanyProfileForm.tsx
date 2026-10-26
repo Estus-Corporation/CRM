@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { cn, formatPhone, withPhoneMask } from '@/lib/utils';
 import { toast } from 'sonner';
 import { ImagePlus, Pencil, Trash2 } from 'lucide-react';
 import { useUpdateTenant, type Tenant } from '@/hooks/useTenant';
@@ -33,6 +34,10 @@ const schema = z.object({
   about: z.string().trim().min(20, 'Escreva pelo menos algumas linhas sobre a empresa').max(20000),
   offer: z.string().max(20000),
   pitch: z.string().max(20000),
+  phone: z.string().trim().max(40),
+  instagram: z.string().trim().max(255),
+  website: z.string().trim().max(255),
+  address: z.string().trim().max(500),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -43,6 +48,8 @@ interface Props {
   /** Botões extras ao lado do salvar (ex.: "Pular" no onboarding) */
   secondaryAction?: ReactNode;
   onSaved?: () => void;
+  /** Ex.: "mobile-split" — cada grupo (identidade/contatos, textos) vira um bloco no celular */
+  className?: string;
 }
 
 type TextAreaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & { label: string; hint?: string; error?: string };
@@ -69,7 +76,7 @@ TextArea.displayName = 'TextArea';
  * Perfil da empresa: o que a equipe (principalmente os captadores) precisa saber pra vender.
  * Usado no onboarding (logo após criar o workspace) e em Configurações.
  */
-export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAction, onSaved }: Props) {
+export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAction, onSaved, className }: Props) {
   const update = useUpdateTenant();
   const fileRef = useRef<HTMLInputElement>(null);
   const [logo, setLogo] = useState<string | null>(tenant?.logo_url ?? null);
@@ -85,7 +92,7 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
     formState: { errors, isDirty },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', email: '', serviceType: '', about: '', offer: '', pitch: '' },
+    defaultValues: { name: '', email: '', serviceType: '', about: '', offer: '', pitch: '', phone: '', instagram: '', website: '', address: '' },
   });
 
   // Preenche quando o workspace carrega (e depois de salvar)
@@ -98,6 +105,10 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
       about: tenant.about ?? '',
       offer: tenant.offer ?? '',
       pitch: tenant.pitch ?? '',
+      phone: formatPhone(tenant.phone ?? ''),
+      instagram: tenant.instagram ?? '',
+      website: tenant.website ?? '',
+      address: tenant.address ?? '',
     });
     setLogo(tenant.logo_url ?? null);
     setLogoDirty(false);
@@ -123,6 +134,10 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
         email: data.email || null,
         offer: data.offer || null,
         pitch: data.pitch || null,
+        phone: data.phone || null,
+        instagram: data.instagram || null,
+        website: data.website || null,
+        address: data.address || null,
         ...(logoDirty ? { logo } : {}),
       },
       {
@@ -138,7 +153,9 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
   const dirty = isDirty || logoDirty;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className={cn('space-y-5', className)}>
+      {/* Grupo 1: identidade, serviço e contatos */}
+      <div className="space-y-5">
       <div className="flex items-center gap-4">
         {/* Logo: lápis no hover; com logo, o lápis abre Trocar/Remover; sem logo, já escolhe o arquivo */}
         <div className="relative flex-shrink-0" onMouseLeave={() => setLogoMenu(false)}>
@@ -231,6 +248,18 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
           </datalist>
       </div>
 
+      {/* Contatos e redes: viram atalhos (ícones) na página "Sobre a empresa" */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Input {...withPhoneMask(register('phone'))} id="company-phone" label="WhatsApp / telefone" placeholder="(11) 99999-9999" inputMode="tel" />
+        <Input {...register('instagram')} id="company-instagram" label="Instagram" placeholder="@suaempresa" />
+        <Input {...register('website')} id="company-website" label="Site" placeholder="suaempresa.com.br" />
+        <Input {...register('address')} id="company-address" label="Endereço" placeholder="Rua, número, cidade" />
+      </div>
+
+      </div>
+
+      {/* Grupo 2: o que a equipe lê (sobre, preços, abordagem) + salvar */}
+      <div className="space-y-5">
       <TextArea
         {...register('about')}
         id="company-about"
@@ -276,6 +305,7 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
           setCropFile(null);
         }}
       />
+      </div>
     </form>
   );
 }

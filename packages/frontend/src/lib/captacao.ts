@@ -67,3 +67,35 @@ export function whatsappUrl(phone: string) {
   const digits = phone.replace(/\D/g, '');
   return `https://wa.me/${digits.length <= 11 ? `55${digits}` : digits}`;
 }
+
+export type LeadPain = 'no_site' | 'no_instagram' | 'no_marketing' | 'no_google' | 'few_reviews' | 'low_rating';
+
+export const LEAD_PAIN_LABEL: Record<LeadPain, string> = {
+  no_site: 'Sem site',
+  no_instagram: 'Sem Instagram',
+  no_marketing: 'Sem marketing digital',
+  no_google: 'Sem perfil no Google',
+  few_reviews: 'Poucas avaliações',
+  low_rating: 'Nota baixa no Google',
+};
+
+/**
+ * Possíveis dores do lead (argumentos de venda), deduzidas do que se sabe do lugar:
+ * sem site, sem Instagram, pouca presença ou nota baixa no Google.
+ */
+export function leadPains(lead: {
+  website: string | null;
+  instagram: string | null;
+  maps_url: string | null;
+  google_rating: number | null;
+  google_reviews: number | null;
+}): LeadPain[] {
+  const pains: LeadPain[] = [];
+  if (!lead.website) pains.push('no_site');
+  if (!lead.instagram) pains.push('no_instagram');
+  if (!lead.website && !lead.instagram) pains.push('no_marketing');
+  if (!lead.maps_url && lead.google_rating === null) pains.push('no_google');
+  else if (lead.google_reviews !== null && lead.google_reviews < 20) pains.push('few_reviews');
+  if (lead.google_rating !== null && lead.google_rating < 4) pains.push('low_rating');
+  return pains;
+}
