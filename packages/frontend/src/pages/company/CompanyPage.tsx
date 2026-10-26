@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Building2, Globe, MapPin, MessageSquareText, Pencil, Phone, Tags, Users } from 'lucide-react';
 import { QuickLink } from '@/components/ui/QuickLink';
+import { OfferFileCard } from '@/components/company/OfferFile';
 import { GmailIcon, InstagramIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { instagramHandle, instagramUrl, websiteLabel, websiteUrl, whatsappUrl } from '@/lib/captacao';
 import { TeamRoster, buildRoster } from '@/components/company/TeamRoster';
@@ -47,13 +48,13 @@ export function CompanyPage() {
   const hasLinks = !!(tenant?.phone || tenant?.instagram || tenant?.website || tenant?.address || tenant?.email);
 
   const editButton = isAdmin && (
-    // Celular: só o ícone, botão redondo no canto superior direito do card
+    // Celular: só o ícone, botão redondo sobre a quina superior direita do card (metade pra fora)
     <Button
       variant="secondary"
       size="sm"
       onClick={() => navigate('/settings#empresa')}
       aria-label="Editar perfil da empresa"
-      className="max-md:absolute max-md:right-3 max-md:top-3 max-md:h-9 max-md:w-9 max-md:rounded-full max-md:px-0"
+      className="max-md:absolute max-md:-right-1.5 max-md:-top-3.5 max-md:z-10 max-md:h-9 max-md:w-9 max-md:rounded-full max-md:px-0 max-md:!border-fg/[0.18] max-md:!bg-bg-surface max-md:text-text-primary max-md:shadow-[0_6px_16px_-4px_rgba(0,0,0,0.7)]"
     >
       <Pencil size={14} />
       <span className="max-md:hidden">Editar</span>
@@ -118,7 +119,7 @@ export function CompanyPage() {
       {/* grid-cols-1 = minmax(0,1fr): sem isso a coluna cresce até o texto mais longo e vaza da tela */}
       <div className="mobile-split grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="mobile-split flex min-w-0 flex-col gap-4">
-          {!isCompanyProfileComplete(tenant) && !tenant?.offer && !tenant?.pitch ? (
+          {!isCompanyProfileComplete(tenant) && !tenant?.offer && !tenant?.offer_file_name && !tenant?.pitch ? (
             <div>
               <div className="card">
                 <EmptyState
@@ -143,7 +144,21 @@ export function CompanyPage() {
           ) : (
             <>
               <Section icon={Building2} title="Sobre a empresa" text={tenant?.about ?? null} />
-              <Section icon={Tags} title="Serviços e preços" text={tenant?.offer ?? null} />
+              {tenant?.offer_file_name ? (
+                <div>
+                  <section className="card p-5 md:p-6">
+                    <h2 className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                      <Tags size={16} className="text-accent-green" />
+                      Serviços e preços
+                    </h2>
+                    <div className="mt-4">
+                      <OfferFileCard tenant={tenant} bare />
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <Section icon={Tags} title="Serviços e preços" text={tenant?.offer ?? null} />
+              )}
               <Section icon={MessageSquareText} title="Estratégia de abordagem" text={tenant?.pitch ?? null} />
             </>
           )}

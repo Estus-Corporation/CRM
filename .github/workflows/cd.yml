@@ -32,7 +32,9 @@ jobs:
       - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
-          context: ./packages/backend
+          # Contexto na raiz: o Dockerfile usa o lockfile dos workspaces npm
+          context: .
+          file: packages/backend/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}/backend:latest
@@ -43,7 +45,8 @@ jobs:
       - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
-          context: ./packages/frontend
+          context: .
+          file: packages/frontend/Dockerfile
           push: true
           build-args: |
             VITE_API_URL=/api/v1

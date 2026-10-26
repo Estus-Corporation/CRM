@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/src/server.js",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
+    "dev": "node scripts/dev.cjs",
     "build": "echo 'no build step needed'",
     "start": "tsx src/server.ts",
     "migrate:latest": "knex --knexfile knexfile.ts migrate:latest",

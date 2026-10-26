@@ -21,6 +21,10 @@ export interface Tenant {
   instagram: string | null;
   website: string | null;
   address: string | null;
+  /** Serviços e preços em arquivo (PDF/DOCX); o conteúdo vem por GET /tenant/offer-file */
+  offer_file_name: string | null;
+  offer_file_mime: string | null;
+  offer_file_size: number | null;
   /** Quem é quem: fundador, cofundador, captadores… */
   key_people: KeyPerson[];
   /** Membros ativos do workspace, o mais antigo primeiro */
@@ -87,4 +91,75 @@ export function useUpdateTenant() {
 /** Perfil mínimo preenchido (tipo de serviço + sobre) — usado pra lembrar o admin de completar */
 export function isCompanyProfileComplete(tenant?: Tenant) {
   return !!tenant?.service_type && !!tenant?.about;
+}
+
+export function useUploadOfferFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => {
+      const form = new FormData();
+      form.append('file', file);
+      // Content-Type explícito: o axios converteria o FormData em JSON por causa do padrão da instância
+      return api
+        .post('/tenant/offer-file', form, { headers: { 'Content-Type': 'multipart/form-data' } })
+        .then((r) => r.data.data as Tenant);
+    },
+    onSuccess: (tenant) => {
+      qc.setQueryData(tenantKeys.current, tenant);
+      qc.removeQueries({ queryKey: ['offer-file'] });
+    },
+    onError: () => toast.error('Não foi possível enviar o arquivo'),
+  });
+}
+
+export function useDeleteOfferFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.delete('/tenant/offer-file').then((r) => r.data.data as Tenant),
+    onSuccess: (tenant) => qc.setQueryData(tenantKeys.current, tenant),
+    onError: () => toast.error('Não foi possível remover o arquivo'),
+  });
+}
+
+/** Conteúdo do arquivo de serviços e preços (a rota exige o token, então vem como blob) */
+export function useOfferFileBlob(tenant?: Tenant) {
+  return useQuery({
+    queryKey: ['offer-file', tenant?.offer_file_name, tenant?.offer_file_size],
+    queryFn: () => api.get('/tenant/offer-file', { responseType: 'blob' }).then((r) => r.data as Blob),
+    enabled: !!tenant?.offer_file_name,
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * Abre o arquivo: PDF numa aba nova, DOCX baixa. Com o blob já carregado (prévia) abre na hora;
+ * senão a aba é aberta antes do download pra não ser barrada como pop-up.
+ */
+export async function openOfferFile(tenant: Tenant, cached?: Blob) {
+  const pdf = tenant.offer_file_mime === 'application/pdf';
+  const show = (blob: Blob, win: Window | null) => {
+    const url = URL.createObjectURL(blob);
+    if (pdf) {
+      if (win) win.location.href = url;
+      else window.open(url, '_blank');
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = tenant.offer_file_name ?? 'servicos-e-precos';
+      a.click();
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+  if (cached) {
+    show(cached, null);
+    return;
+  }
+  const win = pdf ? window.open('', '_blank') : null;
+  try {
+    const res = await api.get('/tenant/offer-file', { responseType: 'blob' });
+    show(res.data as Blob, win);
+  } catch {
+    win?.close();
+    toast.error('Não foi possível abrir o arquivo');
+  }
 }

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { CompanyLogo } from './CompanyLogo';
 import { ImageCropModal } from '@/components/ui/ImageCropModal';
+import { OfferFileField } from './OfferFile';
 
 const SERVICE_SUGGESTIONS = [
   'Agência de marketing',
@@ -32,7 +33,6 @@ const schema = z.object({
   email: z.string().trim().email('E-mail inválido').max(255).or(z.literal('')),
   serviceType: z.string().trim().min(2, 'Diga que tipo de serviço a empresa presta').max(120),
   about: z.string().trim().min(20, 'Escreva pelo menos algumas linhas sobre a empresa').max(20000),
-  offer: z.string().max(20000),
   pitch: z.string().max(20000),
   phone: z.string().trim().max(40),
   instagram: z.string().trim().max(255),
@@ -92,7 +92,7 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
     formState: { errors, isDirty },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: '', email: '', serviceType: '', about: '', offer: '', pitch: '', phone: '', instagram: '', website: '', address: '' },
+    defaultValues: { name: '', email: '', serviceType: '', about: '', pitch: '', phone: '', instagram: '', website: '', address: '' },
   });
 
   // Preenche quando o workspace carrega (e depois de salvar)
@@ -103,7 +103,6 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
       email: tenant.email ?? '',
       serviceType: tenant.service_type ?? '',
       about: tenant.about ?? '',
-      offer: tenant.offer ?? '',
       pitch: tenant.pitch ?? '',
       phone: formatPhone(tenant.phone ?? ''),
       instagram: tenant.instagram ?? '',
@@ -132,7 +131,6 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
       {
         ...data,
         email: data.email || null,
-        offer: data.offer || null,
         pitch: data.pitch || null,
         phone: data.phone || null,
         instagram: data.instagram || null,
@@ -269,15 +267,7 @@ export function CompanyProfileForm({ tenant, submitLabel = 'Salvar', secondaryAc
         hint="É a primeira coisa que a equipe lê para entender o negócio."
         error={errors.about?.message}
       />
-      <TextArea
-        {...register('offer')}
-        id="company-offer"
-        label="Serviços e preços"
-        rows={5}
-        placeholder={'Ex.:\n• Plano Essencial — R$ 990/mês: …\n• Plano Completo — R$ 1.990/mês: …\n• Condições: desconto à vista, fidelidade…'}
-        hint="O que o cliente compra e quanto custa. Ajuda o captador a responder na hora."
-        error={errors.offer?.message}
-      />
+      <OfferFileField tenant={tenant} />
       <TextArea
         {...register('pitch')}
         id="company-pitch"

@@ -42,6 +42,8 @@ const PUBLIC_COLUMNS = [
   'id', 'name', 'slug', 'plan', 'max_users', 'created_at',
   'service_type', 'about', 'offer', 'pitch', 'logo_url', 'email', 'key_people',
   'phone', 'instagram', 'website', 'address',
+  // Arquivo de serviços e preços: só os dados dele (o conteúdo vem por GET /tenant/offer-file)
+  'offer_file_name', 'offer_file_mime', 'offer_file_size',
 ];
 
 /** Membros ativos do workspace (foto, papel, desde quando) — o mais antigo primeiro */
@@ -79,5 +81,43 @@ export async function updateTenant(tenantId: string, input: z.infer<typeof updat
   if (input.keyPeople !== undefined) updates.key_people = JSON.stringify(input.keyPeople);
 
   await db('tenants').where({ id: tenantId }).update(updates);
+  return getTenant(tenantId);
+}
+
+// ── Arquivo de serviços e preços (PDF/DOCX) ─────────────────────────────────
+
+export const OFFER_FILE_TYPES: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+};
+
+export async function setOfferFile(tenantId: string, file: { buffer: Buffer; mimetype: string; originalname: string; size: number }) {
+  await db('tenants').where({ id: tenantId }).update({
+    offer_file_data: file.buffer,
+    offer_file_mime: file.mimetype,
+    // multer entrega o nome em latin1; converte pra manter acentos
+    offer_file_name: Buffer.from(file.originalname, 'latin1').toString('utf8').slice(0, 255),
+    offer_file_size: file.size,
+    updated_at: new Date(),
+  });
+  return getTenant(tenantId);
+}
+
+export async function getOfferFile(tenantId: string) {
+  const row = await db('tenants')
+    .where({ id: tenantId })
+    .first('offer_file_data', 'offer_file_mime', 'offer_file_name');
+  if (!row?.offer_file_data) return null;
+  return { data: row.offer_file_data as Buffer, mime: row.offer_file_mime as string, name: row.offer_file_name as string };
+}
+
+export async function deleteOfferFile(tenantId: string) {
+  await db('tenants').where({ id: tenantId }).update({
+    offer_file_data: null,
+    offer_file_mime: null,
+    offer_file_name: null,
+    offer_file_size: null,
+    updated_at: new Date(),
+  });
   return getTenant(tenantId);
 }
