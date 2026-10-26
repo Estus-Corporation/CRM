@@ -36,6 +36,7 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
 
   if (captadores.length === 0) {
     return (
+      <div>
       <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={listSpring}>
         <EmptyState
           icon={Users}
@@ -44,11 +45,13 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
           action={isAdmin ? { label: 'Adicionar captador', onClick: onNewCaptador } : undefined}
         />
       </motion.div>
+      </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    // mobile-split: no celular cada parte vira um bloco translúcido separado (ver globals.css)
+    <div className="mobile-split space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="card p-4">
           <p className="text-xs font-medium text-text-secondary">Reuniões marcadas</p>
@@ -69,6 +72,7 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
         </div>
       </div>
 
+      <div>
       <DataList outlined={false}>
         <DataListHead grid={GRID}>
           <span>Captador</span>
@@ -130,6 +134,7 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
           ))}
         </DataListBody>
       </DataList>
+      </div>
     </div>
   );
 }

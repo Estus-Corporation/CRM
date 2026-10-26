@@ -8,7 +8,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { TopbarSearch } from '@/components/search/TopbarSearch';
 import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 import { ThemeToggle } from './ThemeToggle';
-import { FolderGlassToggle } from './FolderGlassToggle';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { dropdownMotion } from '@/lib/motion';
@@ -96,7 +95,6 @@ export function Topbar() {
         <div className="force-dark sidebar-ink flex h-[52px] flex-shrink-0 -translate-y-1 items-center gap-1.5 self-center">
           {/* No celular não cabem junto da busca. Notificações ficam na caixa de entrada do menu lateral */}
           <div className="hidden items-center gap-1.5 sm:flex">
-            <FolderGlassToggle />
             <ThemeToggle />
           </div>
 

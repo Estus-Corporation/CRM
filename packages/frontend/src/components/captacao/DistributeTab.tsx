@@ -71,7 +71,8 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
   };
 
   return (
-    <div className="space-y-4">
+    // mobile-split: no celular cada parte vira um bloco translúcido separado (ver globals.css)
+    <div className="mobile-split space-y-4">
       {/* Distribuição automática: só informa a regra; o número fica na engrenagem da Captação */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-fg/[0.03] px-4 py-3 text-sm text-text-secondary">
         <Shuffle size={15} className={leadsPerDay > 0 ? 'text-accent-green' : 'text-text-muted'} />
@@ -138,6 +139,7 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
         </div>
       </div>
 
+      <div>
       {isLoading ? (
         <DataListSkeleton grid={GRID} cells={3} />
       ) : contacts.length === 0 ? (
@@ -194,6 +196,7 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
           </DataListBody>
         </DataList>
       )}
+      </div>
 
       {data && data.meta.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm text-text-muted">

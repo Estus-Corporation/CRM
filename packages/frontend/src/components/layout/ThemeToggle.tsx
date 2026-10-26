@@ -1,14 +1,18 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Moon, Sun } from 'lucide-react';
-import { applyTheme, useThemeStore } from '@/store/themeStore';
+import { applyTheme, useTheme, useThemeStore } from '@/store/themeStore';
+import { useAuthStore } from '@/store/authStore';
 
 export function ThemeToggle() {
-  const { theme, toggleTheme } = useThemeStore();
+  const theme = useTheme();
+  const setTheme = useThemeStore((s) => s.setTheme);
+  const userId = useAuthStore((s) => s.user?.id);
   const isDark = theme === 'dark';
 
   const handleClick = () => {
-    applyTheme(isDark ? 'light' : 'dark', true);
-    toggleTheme();
+    const next = isDark ? 'light' : 'dark';
+    applyTheme(next, true);
+    if (userId) setTheme(userId, next);
   };
 
   return (

@@ -7,6 +7,7 @@ import { useCaptacaoSettings, useUpdateCaptacaoSettings } from '@/hooks/useCapta
 import type { CaptacaoSettings } from '@/services/captacao.service';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { SelectDropdown } from '@/components/ui/SelectDropdown';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { CaptadoresTab } from '@/components/captacao/CaptadoresTab';
@@ -112,7 +113,8 @@ export function CaptacaoPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   return (
-    <div className="space-y-5">
+    // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
+    <div className="mobile-sections space-y-5 max-md:space-y-3">
       <PageHeader
         title="Captação"
         subtitle="Distribua leads, acompanhe as ligações e controle as comissões"
@@ -156,6 +158,7 @@ export function CaptacaoPage() {
 
       {/* Captador aprende o que vender em "Sobre a empresa": lembra o admin enquanto estiver vazio */}
       {isAdmin && tenant && !isCompanyProfileComplete(tenant) && (
+        <div>
         <div className="card flex flex-wrap items-center gap-3 border-accent-amber/30 p-4">
           <Building2 size={18} className="flex-shrink-0 text-accent-amber" />
           <p className="min-w-[220px] flex-1 text-sm text-text-secondary">
@@ -166,9 +169,14 @@ export function CaptacaoPage() {
             Preencher agora
           </Button>
         </div>
+        </div>
       )}
 
-      <SegmentedControl layoutId="captacao-tabs" options={TABS} value={tab} onChange={setTab} />
+      {/* Abas: segmentado no desktop, dropdown no celular (sem rolagem lateral) */}
+      <div>
+        <SegmentedControl layoutId="captacao-tabs" options={TABS} value={tab} onChange={setTab} className="max-md:hidden" />
+        <SelectDropdown title="Seção" options={TABS} value={tab} onChange={setTab} className="w-full md:hidden" />
+      </div>
 
       {tab === 'team' && (
         <CaptadoresTab

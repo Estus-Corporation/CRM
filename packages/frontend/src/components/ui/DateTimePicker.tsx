@@ -305,6 +305,8 @@ interface DateTimePickerProps {
   placeholder?: string;
   className?: string;
   modalTitle?: string;
+  /** Substitui o campo padrão por um gatilho próprio (o modal continua o mesmo) */
+  renderTrigger?: (props: { open: () => void; date: Date | null }) => React.ReactNode;
 }
 
 export function DateTimePicker({
@@ -314,6 +316,7 @@ export function DateTimePicker({
   placeholder = 'Selecionar data e hora',
   className,
   modalTitle,
+  renderTrigger,
 }: DateTimePickerProps) {
   const [open, setOpen] = useState(false);
   const parsed = parseLocalInput(value);
@@ -330,6 +333,7 @@ export function DateTimePicker({
       )}
 
       {/* Trigger button */}
+      {renderTrigger ? renderTrigger({ open: () => setOpen(true), date: parsed }) : (
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -352,6 +356,7 @@ export function DateTimePicker({
           </span>
         )}
       </button>
+      )}
 
       {/* Modal */}
       <AnimatePresence>

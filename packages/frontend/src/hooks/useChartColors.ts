@@ -1,4 +1,4 @@
-import { useThemeStore } from '@/store/themeStore';
+import { useTheme } from '@/store/themeStore';
 
 // Recharts passa cores como atributos SVG, que não resolvem var(--x) — por isso os valores
 // ficam aqui, espelhando as variáveis de globals.css.
@@ -30,6 +30,6 @@ const PALETTE = {
 } as const;
 
 export function useChartColors() {
-  const theme = useThemeStore((s) => s.theme);
+  const theme = useTheme();
   return PALETTE[theme];
 }

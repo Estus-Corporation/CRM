@@ -120,7 +120,8 @@ export function ContactsPage() {
   };
 
   return (
-    <div className="space-y-5">
+    // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
+    <div className="mobile-sections space-y-5 max-md:space-y-3">
       <PageHeader
         title="Contatos"
         subtitle={`${data?.meta?.total ?? 0} no total`}
@@ -184,7 +185,8 @@ export function ContactsPage() {
         </div>
       </div>
 
-      {/* Lista: card único com o padrão compartilhado (DataList) */}
+      {/* Lista: card único com o padrão compartilhado (DataList); div = bloco no celular */}
+      <div>
       {isLoading ? (
         <DataListSkeleton grid={ROW_GRID} cells={3} />
       ) : contacts.length === 0 ? (
@@ -278,6 +280,7 @@ export function ContactsPage() {
           </DataListBody>
         </DataList>
       )}
+      </div>
 
       {/* Pagination hint */}
       {data?.meta && data.meta.totalPages > 1 && (

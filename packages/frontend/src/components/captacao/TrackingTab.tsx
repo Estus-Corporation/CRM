@@ -153,7 +153,8 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
   const resetPage = () => setPage(1);
 
   return (
-    <div className="space-y-4">
+    // mobile-split: no celular cada parte vira um bloco translúcido separado (ver globals.css)
+    <div className="mobile-split space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <SegmentedControl
           layoutId="tracking-outcome"
@@ -210,6 +211,7 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
         </div>
       </div>
 
+      <div>
       {isLoading ? (
         <DataListSkeleton grid={GRID} cells={4} />
       ) : rows.length === 0 ? (
@@ -266,6 +268,7 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
           </DataListBody>
         </DataList>
       )}
+      </div>
 
       {data && data.meta.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm text-text-muted">

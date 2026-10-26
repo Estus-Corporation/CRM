@@ -301,7 +301,8 @@ export function PipelinePage() {
   const visibleStages = isMobile && mobileStage ? [mobileStage] : localStages;
 
   return (
-    <div className="space-y-4 flex-1 flex flex-col">
+    // mobile-sections: no celular cabeçalho, etapas e kanban viram blocos translúcidos (ver globals.css)
+    <div className="mobile-sections space-y-4 flex-1 flex flex-col max-md:space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold text-text-primary">Pipeline</h1>

@@ -1,9 +1,10 @@
 import { forwardRef, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import {
-  Building2, CalendarClock, CheckCircle2, Globe, Info, Instagram, Lock, Mail, MapPin, Pencil, Phone, Star, Trophy, Video,
+  Building2, CalendarClock, CalendarPlus, Check, CheckCircle2, Globe, Info, Instagram, Link2, Lock, Mail, MapPin, Pencil, Phone, Star, Trophy, Video,
 } from 'lucide-react';
 import { useUpdateMyLead } from '@/hooks/useCaptacao';
 import type { CallStatus, MeetingMode, MyLead } from '@/services/captacao.service';
@@ -24,6 +25,11 @@ import { GoogleIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { Button } from '@/components/ui/Button';
 import { listSpring } from '@/components/ui/DataList';
 import { cn } from '@/lib/utils';
+
+const MEETING_MODES = [
+  { value: 'online', label: 'Online', hint: 'Videochamada', icon: Video },
+  { value: 'presencial', label: 'Presencial', hint: 'Encontro no local', icon: MapPin },
+] as const;
 
 /** Botão-ícone de atalho (WhatsApp, Instagram, Google, site): abre direto no perfil/página do lead */
 function QuickLink({
@@ -331,47 +337,130 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index: number 
               })}
             </div>
 
-            {/* Reunião marcada: quando e como */}
-            {isMeeting && (
-              <div className="mt-3 grid gap-3 rounded-xl border border-accent-green/20 bg-accent-green/[0.04] p-3 sm:grid-cols-2">
-                <DateTimePicker
-                  label="Dia e horário *"
-                  value={meetingAt}
-                  onChange={setMeetingAt}
-                  modalTitle="Data da reunião"
-                />
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs font-medium text-text-secondary">Formato *</span>
-                  <div className="flex gap-2">
-                    {(['online', 'presencial'] as const).map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        onClick={() => setMeetingMode(m)}
-                        className={cn(
-                          'flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg border text-[13px] font-medium transition-colors',
-                          meetingMode === m
-                            ? 'border-transparent bg-accent-green/15 text-accent-green'
-                            : 'border-fg/[0.08] text-text-secondary hover:border-fg/[0.16] hover:text-text-primary',
+            {/* Reunião marcada: quando (gatilho em formato de "folha de calendário") e como */}
+            <AnimatePresence initial={false}>
+              {isMeeting && (
+                <motion.div
+                  key="meeting"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ type: 'spring', visualDuration: 0.32, bounce: 0.1 }}
+                  className="overflow-hidden"
+                >
+                  <div className="mt-3 rounded-2xl border border-accent-green/20 bg-gradient-to-br from-accent-green/[0.08] via-accent-green/[0.03] to-transparent p-4">
+                    <div className="mb-3.5 flex items-center gap-2.5">
+                      <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent-green/15 text-accent-green">
+                        <CalendarClock size={16} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-text-primary">Agendar reunião</p>
+                        <p className="text-xs text-text-muted">Quando e como vai ser a conversa</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
+                      <DateTimePicker
+                        value={meetingAt}
+                        onChange={setMeetingAt}
+                        modalTitle="Data da reunião"
+                        renderTrigger={({ open, date }) => (
+                          <button
+                            type="button"
+                            onClick={open}
+                            className={cn(
+                              'group flex h-[76px] w-full items-center gap-3 rounded-xl border px-3 text-left transition-colors',
+                              date
+                                ? 'border-fg/[0.08] bg-field hover:border-accent-green/40'
+                                : 'border-dashed border-fg/[0.16] hover:border-accent-green/50 hover:bg-accent-green/[0.04]',
+                            )}
+                          >
+                            {date ? (
+                              <>
+                                <span className="flex h-[52px] w-12 flex-shrink-0 flex-col overflow-hidden rounded-lg bg-bg-surface text-center shadow-sm ring-1 ring-fg/[0.06]">
+                                  <span className="bg-accent-green py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--on-accent))]">
+                                    {format(date, 'MMM', { locale: ptBR }).replace('.', '')}
+                                  </span>
+                                  <span className="flex flex-1 items-center justify-center text-lg font-bold tabular-nums text-text-primary">
+                                    {format(date, 'd')}
+                                  </span>
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-[13px] capitalize text-text-secondary">
+                                    {format(date, 'EEEE', { locale: ptBR })}
+                                  </span>
+                                  <span className="block text-lg font-semibold leading-tight tabular-nums text-text-primary">
+                                    {format(date, 'HH:mm')}
+                                  </span>
+                                </span>
+                                <Pencil size={13} className="flex-shrink-0 text-text-muted transition-colors group-hover:text-accent-green" />
+                              </>
+                            ) : (
+                              <>
+                                <span className="flex h-[52px] w-12 flex-shrink-0 items-center justify-center rounded-lg bg-fg/[0.05] text-text-muted transition-colors group-hover:text-accent-green">
+                                  <CalendarPlus size={20} />
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-medium text-text-primary">Escolher dia e horário</span>
+                                  <span className="block text-xs text-text-muted">Obrigatório</span>
+                                </span>
+                              </>
+                            )}
+                          </button>
                         )}
-                      >
-                        {m === 'online' ? <Video size={14} /> : <MapPin size={14} />}
-                        {m === 'online' ? 'Online' : 'Presencial'}
-                      </button>
-                    ))}
+                      />
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {MEETING_MODES.map(({ value, label, hint, icon: Icon }) => {
+                          const active = meetingMode === value;
+                          return (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => setMeetingMode(value)}
+                              aria-pressed={active}
+                              className={cn(
+                                'relative flex h-[76px] min-w-0 flex-col justify-center gap-1 rounded-xl border px-3 text-left transition-colors',
+                                active ? 'border-accent-green/60 bg-accent-green/[0.12]' : 'border-fg/[0.08] bg-field hover:border-fg/[0.18]',
+                              )}
+                            >
+                              <Icon size={17} className={active ? 'text-accent-green' : 'text-text-muted'} />
+                              <span className={cn('text-[13px] font-semibold', active ? 'text-text-primary' : 'text-text-secondary')}>{label}</span>
+                              <span className="truncate text-[11px] text-text-muted">{hint}</span>
+                              {active && (
+                                <motion.span
+                                  layoutId={`meeting-check-${lead.id}`}
+                                  className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-[rgb(var(--on-accent))]"
+                                >
+                                  <Check size={10} strokeWidth={3} />
+                                </motion.span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {meetingMode && (
+                      <div className="relative mt-3">
+                        {meetingMode === 'online' ? (
+                          <Link2 size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                        ) : (
+                          <MapPin size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
+                        )}
+                        <input
+                          value={meetingLocation}
+                          onChange={(e) => setMeetingLocation(e.target.value)}
+                          maxLength={500}
+                          placeholder={meetingMode === 'online' ? 'Link da chamada (Meet, Zoom, WhatsApp…) — opcional' : 'Endereço da reunião — opcional'}
+                          className="input-base h-11 pl-10 text-sm"
+                        />
+                      </div>
+                    )}
                   </div>
-                </div>
-                {meetingMode && (
-                  <input
-                    value={meetingLocation}
-                    onChange={(e) => setMeetingLocation(e.target.value)}
-                    maxLength={500}
-                    placeholder={meetingMode === 'online' ? 'Link da chamada (Meet, Zoom, WhatsApp…)' : 'Endereço da reunião'}
-                    className="input-base h-10 text-sm sm:col-span-2"
-                  />
-                )}
-              </div>
-            )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <textarea
               value={notes}

@@ -12,8 +12,7 @@ import { UpgradeModal } from '@/components/billing/UpgradeModal';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SilkShader } from '@/components/ui/SilkShader';
 import { useTenant } from '@/hooks/useTenant';
-import { applyTheme, useThemeStore } from '@/store/themeStore';
-import { useUIStore } from '@/store/uiStore';
+import { applyTheme, useTheme } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
 
@@ -34,7 +33,7 @@ export function AppShell() {
   const redirectTo = roleRedirect(role, pathname);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   useTenant();
-  const theme = useThemeStore((s) => s.theme);
+  const theme = useTheme();
 
   // Tema vale só dentro do app: landing e telas de login seguem sempre escuras
   useLayoutEffect(() => {
@@ -42,12 +41,6 @@ export function AppShell() {
   }, [theme]);
   useLayoutEffect(() => () => applyTheme('dark'), []);
 
-  // Pasta translúcida: classe no <html> troca --folder-alpha (ver .folder-surface em globals.css)
-  const folderGlass = useUIStore((s) => s.folderGlass);
-  useLayoutEffect(() => {
-    document.documentElement.classList.toggle('folder-glass', folderGlass);
-    return () => document.documentElement.classList.remove('folder-glass');
-  }, [folderGlass]);
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-[#03120E]">
