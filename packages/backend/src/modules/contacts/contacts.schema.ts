@@ -11,6 +11,15 @@ export const createContactSchema = z.object({
   jobTitle: z.string().max(255).optional(),
   source: z.string().max(100).optional(),
   niche: z.string().max(100).optional(),
+  // Dados de prospecção (LeadHunter / planilha)
+  address: z.string().max(500).optional(),
+  mapsUrl: z.string().max(1000).optional(),
+  instagram: z.string().max(255).optional(),
+  website: z.string().max(500).optional(),
+  googleRating: z.coerce.number().min(0).max(5).optional(),
+  googleReviews: z.coerce.number().int().min(0).optional(),
+  // Contexto da empresa pro captador saber com quem fala
+  leadContext: z.string().max(5000).optional(),
   tags: z.array(z.string()).optional(),
   ownerId: z.string().uuid().optional(),
   customFields: z.record(z.unknown()).optional(),

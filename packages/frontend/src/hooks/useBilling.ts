@@ -1,11 +1,12 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { billingService } from '@/services/billing.service';
 
-export function useBilling() {
+export function useBilling({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ['billing', 'subscription'],
     queryFn: billingService.getSubscription,
     staleTime: 5 * 60 * 1000,
+    enabled,
   });
 }
 

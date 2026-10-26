@@ -35,50 +35,56 @@ export function DashboardPage() {
   const contactCount = isFree ? (contactsData?.meta?.total ?? 0) : 0;
 
   return (
-    <div className="space-y-5">
+    // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
+    <div className="mobile-sections space-y-5 max-md:space-y-3">
       <div className="pt-1">
-        <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-text-primary">
-          Olá, {user?.full_name?.split(' ')[0]}
-        </h1>
+        <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-text-primary">Olá, {user?.full_name?.split(' ')[0]}</h1>
         <p className="mt-1 text-[14px] text-text-secondary">Resumo do seu workspace hoje</p>
       </div>
 
       {isFree && contactCount > 0 && (
-        <div className="card px-5 py-4 flex items-center justify-between gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="text-xs text-text-secondary">
-                Contatos usados — plano Free
-              </p>
-              <p className="text-xs font-medium text-text-secondary">
-                {contactCount} / {FREE_CONTACT_LIMIT}
-              </p>
+        <div>
+          <div className="card px-5 py-4 flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs text-text-secondary">Contatos usados — plano Free</p>
+                <p className="text-xs font-medium text-text-secondary">
+                  {contactCount} / {FREE_CONTACT_LIMIT}
+                </p>
+              </div>
+              <div className="h-1.5 bg-fg/[0.06] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min((contactCount / FREE_CONTACT_LIMIT) * 100, 100)}%`,
+                    backgroundColor:
+                      contactCount >= FREE_CONTACT_LIMIT
+                        ? 'rgb(var(--status-lost))'
+                        : contactCount >= FREE_CONTACT_LIMIT * 0.8
+                          ? 'rgb(var(--accent-amber))'
+                          : 'rgb(var(--accent-green))',
+                  }}
+                />
+              </div>
             </div>
-            <div className="h-1.5 bg-fg/[0.06] rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.min((contactCount / FREE_CONTACT_LIMIT) * 100, 100)}%`,
-                  backgroundColor: contactCount >= FREE_CONTACT_LIMIT ? 'rgb(var(--status-lost))' : contactCount >= FREE_CONTACT_LIMIT * 0.8 ? 'rgb(var(--accent-amber))' : 'rgb(var(--accent-green))',
-                }}
-              />
-            </div>
+            {contactCount >= FREE_CONTACT_LIMIT * 0.8 && (
+              <button
+                onClick={() => showUpgrade('starter')}
+                className="text-xs font-medium text-accent-green hover:underline whitespace-nowrap flex-shrink-0"
+              >
+                Fazer upgrade
+              </button>
+            )}
           </div>
-          {contactCount >= FREE_CONTACT_LIMIT * 0.8 && (
-            <button
-              onClick={() => showUpgrade('starter')}
-              className="text-xs font-medium text-accent-green hover:underline whitespace-nowrap flex-shrink-0"
-            >
-              Fazer upgrade
-            </button>
-          )}
         </div>
       )}
 
       {kpisLoading ? (
-        <div className="flex justify-center py-8"><Spinner /></div>
+        <div className="flex justify-center py-8">
+          <Spinner />
+        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <KpiCard
             label="Ganhos no mês"
             icon={Trophy}
@@ -97,25 +103,35 @@ export function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="card p-5">
-          <p className="text-[15px] font-medium text-text-primary mb-4">Receita ao longo do tempo</p>
-          <RevenueChart data={revenue ?? []} />
+      {/* mobile-split: no celular cada gráfico tem o próprio bloco (cada div = bloco, card dentro) */}
+      <div className="mobile-split grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+        <div>
+          <div className="card h-full p-5">
+            <p className="mb-4 text-[17px] font-semibold text-text-primary sm:text-[15px] sm:font-medium">
+              Receita ao longo do tempo
+            </p>
+            <RevenueChart data={revenue ?? []} />
+          </div>
         </div>
-        <div className="card p-5">
-          <p className="text-[15px] font-medium text-text-primary mb-4">Funil do pipeline</p>
-          <FunnelChart data={funnel ?? []} />
+        <div>
+          <div className="card h-full p-5">
+            <p className="mb-4 text-[17px] font-semibold text-text-primary sm:text-[15px] sm:font-medium">Funil do pipeline</p>
+            <FunnelChart data={funnel ?? []} />
+          </div>
         </div>
       </div>
 
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[15px] font-medium text-text-primary">Atividades recentes</p>
-          <Link to="/calendar" className="text-xs font-medium text-accent-green hover:underline">
-            Ver todas
-          </Link>
+      {/* div: no celular vira o bloco translúcido e o card fica dentro (ver .mobile-sections) */}
+      <div>
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[17px] font-semibold text-text-primary sm:text-[15px] sm:font-medium">Atividades recentes</p>
+            <Link to="/calendar" className="text-xs font-medium text-accent-green hover:underline">
+              Ver todas
+            </Link>
+          </div>
+          <ActivityFeed activities={activitiesData?.data ?? []} />
         </div>
-        <ActivityFeed activities={activitiesData?.data ?? []} />
       </div>
     </div>
   );

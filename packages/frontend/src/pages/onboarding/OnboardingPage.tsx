@@ -3,24 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Kanban, UserPlus, ArrowRight, Check } from 'lucide-react';
+import { Building2, Kanban, UserPlus, ArrowRight, Check } from 'lucide-react';
 import { api } from '@/services/api';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { LogoIcon } from '@/components/ui/LogoIcon';
+import { CompanyProfileForm } from '@/components/company/CompanyProfileForm';
+import { AddMemberModal } from '@/components/team/AddMemberModal';
+import { useTenant } from '@/hooks/useTenant';
+import { useUsers } from '@/hooks/useUsers';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const pipelineSchema = z.object({
   pipelineName: z.string().min(1, 'Nome do pipeline é obrigatório').max(80),
 });
 
-const inviteSchema = z.object({
-  email: z.string().email('Digite um e-mail válido'),
-  fullName: z.string().min(2, 'Nome é obrigatório'),
-});
-
 type PipelineForm = z.infer<typeof pipelineSchema>;
-type InviteForm = z.infer<typeof inviteSchema>;
 
 const DEFAULT_STAGES = [
   { name: 'Prospecção', color: '#8A90A0' },
@@ -29,20 +28,37 @@ const DEFAULT_STAGES = [
   { name: 'Fechamento', color: '#4FD69C' },
 ];
 
+const STEPS = [1, 2, 3] as const;
+type Step = (typeof STEPS)[number];
+
+function StepHeader({ icon: Icon, title, subtitle }: { icon: typeof Kanban; title: string; subtitle: string }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-accent-green/10">
+        <Icon size={20} className="text-accent-green" />
+      </div>
+      <div>
+        <h1 className="text-lg font-semibold text-text-primary">{title}</h1>
+        <p className="text-sm text-text-secondary">{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+/** Pós-cadastro: 1) perfil da empresa  2) primeiro pipeline  3) equipe (opcional) */
 export function OnboardingPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<Step>(1);
   const [pipelineId, setPipelineId] = useState<string | null>(null);
   const [creatingPipeline, setCreatingPipeline] = useState(false);
-  const [inviteSent, setInviteSent] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const { data: tenant } = useTenant();
+  const { data: users } = useUsers();
+  const teamSize = users?.data.length ?? 1;
 
   const pipelineForm = useForm<PipelineForm>({
     resolver: zodResolver(pipelineSchema),
     defaultValues: { pipelineName: 'Pipeline de Vendas' },
-  });
-
-  const inviteForm = useForm<InviteForm>({
-    resolver: zodResolver(inviteSchema),
   });
 
   const handleCreatePipeline = async (data: PipelineForm) => {
@@ -65,25 +81,11 @@ export function OnboardingPage() {
         });
       }
 
-      setStep(2);
+      setStep(3);
     } catch {
       toast.error('Erro ao criar pipeline. Tente novamente.');
     } finally {
       setCreatingPipeline(false);
-    }
-  };
-
-  const handleInvite = async (data: InviteForm) => {
-    try {
-      await api.post('/users/invite', {
-        email: data.email,
-        fullName: data.fullName,
-        role: 'seller',
-      });
-      setInviteSent(true);
-      toast.success(`Convite enviado para ${data.email}`);
-    } catch {
-      toast.error('Erro ao enviar convite.');
     }
   };
 
@@ -92,46 +94,57 @@ export function OnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center bg-bg-primary p-4">
+      {/* O passo da empresa tem textos longos: card mais largo */}
+      <div className={cn('w-full py-8', step === 1 ? 'max-w-2xl' : 'max-w-md')}>
         {/* Header */}
-        <div className="flex items-center gap-2 mb-8 justify-center">
+        <div className="mb-8 flex items-center justify-center gap-2">
           <LogoIcon size={22} />
           <span className="text-xl font-bold text-text-primary">TitanFlow</span>
         </div>
 
         {/* Progress */}
-        <div className="flex items-center gap-2 mb-8">
-          {[1, 2].map((s) => (
-            <div key={s} className="flex items-center gap-2 flex-1">
-              <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold flex-shrink-0 ${
-                step > s
-                  ? 'bg-accent-green text-bg-darker'
-                  : step === s
-                  ? 'bg-accent-green text-bg-darker'
-                  : 'bg-bg-border text-text-muted'
-              }`}>
+        <div className="mx-auto mb-8 flex max-w-md items-center gap-2">
+          {STEPS.map((s) => (
+            <div key={s} className={cn('flex items-center gap-2', s < STEPS.length && 'flex-1')}>
+              <div
+                className={cn(
+                  'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold',
+                  step >= s ? 'bg-accent-green text-bg-darker' : 'bg-bg-border text-text-muted',
+                )}
+              >
                 {step > s ? <Check size={14} /> : s}
               </div>
-              {s < 2 && (
-                <div className={`h-px flex-1 ${step > s ? 'bg-accent-green' : 'bg-bg-border'}`} />
-              )}
+              {s < STEPS.length && <div className={cn('h-px flex-1', step > s ? 'bg-accent-green' : 'bg-bg-border')} />}
             </div>
           ))}
         </div>
 
-        {/* Step 1 — Pipeline */}
+        {/* Step 1 — Empresa */}
         {step === 1 && (
-          <div className="card p-6 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center">
-                <Kanban size={20} className="text-accent-green" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-text-primary">Seu primeiro pipeline</h1>
-                <p className="text-sm text-text-secondary">Como você quer chamar seu funil de vendas?</p>
-              </div>
-            </div>
+          <div className="card space-y-5 p-6">
+            <StepHeader
+              icon={Building2}
+              title="Conte sobre a sua empresa"
+              subtitle="Sua equipe vai ler isso em “Sobre a empresa” para entender o que vender e como abordar."
+            />
+            <CompanyProfileForm
+              tenant={tenant}
+              submitLabel="Continuar"
+              onSaved={() => setStep(2)}
+              secondaryAction={
+                <Button type="button" variant="ghost" onClick={() => setStep(2)}>
+                  Preencher depois
+                </Button>
+              }
+            />
+          </div>
+        )}
+
+        {/* Step 2 — Pipeline */}
+        {step === 2 && (
+          <div className="card space-y-5 p-6">
+            <StepHeader icon={Kanban} title="Seu primeiro pipeline" subtitle="Como você quer chamar seu funil de vendas?" />
 
             <form onSubmit={pipelineForm.handleSubmit(handleCreatePipeline)} className="space-y-4">
               <Input
@@ -149,7 +162,7 @@ export function OnboardingPage() {
                   {DEFAULT_STAGES.map((s) => (
                     <span
                       key={s.name}
-                      className="text-xs px-2 py-1 rounded-full border"
+                      className="rounded-full border px-2 py-1 text-xs"
                       style={{ borderColor: s.color, color: s.color, backgroundColor: `${s.color}15` }}
                     >
                       {s.name}
@@ -159,7 +172,9 @@ export function OnboardingPage() {
               </div>
 
               <Button type="submit" className="w-full" disabled={creatingPipeline}>
-                {creatingPipeline ? 'Criando…' : (
+                {creatingPipeline ? (
+                  'Criando…'
+                ) : (
                   <span className="flex items-center gap-2">
                     Continuar <ArrowRight size={16} />
                   </span>
@@ -169,69 +184,40 @@ export function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 2 — Invite */}
-        {step === 2 && (
-          <div className="card p-6 space-y-5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-accent-green/10 flex items-center justify-center">
-                <UserPlus size={20} className="text-accent-green" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-text-primary">Convide seu time</h1>
-                <p className="text-sm text-text-secondary">Opcional — você pode fazer isso depois nas configurações.</p>
-              </div>
-            </div>
+        {/* Step 3 — Equipe */}
+        {step === 3 && (
+          <div className="card space-y-5 p-6">
+            <StepHeader
+              icon={UserPlus}
+              title="Monte sua equipe"
+              subtitle="Opcional — você pode fazer isso depois em Configurações."
+            />
 
-            {!inviteSent ? (
-              <form onSubmit={inviteForm.handleSubmit(handleInvite)} className="space-y-4">
-                <Input
-                  {...inviteForm.register('fullName')}
-                  id="fullName"
-                  label="Nome"
-                  placeholder="Maria Oliveira"
-                  error={inviteForm.formState.errors.fullName?.message}
-                />
-                <Input
-                  {...inviteForm.register('email')}
-                  id="email"
-                  type="email"
-                  label="E-mail"
-                  placeholder="maria@empresa.com"
-                  error={inviteForm.formState.errors.email?.message}
-                />
-                <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="flex-1"
-                    onClick={handleFinish}
-                  >
-                    Pular
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1"
-                    disabled={inviteForm.formState.isSubmitting}
-                  >
-                    {inviteForm.formState.isSubmitting ? 'Enviando…' : 'Enviar convite'}
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-accent-green/10 border border-accent-green/20">
-                  <Check size={18} className="text-accent-green flex-shrink-0" />
-                  <p className="text-sm text-text-primary">
-                    Convite enviado com sucesso!
-                  </p>
-                </div>
-                <Button className="w-full" onClick={handleFinish}>
-                  <span className="flex items-center gap-2">
-                    Ir para o pipeline <ArrowRight size={16} />
-                  </span>
-                </Button>
+            <p className="text-sm text-text-secondary">
+              Adicione vendedores ou captadores pelo e-mail da conta deles no TitanFlow. Quem ainda não tem conta recebe o link para se cadastrar.
+            </p>
+            {teamSize > 1 && (
+              <div className="flex items-center gap-3 rounded-lg border border-accent-green/20 bg-accent-green/10 px-4 py-3">
+                <Check size={18} className="flex-shrink-0 text-accent-green" />
+                <p className="text-sm text-text-primary">
+                  {teamSize - 1} pessoa{teamSize - 1 !== 1 ? 's' : ''} na equipe além de você
+                </p>
               </div>
             )}
+
+            <div className="flex gap-3">
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => setAddOpen(true)}>
+                <UserPlus size={15} />
+                Adicionar alguém
+              </Button>
+              <Button className="flex-1" onClick={handleFinish}>
+                <span className="flex items-center gap-2">
+                  {teamSize > 1 ? 'Concluir' : 'Pular'} <ArrowRight size={16} />
+                </span>
+              </Button>
+            </div>
+
+            <AddMemberModal open={addOpen} onClose={() => setAddOpen(false)} />
           </div>
         )}
       </div>

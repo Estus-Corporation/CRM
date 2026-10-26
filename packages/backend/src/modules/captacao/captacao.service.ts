@@ -1,0 +1,543 @@
+import type { Knex } from 'knex';
+import { db } from '../../db';
+import { getPaginationParams, paginatedResponse } from '../../shared/utils/paginate';
+import { createNotification } from '../notifications/notifications.service';
+import type {
+  UpdateMyLeadInput,
+  MyLeadsQuery,
+  AssignLeadsInput,
+  AvailableContactsQuery,
+  AssignmentsQuery,
+  CloseAssignmentInput,
+  CreateLeadInput,
+} from './captacao.schema';
+import { createContact } from '../contacts/contacts.service';
+
+// "Hoje" no fuso do Brasil — o servidor e o banco rodam em UTC
+const TODAY = db.raw("(now() AT TIME ZONE 'America/Sao_Paulo')::date");
+
+function httpError(message: string, status: number, code?: string) {
+  return Object.assign(new Error(message), { status, code });
+}
+
+/** Contatos ainda sem captador (clientes ficam de fora: já fecharam) */
+function availableContactsBase(tenantId: string) {
+  return db('contacts as c')
+    .where('c.tenant_id', tenantId)
+    .whereNot('c.type', 'client')
+    .whereNotExists(
+      db('lead_assignments as a').whereRaw('a.contact_id = c.id').andWhere('a.tenant_id', tenantId),
+    );
+}
+
+async function getActiveCaptador(tenantId: string, captadorId: string) {
+  // Captador = vínculo ativo com papel captador neste workspace
+  const captador = await db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.user_id': captadorId, 'ut.tenant_id': tenantId, 'ut.role': 'captador', 'ut.is_active': true })
+    .first('u.id', 'u.full_name');
+  if (!captador) throw httpError('Captador not found', 404);
+  return captador;
+}
+
+async function notifyAssigned(tenantId: string, captadorId: string, count: number) {
+  if (count === 0) return;
+  await createNotification({
+    tenantId,
+    userId: captadorId,
+    type: 'leads.assigned',
+    title: count === 1 ? 'Você recebeu 1 lead novo' : `Você recebeu ${count} leads novos`,
+    body: 'Confira em Meus leads e registre o resultado de cada ligação.',
+  });
+}
+
+// ── Captador: só os próprios leads ──────────────────────────────────────────
+
+const MY_LEAD_COLUMNS = [
+  'a.id', 'a.call_status', 'a.call_notes', 'a.call_updated_at', 'a.assigned_for', 'a.outcome',
+  'a.closed_at', 'a.commission_paid_at', 'a.concluded_at',
+  'a.meeting_at', 'a.meeting_mode', 'a.meeting_location',
+  db.raw('a.commission_value::float8 as commission_value'),
+  'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.lead_context',
+  // Dados de prospecção (LeadHunter / planilha)
+  'c.address', 'c.maps_url', 'c.instagram', 'c.website', 'c.google_reviews',
+  db.raw('c.google_rating::float8 as google_rating'),
+];
+
+export async function listMyLeads(tenantId: string, userId: string, query: MyLeadsQuery) {
+  const q = db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .where({ 'a.tenant_id': tenantId, 'a.captador_id': userId })
+    .select(MY_LEAD_COLUMNS);
+
+  if (query.scope === 'today') q.where('a.assigned_for', TODAY);
+  if (query.scope === 'open') q.whereNull('a.outcome');
+  if (query.scope === 'won') q.where('a.outcome', 'won');
+  if (query.status) q.where('a.call_status', query.status);
+
+  // A fazer primeiro (não concluídos), depois os mais recentes
+  return q
+    .orderByRaw('CASE WHEN a.concluded_at IS NULL THEN 0 ELSE 1 END')
+    .orderBy('a.assigned_for', 'desc')
+    .orderBy('c.full_name', 'asc')
+    .limit(500);
+}
+
+export async function updateMyLead(tenantId: string, userId: string, id: string, input: UpdateMyLeadInput) {
+  const lead = await db('lead_assignments')
+    .where({ id, tenant_id: tenantId, captador_id: userId })
+    .first('id', 'outcome', 'call_status');
+  if (!lead) throw httpError('Lead not found', 404);
+  if (lead.outcome) throw httpError('Lead already closed by an admin', 409);
+
+  const updates: Record<string, unknown> = { updated_at: new Date() };
+  if (input.callStatus !== undefined || input.callNotes !== undefined) updates.call_updated_at = new Date();
+  if (input.callStatus !== undefined) updates.call_status = input.callStatus;
+  if (input.callNotes !== undefined) updates.call_notes = input.callNotes?.trim() || null;
+  if (input.meetingAt !== undefined) updates.meeting_at = input.meetingAt ? new Date(input.meetingAt) : null;
+  if (input.meetingMode !== undefined) updates.meeting_mode = input.meetingMode;
+  if (input.meetingLocation !== undefined) updates.meeting_location = input.meetingLocation || null;
+
+  // "Concluir lead" exige um resultado escolhido; "Editar" reabre
+  if (input.concluded === true) {
+    const status = input.callStatus ?? lead.call_status;
+    if (status === 'pending') throw httpError('Choose a call result before concluding', 422, 'result_required');
+    if (status === 'meeting' && (!input.meetingAt || !input.meetingMode)) {
+      throw httpError('Meeting date and mode are required', 422, 'meeting_required');
+    }
+    // Só reunião guarda agenda
+    if (status !== 'meeting') Object.assign(updates, { meeting_at: null, meeting_mode: null, meeting_location: null });
+    updates.concluded_at = new Date();
+  } else if (input.concluded === false) {
+    updates.concluded_at = null;
+  }
+
+  await db('lead_assignments').where({ id, tenant_id: tenantId, captador_id: userId }).update(updates);
+
+  return db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .where({ 'a.id': id, 'a.tenant_id': tenantId })
+    .select(MY_LEAD_COLUMNS)
+    .first();
+}
+
+// Datas no fuso do Brasil (o banco guarda em UTC)
+const LOCAL_DAY = (col: string) => `(${col} AT TIME ZONE 'America/Sao_Paulo')::date`;
+
+/**
+ * Painel do captador: números do período (últimos 7 ou 30 dias) comparados com o período anterior,
+ * atividade por dia, funil dos leads recebidos no período e resultado das ligações.
+ * "Ligação feita" = lead cujo resultado foi registrado (call_updated_at) no dia — guardamos o último
+ * resultado de cada lead, não cada ligação.
+ */
+export async function getMyStats(tenantId: string, userId: string, days: 7 | 30) {
+  const LOCAL_TODAY = "(now() AT TIME ZONE 'America/Sao_Paulo')::date";
+
+  // Parâmetros posicionais (?): com bindings nomeados o Knex confunde ":nome::int" com identificador.
+  // offset/days são números validados (7/30), seguros pra interpolar.
+
+  // Mesma conta para o período atual (offset 0) e o anterior (offset = days)
+  const periodTotals = (offset: number) => {
+    const start = `${LOCAL_TODAY} - ${offset + days - 1}`;
+    const end = `${LOCAL_TODAY} - ${offset}`;
+    const inPeriod = (expr: string) => `${expr} BETWEEN ${start} AND ${end}`;
+    return db.raw(
+      `
+      SELECT
+        count(*) FILTER (WHERE ${inPeriod('a.assigned_for')})::int AS received,
+        count(*) FILTER (WHERE a.call_status <> 'pending' AND ${inPeriod(LOCAL_DAY('a.call_updated_at'))})::int AS called,
+        count(*) FILTER (WHERE a.call_status = 'meeting' AND ${inPeriod(LOCAL_DAY('a.call_updated_at'))})::int AS meetings,
+        count(*) FILTER (WHERE a.outcome = 'won' AND ${inPeriod(LOCAL_DAY('a.closed_at'))})::int AS won,
+        coalesce(sum(a.commission_value) FILTER (WHERE a.outcome = 'won' AND ${inPeriod(LOCAL_DAY('a.closed_at'))}), 0)::float8 AS commission
+      FROM lead_assignments a
+      WHERE a.tenant_id = ? AND a.captador_id = ?
+      `,
+      [tenantId, userId],
+    );
+  };
+
+  const daily = db.raw(
+    `
+    WITH series AS (
+      SELECT generate_series(${LOCAL_TODAY} - ${days - 1}, ${LOCAL_TODAY}, interval '1 day')::date AS day
+    ),
+    mine AS (
+      SELECT * FROM lead_assignments WHERE tenant_id = ? AND captador_id = ?
+    )
+    SELECT
+      to_char(s.day, 'YYYY-MM-DD') AS day,
+      (SELECT count(*) FROM mine m WHERE m.assigned_for = s.day)::int AS received,
+      (SELECT count(*) FROM mine m WHERE m.call_status <> 'pending' AND ${LOCAL_DAY('m.call_updated_at')} = s.day)::int AS called,
+      (SELECT count(*) FROM mine m WHERE m.call_status = 'meeting' AND ${LOCAL_DAY('m.call_updated_at')} = s.day)::int AS meetings
+    FROM series s
+    ORDER BY s.day
+    `,
+    [tenantId, userId],
+  );
+
+  // Coorte: leads recebidos no período, e até onde cada um chegou
+  const cohort = db.raw(
+    `
+    SELECT
+      count(*)::int AS received,
+      count(*) FILTER (WHERE call_status <> 'pending')::int AS called,
+      count(*) FILTER (WHERE call_status = 'meeting' OR outcome = 'won')::int AS meetings,
+      count(*) FILTER (WHERE outcome = 'won')::int AS won,
+      count(*) FILTER (WHERE call_status = 'pending')::int AS st_pending,
+      count(*) FILTER (WHERE call_status = 'no_answer')::int AS st_no_answer,
+      count(*) FILTER (WHERE call_status = 'callback')::int AS st_callback,
+      count(*) FILTER (WHERE call_status = 'meeting')::int AS st_meeting,
+      count(*) FILTER (WHERE call_status = 'lost')::int AS st_lost
+    FROM lead_assignments
+    WHERE tenant_id = ? AND captador_id = ? AND assigned_for >= ${LOCAL_TODAY} - ${days - 1}
+    `,
+    [tenantId, userId],
+  );
+
+  const [current, previous, dailyRows, cohortRows] = await Promise.all([periodTotals(0), periodTotals(days), daily, cohort]);
+  const c = cohortRows.rows[0];
+
+  return {
+    days,
+    current: current.rows[0],
+    previous: previous.rows[0],
+    daily: dailyRows.rows,
+    funnel: [
+      { stage: 'Recebidos', value: c.received },
+      { stage: 'Ligados', value: c.called },
+      { stage: 'Reuniões', value: c.meetings },
+      { stage: 'Fechados', value: c.won },
+    ],
+    byStatus: {
+      pending: c.st_pending,
+      no_answer: c.st_no_answer,
+      callback: c.st_callback,
+      meeting: c.st_meeting,
+      lost: c.st_lost,
+    },
+  };
+}
+
+export async function getMySummary(tenantId: string, userId: string) {
+  const row = await db('lead_assignments')
+    .where({ tenant_id: tenantId, captador_id: userId })
+    .first(
+      db.raw('count(*) filter (where assigned_for = ?)::int as today_total', [TODAY]),
+      db.raw("count(*) filter (where assigned_for = ? and call_status = 'pending')::int as today_pending", [TODAY]),
+      // Concluídos hoje / leads de hoje ainda sem concluir (barra de progresso do captador)
+      db.raw('count(*) filter (where assigned_for = ? and concluded_at is not null)::int as today_concluded', [TODAY]),
+      db.raw("count(*) filter (where outcome is null and call_status = 'pending')::int as open_pending", []),
+      db.raw("count(*) filter (where call_status = 'meeting')::int as meetings", []),
+      db.raw("count(*) filter (where outcome = 'won')::int as won", []),
+      db.raw("coalesce(sum(commission_value) filter (where outcome = 'won' and commission_paid_at is null), 0)::float8 as commission_pending", []),
+      db.raw("coalesce(sum(commission_value) filter (where outcome = 'won' and commission_paid_at is not null), 0)::float8 as commission_paid", []),
+    );
+  return row;
+}
+
+// ── Admin / gerente ─────────────────────────────────────────────────────────
+
+/** Captadores do workspace com os números de cada um (leads, ligações, fechamentos, comissão) */
+export async function listCaptadores(tenantId: string) {
+  return db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .leftJoin('lead_assignments as a', function joinOwn(this: Knex.JoinClause) {
+      this.on('a.captador_id', '=', 'u.id').andOn('a.tenant_id', '=', 'ut.tenant_id');
+    })
+    .where({ 'ut.tenant_id': tenantId, 'ut.role': 'captador' })
+    .groupBy('u.id', 'ut.id')
+    .orderBy('u.full_name', 'asc')
+    .select(
+      'u.id', 'u.full_name', 'u.email', 'u.avatar_url', 'ut.is_active', 'u.last_login_at',
+      db.raw('count(a.id)::int as total'),
+      db.raw('count(a.id) filter (where a.assigned_for = ?)::int as today', [TODAY]),
+      db.raw("count(a.id) filter (where a.outcome is null and a.call_status = 'pending')::int as pending", []),
+      db.raw("count(a.id) filter (where a.call_status = 'no_answer')::int as no_answer", []),
+      db.raw("count(a.id) filter (where a.call_status = 'callback')::int as callback", []),
+      db.raw("count(a.id) filter (where a.call_status = 'meeting')::int as meetings", []),
+      db.raw("count(a.id) filter (where a.call_status = 'lost')::int as lost", []),
+      db.raw("count(a.id) filter (where a.outcome = 'won')::int as won", []),
+      db.raw("coalesce(sum(a.deal_value) filter (where a.outcome = 'won'), 0)::float8 as won_value", []),
+      db.raw("coalesce(sum(a.commission_value) filter (where a.outcome = 'won' and a.commission_paid_at is null), 0)::float8 as commission_pending", []),
+      db.raw("coalesce(sum(a.commission_value) filter (where a.outcome = 'won' and a.commission_paid_at is not null), 0)::float8 as commission_paid", []),
+    );
+}
+
+export async function listAvailableContacts(tenantId: string, query: AvailableContactsQuery) {
+  const { page, limit, offset } = getPaginationParams(query);
+
+  const base = availableContactsBase(tenantId);
+  if (query.niche) base.where('c.niche', query.niche);
+  if (query.search) {
+    const term = `%${query.search}%`;
+    base.where((q) =>
+      q.whereILike('c.full_name', term).orWhereILike('c.company_name', term).orWhereILike('c.phone', term),
+    );
+  }
+
+  const [{ count }] = await base.clone().count('c.id as count');
+  const rows = await base
+    .clone()
+    .select('c.id', 'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.niche', 'c.created_at')
+    .orderBy('c.created_at', 'asc')
+    .limit(limit)
+    .offset(offset);
+
+  return paginatedResponse(rows, Number(count), page, limit);
+}
+
+export async function assignLeads(tenantId: string, adminId: string, input: AssignLeadsInput) {
+  await getActiveCaptador(tenantId, input.captadorId);
+
+  // Só contatos do próprio workspace
+  const ids = [...new Set(input.contactIds)];
+  const valid = await db('contacts').where({ tenant_id: tenantId }).whereIn('id', ids).pluck('id');
+
+  const inserted = valid.length
+    ? await db('lead_assignments')
+        .insert(valid.map((contactId: string) => ({
+          tenant_id: tenantId,
+          contact_id: contactId,
+          captador_id: input.captadorId,
+          assigned_by: adminId,
+        })))
+        .onConflict(['tenant_id', 'contact_id'])
+        .ignore()
+        .returning('id')
+    : [];
+
+  await notifyAssigned(tenantId, input.captadorId, inserted.length);
+  return { assigned: inserted.length, skipped: ids.length - inserted.length };
+}
+
+/**
+ * Lead cadastrado à mão: recusa duplicado (mesmo telefone ou e-mail no workspace) e, se vier
+ * captadorId, já entrega o lead pra ele.
+ */
+export async function createLead(tenantId: string, adminId: string, input: CreateLeadInput) {
+  const phoneDigits = input.phone?.replace(/\D/g, '') ?? '';
+  const email = input.email?.toLowerCase() || '';
+  if (phoneDigits.length >= 8 || email) {
+    const duplicate = await db('contacts')
+      .where({ tenant_id: tenantId })
+      .where((q) => {
+        if (phoneDigits.length >= 8) q.orWhereRaw("regexp_replace(coalesce(phone, ''), '\\D', '', 'g') = ?", [phoneDigits]);
+        if (email) q.orWhereRaw('lower(email) = ?', [email]);
+      })
+      .first('id', 'full_name');
+    if (duplicate) {
+      throw Object.assign(new Error('Lead already exists'), { status: 409, code: 'duplicate_lead', existing: duplicate.full_name });
+    }
+  }
+
+  if (input.captadorId) await getActiveCaptador(tenantId, input.captadorId);
+
+  const contact = await createContact(tenantId, {
+    type: 'lead',
+    fullName: input.fullName,
+    phone: input.phone || undefined,
+    email: email || undefined,
+    companyName: input.companyName || undefined,
+    jobTitle: input.jobTitle || undefined,
+    niche: input.niche || undefined,
+    address: input.address || undefined,
+    mapsUrl: input.mapsUrl || undefined,
+    instagram: input.instagram || undefined,
+    website: input.website || undefined,
+    leadContext: input.leadContext || undefined,
+    source: 'Manual',
+  });
+
+  if (input.captadorId) {
+    await db('lead_assignments').insert({
+      tenant_id: tenantId,
+      contact_id: contact.id,
+      captador_id: input.captadorId,
+      assigned_by: adminId,
+    });
+    await notifyAssigned(tenantId, input.captadorId, 1);
+  }
+
+  return { id: contact.id, full_name: contact.full_name, assigned: !!input.captadorId };
+}
+
+/**
+ * Distribuição automática diária: completa a cota do dia do captador (configuração do workspace)
+ * com os leads livres mais antigos. Roda quando ele abre "Meus leads" — o que o admin atribuiu
+ * à mão hoje conta na cota. O lock por workspace evita duas abas/captadores pegando o mesmo lead
+ * ou estourando a cota ao mesmo tempo.
+ */
+export async function topUpDailyLeads(tenantId: string, captadorId: string) {
+  const assigned = await db.transaction(async (trx) => {
+    await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [`daily-leads:${tenantId}`]);
+
+    const member = await trx('user_tenants')
+      .where({ tenant_id: tenantId, user_id: captadorId, role: 'captador', is_active: true })
+      .first('id');
+    if (!member) return 0;
+
+    const tenant = await trx('tenants').where({ id: tenantId }).first('daily_leads_per_captador');
+    const quota = Number(tenant?.daily_leads_per_captador ?? 0);
+    if (quota <= 0) return 0;
+
+    const [{ count }] = await trx('lead_assignments')
+      .where({ tenant_id: tenantId, captador_id: captadorId })
+      .where('assigned_for', TODAY)
+      .count('id as count');
+    const missing = quota - Number(count);
+    if (missing <= 0) return 0;
+
+    const contactIds: string[] = await availableContactsBase(tenantId)
+      .transacting(trx)
+      .orderBy('c.created_at', 'asc')
+      .limit(missing)
+      .pluck('c.id');
+    if (contactIds.length === 0) return 0;
+
+    const inserted = await trx('lead_assignments')
+      .insert(contactIds.map((contactId) => ({ tenant_id: tenantId, contact_id: contactId, captador_id: captadorId })))
+      .onConflict(['tenant_id', 'contact_id'])
+      .ignore()
+      .returning('id');
+    return inserted.length;
+  });
+
+  if (assigned > 0) await notifyAssigned(tenantId, captadorId, assigned);
+  return assigned;
+}
+
+export async function listAssignments(tenantId: string, query: AssignmentsQuery) {
+  const { page, limit, offset } = getPaginationParams(query);
+
+  const base = db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .leftJoin('users as u', 'a.captador_id', 'u.id')
+    .where('a.tenant_id', tenantId);
+
+  if (query.captadorId) base.where('a.captador_id', query.captadorId);
+  if (query.status) base.where('a.call_status', query.status);
+  if (query.outcome === 'open') base.whereNull('a.outcome');
+  else if (query.outcome) base.where('a.outcome', query.outcome);
+  if (query.search) {
+    const term = `%${query.search}%`;
+    base.where((q) => q.whereILike('c.full_name', term).orWhereILike('c.company_name', term));
+  }
+
+  const [{ count }] = await base.clone().count('a.id as count');
+  const rows = await base
+    .clone()
+    .select(
+      'a.id', 'a.contact_id', 'a.captador_id', 'a.assigned_for', 'a.call_status', 'a.call_notes',
+      'a.call_updated_at', 'a.outcome', 'a.closed_at', 'a.commission_paid_at',
+      db.raw('a.deal_value::float8 as deal_value'),
+      db.raw('a.commission_rate::float8 as commission_rate'),
+      db.raw('a.commission_value::float8 as commission_value'),
+      'c.full_name', 'c.phone', 'c.company_name', 'c.niche',
+      db.raw('u.full_name as captador_name'),
+    )
+    // Reuniões marcadas e leads aguardando decisão no topo
+    .orderByRaw("CASE WHEN a.outcome IS NULL AND a.call_status = 'meeting' THEN 0 WHEN a.outcome IS NULL THEN 1 ELSE 2 END")
+    .orderBy('a.call_updated_at', 'desc', 'last')
+    .orderBy('a.assigned_for', 'desc')
+    .limit(limit)
+    .offset(offset);
+
+  return paginatedResponse(rows, Number(count), page, limit);
+}
+
+export async function closeAssignment(tenantId: string, adminId: string, id: string, input: CloseAssignmentInput) {
+  const assignment = await db('lead_assignments').where({ id, tenant_id: tenantId }).first();
+  if (!assignment) throw httpError('Assignment not found', 404);
+  if (assignment.commission_paid_at) {
+    throw httpError('Commission already paid — mark it as unpaid before changing the outcome', 409);
+  }
+
+  let updates: Record<string, unknown>;
+  if (input.outcome === 'won') {
+    const tenant = await db('tenants').where({ id: tenantId }).first('commission_rate');
+    const rate = Number(tenant?.commission_rate ?? 8);
+    updates = {
+      outcome: 'won',
+      deal_value: input.dealValue,
+      commission_rate: rate,
+      commission_value: Math.round(input.dealValue * rate) / 100,
+      closed_at: new Date(),
+      closed_by: adminId,
+    };
+  } else if (input.outcome === 'lost') {
+    updates = {
+      outcome: 'lost', deal_value: null, commission_rate: null, commission_value: null,
+      closed_at: new Date(), closed_by: adminId,
+    };
+  } else {
+    updates = {
+      outcome: null, deal_value: null, commission_rate: null, commission_value: null,
+      closed_at: null, closed_by: null,
+    };
+  }
+
+  await db.transaction(async (trx) => {
+    await trx('lead_assignments').where({ id, tenant_id: tenantId }).update({ ...updates, updated_at: new Date() });
+    // Fechou: o lead vira cliente
+    if (input.outcome === 'won') {
+      await trx('contacts')
+        .where({ id: assignment.contact_id, tenant_id: tenantId })
+        .update({ type: 'client', updated_at: new Date() });
+    }
+  });
+
+  if (input.outcome === 'won' && assignment.captador_id) {
+    await createNotification({
+      tenantId,
+      userId: assignment.captador_id,
+      type: 'leads.won',
+      title: 'Um lead seu fechou negócio!',
+      body: 'Sua comissão já aparece em Meus leads.',
+    });
+  }
+
+  return { id, ...updates };
+}
+
+export async function setCommissionPaid(tenantId: string, id: string, paid: boolean) {
+  const assignment = await db('lead_assignments').where({ id, tenant_id: tenantId }).first('outcome');
+  if (!assignment) throw httpError('Assignment not found', 404);
+  if (assignment.outcome !== 'won') throw httpError('Only won leads have a commission', 409);
+
+  const commissionPaidAt = paid ? new Date() : null;
+  await db('lead_assignments')
+    .where({ id, tenant_id: tenantId })
+    .update({ commission_paid_at: commissionPaidAt, updated_at: new Date() });
+  return { id, commission_paid_at: commissionPaidAt };
+}
+
+/** Pagar todas as comissões em aberto de um captador de uma vez */
+export async function payAllCommissions(tenantId: string, captadorId: string) {
+  const updated = await db('lead_assignments')
+    .where({ tenant_id: tenantId, captador_id: captadorId, outcome: 'won' })
+    .whereNull('commission_paid_at')
+    .update({ commission_paid_at: new Date(), updated_at: new Date() });
+  return { paid: updated };
+}
+
+export async function unassign(tenantId: string, id: string) {
+  const assignment = await db('lead_assignments').where({ id, tenant_id: tenantId }).first('outcome');
+  if (!assignment) throw httpError('Assignment not found', 404);
+  if (assignment.outcome) throw httpError('Closed leads cannot be unassigned', 409);
+  await db('lead_assignments').where({ id, tenant_id: tenantId }).delete();
+}
+
+export async function getSettings(tenantId: string) {
+  const row = await db('tenants')
+    .where({ id: tenantId })
+    .first(db.raw('commission_rate::float8 as commission_rate'), 'daily_leads_per_captador');
+  return { commissionRate: row?.commission_rate ?? 8, leadsPerDay: row?.daily_leads_per_captador ?? 10 };
+}
+
+export async function updateSettings(tenantId: string, input: { commissionRate?: number; leadsPerDay?: number }) {
+  const updates: Record<string, unknown> = { updated_at: new Date() };
+  if (input.commissionRate !== undefined) updates.commission_rate = input.commissionRate;
+  if (input.leadsPerDay !== undefined) updates.daily_leads_per_captador = input.leadsPerDay;
+  await db('tenants').where({ id: tenantId }).update(updates);
+  return getSettings(tenantId);
+}

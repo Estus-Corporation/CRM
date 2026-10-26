@@ -12,5 +12,8 @@ router.get('/me', requireAuth, AuthController.getMe);
 router.patch('/me', requireAuth, AuthController.updateMe);
 router.get('/workspaces', requireAuth, AuthController.listWorkspaces);
 router.post('/switch-workspace', requireAuth, AuthController.switchWorkspace);
+// Conta independente: criar o próprio workspace / sair de um
+router.post('/workspaces', requireAuth, AuthController.createWorkspace);
+router.delete('/workspaces/:tenantId/membership', requireAuth, AuthController.leaveWorkspace);
 
 export default router;

@@ -1,3 +1,4 @@
+import { useTenant } from '@/hooks/useTenant';
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,7 +39,8 @@ function StatusBadge({ status }: { status: number | null }) {
 }
 
 export function WebhooksSection({ isAdmin }: { isAdmin: boolean }) {
-  const { data: integrations, isLoading } = useIntegrations();
+  const { data: tenant } = useTenant();
+  const { data: integrations, isLoading } = useIntegrations({ enabled: !!tenant && tenant.plan !== 'free' });
   const createIntegration = useCreateIntegration();
   const updateIntegration = useUpdateIntegration();
   const deleteIntegration = useDeleteIntegration();

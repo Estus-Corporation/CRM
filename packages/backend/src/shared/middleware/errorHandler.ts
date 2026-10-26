@@ -16,6 +16,8 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
       const body: Record<string, unknown> = { error: err.message };
       if ((err as any).code) body.code = (err as any).code;
       if ((err as any).requiredPlan) body.requiredPlan = (err as any).requiredPlan;
+      // Lead duplicado: nome do contato que já existe, pra mostrar no aviso
+      if ((err as any).existing) body.existing = (err as any).existing;
       res.status(status).json(body);
       return;
     }

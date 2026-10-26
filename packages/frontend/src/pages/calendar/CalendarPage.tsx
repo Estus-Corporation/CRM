@@ -33,7 +33,7 @@ export function CalendarPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-1 flex-col">
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <h1 className="text-2xl font-semibold text-text-primary">Calendário</h1>
       </div>

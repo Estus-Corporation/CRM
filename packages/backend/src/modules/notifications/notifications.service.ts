@@ -34,10 +34,14 @@ export async function notifyTenantUsers(
   resourceType?: string,
   resourceId?: string,
 ) {
-  const users = await db('users')
-    .where({ tenant_id: tenantId, is_active: true })
-    .whereNot('id', exceptUserId)
-    .select('id');
+  // Membros ativos do workspace (vínculos), exceto quem fez a ação
+  const users = await db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.tenant_id': tenantId, 'ut.is_active': true, 'u.is_active': true })
+    .whereNot('u.id', exceptUserId)
+    // Captador não acompanha o pipeline — não pode receber avisos de negócios
+    .whereNot('ut.role', 'captador')
+    .select('u.id');
 
   if (users.length === 0) return;
 

@@ -3,7 +3,7 @@ declare global {
     interface User {
       id: string;
       tenantId: string;
-      role: 'admin' | 'manager' | 'seller';
+      role: 'admin' | 'manager' | 'seller' | 'captador';
       email: string;
     }
   }

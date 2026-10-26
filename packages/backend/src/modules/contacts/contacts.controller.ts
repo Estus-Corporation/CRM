@@ -1,6 +1,34 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
+import { z } from 'zod';
 import * as ContactsService from './contacts.service';
+
+const optionalText = (max: number) => z.string().max(max).optional();
+
+// Lote vindo do celular (vCard) ou de planilha — o frontend manda em blocos de até 500
+const bulkImportSchema = z.object({
+  contacts: z
+    .array(
+      z.object({
+        fullName: z.string().max(255),
+        phone: optionalText(50),
+        email: optionalText(255),
+        company: optionalText(255),
+        jobTitle: optionalText(255),
+        niche: optionalText(255),
+        source: optionalText(100),
+        address: optionalText(500),
+        mapsUrl: optionalText(1000),
+        instagram: optionalText(255),
+        website: optionalText(500),
+        googleRating: z.coerce.number().min(0).max(5).optional(),
+        googleReviews: z.coerce.number().int().min(0).optional(),
+        leadContext: optionalText(5000),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
 
 export const csvUpload = multer({
   storage: multer.memoryStorage(),
@@ -90,11 +118,7 @@ export async function importContacts(req: Request, res: Response, next: NextFunc
 
 export async function importContactsBulk(req: Request, res: Response, next: NextFunction) {
   try {
-    const contacts = req.body?.contacts;
-    if (!Array.isArray(contacts) || contacts.length === 0) {
-      res.status(400).json({ error: 'contacts array is required' });
-      return;
-    }
+    const { contacts } = bulkImportSchema.parse(req.body);
     const result = await ContactsService.importContactsBulk(req.user!.tenantId, contacts);
     res.status(201).json({ data: result });
   } catch (err) {

@@ -14,10 +14,24 @@ import { Skeleton } from './Skeleton';
 
 export const listSpring: Transition = { type: 'spring', visualDuration: 0.45, bounce: 0.12 };
 
-export function DataList({ children, className }: { children: ReactNode; className?: string }) {
+export function DataList({
+  children,
+  className,
+  outlined = true,
+}: {
+  children: ReactNode;
+  className?: string;
+  /** false: sem o contorno verde externo (telas de Captação) */
+  outlined?: boolean;
+}) {
   return (
     // layout + borderRadius no style: altura anima suave e o framer corrige a distorção dos cantos
-    <motion.div layout className={cn('card data-list-card overflow-hidden', className)} style={{ borderRadius: 16 }} transition={listSpring}>
+    <motion.div
+      layout
+      className={cn('card overflow-hidden', outlined ? 'data-list-card' : 'data-list-plain', className)}
+      style={{ borderRadius: 16 }}
+      transition={listSpring}
+    >
       {children}
     </motion.div>
   );

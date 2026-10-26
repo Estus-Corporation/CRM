@@ -19,7 +19,8 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 /** Busca global inline na barra do topo — resultados num painel logo abaixo do campo. */
-export function TopbarSearch() {
+// autoFocus: busca do celular, que abre por um botão e já sai digitável
+export function TopbarSearch({ autoFocus }: { autoFocus?: boolean } = {}) {
   const { query, setQuery, results, isFetching } = useSearch();
   const [focused, setFocused] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
@@ -99,6 +100,7 @@ export function TopbarSearch() {
         )}
         <input
           ref={inputRef}
+          autoFocus={autoFocus}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setFocused(true)}

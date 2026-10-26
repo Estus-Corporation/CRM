@@ -8,8 +8,9 @@ import { toast } from 'sonner';
 
 const QK = ['integrations'];
 
-export function useIntegrations() {
-  return useQuery({ queryKey: QK, queryFn: integrationsService.list });
+/** enabled=false no plano Free: a rota é Starter+ e o 402 abriria o modal de upgrade sozinho */
+export function useIntegrations({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: QK, queryFn: integrationsService.list, enabled });
 }
 
 export function useCreateIntegration() {

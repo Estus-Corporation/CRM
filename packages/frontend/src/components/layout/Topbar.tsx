@@ -1,22 +1,47 @@
-import { useState } from 'react';
-import { LogOut, Bell } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Inbox, LogOut, Search, UserCog, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/auth.service';
-import { Avatar } from '@/components/ui/Avatar';
-import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useNotifications';
-import { NotificationPanel } from '@/components/notifications/NotificationPanel';
+import { Avatar } from '@/components/ui/Avatar';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { TopbarSearch } from '@/components/search/TopbarSearch';
-import { WorkspaceSwitcher } from './WorkspaceSwitcher';
+import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 import { ThemeToggle } from './ThemeToggle';
 import { FolderGlassToggle } from './FolderGlassToggle';
 import { cn } from '@/lib/utils';
+import { AnimatePresence, motion } from 'framer-motion';
+import { dropdownMotion } from '@/lib/motion';
+
+const iconButton =
+  'relative flex h-10 w-10 items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-200 hover:bg-fg/[0.05] hover:text-text-primary';
 
 export function Topbar() {
   const { user, refreshToken, logout } = useAuthStore();
   const navigate = useNavigate();
   const { unreadCount } = useNotifications();
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const inboxRef = useRef<HTMLButtonElement>(null);
+  const closeInbox = useCallback(() => setInboxOpen(false), []);
+  // Celular: a foto abre um menu (Minha conta, tema, Sair); no desktop vai direto pra Minha conta
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const { pathname } = useLocation();
+  useEffect(() => setSearchOpen(false), [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = (e: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    document.addEventListener('touchstart', close);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('touchstart', close);
+    };
+  }, [menuOpen]);
 
   const handleLogout = async () => {
     if (refreshToken) {
@@ -30,70 +55,141 @@ export function Topbar() {
     navigate('/login');
   };
 
+  const openAccount = () => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      navigate('/conta');
+    } else {
+      setMenuOpen((v) => !v);
+    }
+  };
+
   return (
     <>
-      <header className="relative z-30 flex h-[64px] flex-shrink-0 items-end gap-4">
+      <header className="relative z-30 flex h-[64px] flex-shrink-0 items-end gap-2 md:gap-4">
         {/* Aba da pasta: mesma cor do corpo, encaixada nele por uma curva côncava */}
-        {/* Largura do conteúdo; respiro lateral de 24px = padding do <main> (alinha o seletor com a página).
-            items-end: a base da busca cai na mesma linha do topo do corpo da pasta, à direita da curva */}
-        <div
-          className="relative flex h-[60px] min-w-0 flex-shrink items-end gap-2 rounded-t-[18px] px-6 max-md:pl-12 folder-surface">
-          <WorkspaceSwitcher />
-          <div className="w-[480px] min-w-0 flex-shrink">
-            <TopbarSearch />
+        {/* Largura do conteúdo; respiro lateral de 24px = padding do <main> (alinha a busca com a página).
+            items-end: a base da busca cai na mesma linha do topo do corpo da pasta, à direita da curva.
+            O seletor de workspace fica no topo do menu lateral. */}
+        {/* Busca global varre contatos e negócios do workspace — o captador não tem aba (AppShell arredonda a pasta) */}
+        {/* No celular a aba não cabe ao lado do hambúrguer: a busca vira um botão (lupa) */}
+        {user?.role !== 'captador' && (
+          <div className="relative flex h-[60px] min-w-0 flex-shrink items-end gap-2 rounded-t-[18px] px-6 folder-surface max-md:hidden">
+            <div className="w-[480px] min-w-0 flex-shrink">
+              <TopbarSearch />
+            </div>
+            <span
+              aria-hidden
+              // Curva côncava por máscara (não por gradiente): assim ela herda a cor/transparência/blur da pasta
+              className="folder-surface pointer-events-none absolute bottom-0 left-full h-[18px] w-[18px]"
+              style={{
+                WebkitMaskImage: 'radial-gradient(circle at 100% 0, transparent 17.5px, #000 18px)',
+                maskImage: 'radial-gradient(circle at 100% 0, transparent 17.5px, #000 18px)',
+              }}
+            />
           </div>
-          <span
-            aria-hidden
-            // Curva côncava por máscara (não por gradiente): assim ela herda a cor/transparência/blur da pasta
-            className="folder-surface pointer-events-none absolute bottom-0 left-full h-[18px] w-[18px]"
-            style={{
-              WebkitMaskImage: 'radial-gradient(circle at 100% 0, transparent 17.5px, #000 18px)',
-              maskImage: 'radial-gradient(circle at 100% 0, transparent 17.5px, #000 18px)',
-            }}
-          />
-        </div>
+        )}
 
-        <div className="min-w-[24px] flex-1" />
+        <div className="min-w-[8px] flex-1 md:min-w-[24px]" />
 
         {/* Ícones flutuando sobre o fundo do app — sempre em tinta clara */}
         {/* -translate-y-1: centraliza na faixa de fundo entre o topo da tela e o corpo da pasta */}
         <div className="force-dark sidebar-ink flex h-[52px] flex-shrink-0 -translate-y-1 items-center gap-1.5 self-center">
-          <FolderGlassToggle />
-          <ThemeToggle />
-          <div className="relative">
-            <button
-              title="Notificações"
-              onClick={() => setNotifOpen((v) => !v)}
-              className={cn(
-                'relative flex h-10 w-10 items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-200 hover:bg-fg/[0.05] hover:text-text-primary',
-                notifOpen && 'bg-fg/[0.05] text-text-primary',
-              )}
-            >
-              <Bell size={20} strokeWidth={1.75} />
-              {unreadCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent-green px-1 text-[10px] font-bold text-bg-darker ring-2 ring-bg-primary">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
-            <NotificationPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
+          {/* No celular não cabem junto da busca. Notificações ficam na caixa de entrada do menu lateral */}
+          <div className="hidden items-center gap-1.5 sm:flex">
+            <FolderGlassToggle />
+            <ThemeToggle />
           </div>
 
           {user && (
-            <div className="ml-1.5 flex items-center gap-1.5 border-l border-fg/[0.07] pl-3">
-              {/* Anel esmeralda → âmbar em volta do avatar */}
-              <span
-                className="rounded-full p-[1.5px]"
-                style={{ background: 'conic-gradient(from 200deg, rgb(var(--accent-green)), rgb(var(--accent-green)) 55%, rgb(var(--accent-amber)) 80%, rgb(var(--accent-green)))' }}
-                title={user.full_name}
-              >
-                <Avatar name={user.full_name} className="h-9 w-9 bg-bg-surface text-[13px] ring-2 ring-bg-primary" />
-              </span>
+            <div className="ml-1.5 flex items-center gap-1.5 border-l border-fg/[0.07] pl-3 max-md:ml-0 max-md:border-l-0 max-md:pl-0">
+              {user.role !== 'captador' && (
+                <button
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Buscar"
+                  className={cn(iconButton, 'md:hidden')}
+                >
+                  <Search size={19} strokeWidth={1.75} />
+                </button>
+              )}
+              {/* Celular: caixa de entrada ao lado da foto (no desktop ela fica no topo do menu lateral) */}
               <button
-                onClick={handleLogout}
-                title="Sair"
-                className="flex h-10 w-10 items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-200 hover:bg-fg/[0.05] hover:text-text-primary"
+                ref={inboxRef}
+                type="button"
+                onClick={() => setInboxOpen((v) => !v)}
+                aria-label="Caixa de entrada"
+                className={cn(iconButton, 'md:hidden', inboxOpen && 'bg-fg/[0.06] text-text-primary')}
               >
+                <Inbox size={22} strokeWidth={1.75} />
+                {unreadCount > 0 && (
+                  <span className="absolute right-0.5 top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-accent-green px-1 text-[10px] font-bold text-bg-darker ring-2 ring-[#03120E]">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <div ref={menuRef} className="relative">
+                {/* Anel esmeralda → âmbar em volta do avatar */}
+                <button
+                  type="button"
+                  onClick={openAccount}
+                  className="rounded-full p-[1.5px] transition-transform duration-200 hover:scale-105"
+                  style={{
+                    background:
+                      'conic-gradient(from 200deg, rgb(var(--accent-green)), rgb(var(--accent-green)) 55%, rgb(var(--accent-amber)) 80%, rgb(var(--accent-green)))',
+                  }}
+                  title={`${user.full_name} — Minha conta`}
+                  aria-label="Minha conta"
+                  aria-expanded={menuOpen}
+                >
+                  <Avatar
+                    name={user.full_name}
+                    src={user.avatar_url}
+                    className="h-9 w-9 bg-bg-surface text-[13px] ring-2 ring-bg-primary"
+                  />
+                </button>
+
+                <AnimatePresence>
+                  {menuOpen && (
+                    <motion.div
+                      {...dropdownMotion}
+                      style={{ transformOrigin: 'top right' }}
+                      className="glass-panel absolute right-0 top-full z-50 mt-2 w-60 rounded-xl p-1.5 shadow-2xl md:hidden"
+                    >
+                      <div className="border-b border-fg/[0.06] px-2.5 pb-2.5 pt-1.5">
+                        <p className="truncate text-sm font-semibold text-text-primary">{user.full_name}</p>
+                        <p className="truncate text-xs text-text-muted">{user.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          navigate('/conta');
+                        }}
+                        className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm text-text-primary hover:bg-fg/[0.06]"
+                      >
+                        <UserCog size={16} />
+                        Minha conta
+                      </button>
+                      <div className="flex items-center justify-between rounded-lg px-2.5 py-1 text-sm text-text-primary">
+                        Tema
+                        <ThemeToggle />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm text-status-lost hover:bg-status-lost/10"
+                      >
+                        <LogOut size={16} />
+                        Sair
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Desktop: Sair fica ao lado da foto; no celular vai pro menu da foto */}
+              <button onClick={handleLogout} title="Sair" className={cn(iconButton, 'max-md:hidden')}>
                 <LogOut size={19} strokeWidth={1.75} />
               </button>
             </div>
@@ -101,6 +197,25 @@ export function Topbar() {
         </div>
       </header>
 
+      <NotificationPanel open={inboxOpen} onClose={closeInbox} anchorRef={inboxRef} />
+
+      {/* Busca do celular: cobre o topo inteiro; fecha no X ou ao abrir um resultado */}
+      <AnimatePresence>
+        {searchOpen && (
+          <motion.div
+            {...dropdownMotion}
+            style={{ transformOrigin: 'top right' }}
+            className="glass-panel fixed inset-x-3 top-2 z-50 flex items-center gap-2 rounded-2xl p-2 shadow-2xl md:hidden"
+          >
+            <div className="min-w-0 flex-1">
+              <TopbarSearch autoFocus />
+            </div>
+            <button type="button" onClick={() => setSearchOpen(false)} aria-label="Fechar busca" className={iconButton}>
+              <X size={19} strokeWidth={1.75} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

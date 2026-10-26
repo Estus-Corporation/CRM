@@ -52,10 +52,12 @@ export function RegisterPage() {
       setAuth(result.user, result.accessToken, result.refreshToken);
       navigate('/onboarding');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } }).response?.data?.error ??
-        'Falha no cadastro';
-      setServerError(msg);
+      const data = (err as { response?: { data?: { error?: string; code?: string } } }).response?.data;
+      setServerError(
+        data?.code === 'email_in_use'
+          ? 'Este e-mail já tem conta no TitanFlow. Entre com ele ou use outro e-mail.'
+          : (data?.error ?? 'Falha no cadastro'),
+      );
     }
   };
 

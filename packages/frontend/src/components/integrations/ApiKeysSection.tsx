@@ -1,3 +1,4 @@
+import { useTenant } from '@/hooks/useTenant';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -33,7 +34,8 @@ function CopyButton({ value }: { value: string }) {
 }
 
 export function ApiKeysSection({ isAdmin }: { isAdmin: boolean }) {
-  const { data: keys, isLoading } = useApiKeys();
+  const { data: tenant } = useTenant();
+  const { data: keys, isLoading } = useApiKeys({ enabled: !!tenant && tenant.plan !== 'free' });
   const createKey = useCreateApiKey();
   const revokeKey = useRevokeApiKey();
 

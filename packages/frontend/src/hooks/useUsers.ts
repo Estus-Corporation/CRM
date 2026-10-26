@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { usersService, type InviteUserInput, type UpdateUserInput } from '@/services/users.service';
+import { usersService, type UpdateUserInput } from '@/services/users.service';
 import { toast } from 'sonner';
 
 const userKeys = {
@@ -14,16 +14,10 @@ export function useUsers() {
   });
 }
 
-export function useInviteUser() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (input: InviteUserInput) => usersService.invite(input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: userKeys.list });
-      toast.success('Convite enviado');
-    },
-    onError: () => toast.error('Erro ao enviar convite'),
-  });
+/** Erro "workspace precisa de pelo menos um admin" vem com code last_admin */
+function errorMessage(err: unknown, fallback: string) {
+  const code = (err as { response?: { data?: { code?: string } } }).response?.data?.code;
+  return code === 'last_admin' ? 'O workspace precisa ter pelo menos um admin ativo' : fallback;
 }
 
 export function useUpdateUser() {
@@ -33,16 +27,9 @@ export function useUpdateUser() {
       usersService.update(id, input),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: userKeys.list });
-      toast.success('Usuário atualizado');
+      qc.invalidateQueries({ queryKey: ['captacao'] });
     },
-    onError: () => toast.error('Erro ao atualizar usuário'),
-  });
-}
-
-export function useResendInvite() {
-  return useMutation({
-    mutationFn: (id: string) => usersService.resendInvite(id),
-    onError: () => toast.error('Erro ao reenviar convite'),
+    onError: (err) => toast.error(errorMessage(err, 'Erro ao atualizar membro')),
   });
 }
 
@@ -52,8 +39,9 @@ export function useDeleteUser() {
     mutationFn: (id: string) => usersService.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: userKeys.list });
-      toast.success('Usuário removido');
+      qc.invalidateQueries({ queryKey: ['captacao'] });
+      toast.success('Removido do workspace');
     },
-    onError: () => toast.error('Erro ao remover usuário'),
+    onError: (err) => toast.error(errorMessage(err, 'Erro ao remover do workspace')),
   });
 }

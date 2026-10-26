@@ -1,173 +1,129 @@
 import { db } from '../../db';
 import { z } from 'zod';
-import bcrypt from 'bcryptjs';
 import { getPaginationParams, paginatedResponse } from '../../shared/utils/paginate';
-import { env } from '../../config/env';
+import { createNotification } from '../notifications/notifications.service';
+
+/**
+ * Equipe de um workspace = vínculos (user_tenants). A conta da pessoa existe por conta própria:
+ * aqui só se adiciona/remove/edita o vínculo dela com o workspace — nunca a conta.
+ */
+
+const roleEnum = z.enum(['admin', 'manager', 'seller', 'captador']);
 
 export const updateUserSchema = z.object({
-  role: z.enum(['admin', 'manager', 'seller']).optional(),
-  fullName: z.string().min(2).max(255).optional(),
+  role: roleEnum.optional(),
   isActive: z.boolean().optional(),
 });
 
 export const inviteUserSchema = z.object({
-  email: z.string().email(),
-  fullName: z.string().min(2).max(255),
-  role: z.enum(['admin', 'manager', 'seller']).default('seller'),
+  email: z.string().trim().email(),
+  role: roleEnum.default('seller'),
 });
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  manager: 'Gerente',
+  seller: 'Vendedor',
+  captador: 'Captador',
+};
+
+function httpError(message: string, status: number, code?: string) {
+  return Object.assign(new Error(message), { status, code });
+}
+
+const MEMBER_COLUMNS = [
+  'u.id', 'u.email', 'u.full_name', 'u.avatar_url', 'u.job_title', 'u.last_login_at',
+  'ut.role', 'ut.is_active', 'ut.created_at',
+];
 
 export async function listUsers(tenantId: string, query: Record<string, unknown>) {
   const { page, limit, offset } = getPaginationParams(query);
 
-  const base = db('users').where({ tenant_id: tenantId });
-  const [{ count }] = await base.clone().count('id as count');
-  const users = await base
-    .clone()
-    .select('id', 'email', 'full_name', 'role', 'is_active', 'last_login_at', 'created_at')
-    .orderBy('created_at', 'asc')
-    .limit(limit)
-    .offset(offset);
+  const base = db('user_tenants as ut').join('users as u', 'ut.user_id', 'u.id').where('ut.tenant_id', tenantId);
+  const [{ count }] = await base.clone().count('ut.id as count');
+  const users = await base.clone().select(MEMBER_COLUMNS).orderBy('ut.created_at', 'asc').limit(limit).offset(offset);
 
   return paginatedResponse(users, Number(count), page, limit);
 }
 
-export async function inviteUser(tenantId: string, input: z.infer<typeof inviteUserSchema>) {
-  const existing = await db('users').where({ tenant_id: tenantId, email: input.email }).first();
-  if (existing) throw Object.assign(new Error('User with this email already exists'), { status: 409 });
+/** Adiciona ao workspace uma conta que JÁ existe (a pessoa se cadastra antes, por conta própria) */
+export async function inviteUser(tenantId: string, actorId: string, input: z.infer<typeof inviteUserSchema>) {
+  const user = await db('users').whereRaw('lower(email) = lower(?)', [input.email]).andWhere({ is_active: true }).first();
+  if (!user) throw httpError('No account with this email', 404, 'account_not_found');
 
-  const tempPassword = Math.random().toString(36).slice(-12);
-  const passwordHash = await bcrypt.hash(tempPassword, 12);
+  const existing = await db('user_tenants').where({ user_id: user.id, tenant_id: tenantId }).first();
+  if (existing?.is_active) throw httpError('Already a member of this workspace', 409, 'already_member');
 
-  const [user] = await db('users')
-    .insert({
-      tenant_id: tenantId,
-      email: input.email,
-      full_name: input.fullName,
-      role: input.role,
-      password_hash: passwordHash,
-      must_change_password: true,
-    })
-    .returning(['id', 'email', 'full_name', 'role', 'created_at']);
-
-  await db('user_tenants')
-    .insert({ user_id: user.id, tenant_id: tenantId, role: input.role })
-    .onConflict(['user_id', 'tenant_id'])
-    .ignore();
-
-  if (env.RESEND_API_KEY) {
-    const tenant = await db('tenants').where({ id: tenantId }).select('name').first();
-    const workspaceName = tenant?.name ?? 'TitanFlow';
-
-    const { Resend } = await import('resend');
-    const resend = new Resend(env.RESEND_API_KEY);
-    const result = await resend.emails.send({
-      from: env.EMAIL_FROM,
-      to: input.email,
-      subject: `Você foi convidado para ${workspaceName} no TitanFlow`,
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#ffffff">
-          <div style="margin-bottom:24px">
-            <span style="font-size:20px;font-weight:700;color:#0c0f15">Titan<span style="color:#72d296">Flow</span></span>
-          </div>
-          <h2 style="color:#111827;font-size:22px;margin:0 0 8px">Você foi convidado!</h2>
-          <p style="color:#374151;margin:0 0 16px">Olá, <strong>${input.fullName}</strong>!</p>
-          <p style="color:#374151;margin:0 0 20px"><strong>${workspaceName}</strong> convidou você para acessar o TitanFlow. Use as credenciais abaixo para entrar:</p>
-          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:0 0 24px">
-            <p style="margin:0 0 4px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em">E-mail</p>
-            <p style="margin:0 0 16px;font-weight:600;color:#111827;font-size:15px">${input.email}</p>
-            <p style="margin:0 0 4px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em">Senha temporária</p>
-            <p style="margin:0;font-weight:700;color:#111827;font-size:18px;letter-spacing:3px">${tempPassword}</p>
-          </div>
-          <a href="${env.FRONTEND_URL}/login" style="display:inline-block;background:#72d296;color:#0c0f15;padding:13px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px">
-            Acessar o TitanFlow
-          </a>
-          <p style="color:#9ca3af;font-size:12px;margin-top:28px;border-top:1px solid #f3f4f6;padding-top:20px">
-            Por segurança, troque sua senha no primeiro acesso. Se não esperava esse convite, ignore este e-mail.
-          </p>
-        </div>
-      `,
-    });
-    console.log('[Resend]', JSON.stringify(result));
+  if (existing) {
+    await db('user_tenants').where({ id: existing.id }).update({ role: input.role, is_active: true, updated_at: new Date() });
+  } else {
+    await db('user_tenants').insert({ user_id: user.id, tenant_id: tenantId, role: input.role });
   }
 
-  return { ...user, tempPassword: env.RESEND_API_KEY ? undefined : tempPassword };
+  // O aviso vai pro workspace onde a pessoa está agora (é lá que ela olha a caixa de entrada)
+  const [tenant, actor] = await Promise.all([
+    db('tenants').where({ id: tenantId }).first('name'),
+    db('users').where({ id: actorId }).first('full_name'),
+  ]);
+  await createNotification({
+    tenantId: user.tenant_id,
+    userId: user.id,
+    type: 'workspace.added',
+    title: `Você foi adicionado a ${tenant?.name ?? 'um workspace'}`,
+    body: `${actor?.full_name ?? 'Um admin'} te adicionou como ${ROLE_LABEL[input.role]}. Troque de workspace no seletor do menu.`,
+  }).catch(() => {});
+
+  return {
+    id: user.id,
+    email: user.email,
+    full_name: user.full_name,
+    avatar_url: user.avatar_url,
+    role: input.role,
+    is_active: true,
+  };
 }
 
-export async function resendInvite(tenantId: string, userId: string) {
-  const user = await db('users').where({ id: userId, tenant_id: tenantId }).first();
-  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
-
-  const tempPassword = Math.random().toString(36).slice(-12);
-  const passwordHash = await bcrypt.hash(tempPassword, 12);
-
-  await db('users').where({ id: userId, tenant_id: tenantId }).update({
-    password_hash: passwordHash,
-    must_change_password: true,
-    updated_at: new Date(),
-  });
-
-  if (env.RESEND_API_KEY) {
-    const tenant = await db('tenants').where({ id: tenantId }).select('name').first();
-    const workspaceName = tenant?.name ?? 'TitanFlow';
-
-    const { Resend } = await import('resend');
-    const resend = new Resend(env.RESEND_API_KEY);
-    const result = await resend.emails.send({
-      from: env.EMAIL_FROM,
-      to: user.email,
-      subject: `Seu acesso ao ${workspaceName} no TitanFlow`,
-      html: `
-        <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#ffffff">
-          <div style="margin-bottom:24px">
-            <span style="font-size:20px;font-weight:700;color:#0c0f15">Titan<span style="color:#72d296">Flow</span></span>
-          </div>
-          <h2 style="color:#111827;font-size:22px;margin:0 0 8px">Novo acesso gerado</h2>
-          <p style="color:#374151;margin:0 0 16px">Olá, <strong>${user.full_name}</strong>!</p>
-          <p style="color:#374151;margin:0 0 20px">Um novo convite foi enviado para sua conta em <strong>${workspaceName}</strong>. Use as credenciais abaixo para entrar:</p>
-          <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px;margin:0 0 24px">
-            <p style="margin:0 0 4px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em">E-mail</p>
-            <p style="margin:0 0 16px;font-weight:600;color:#111827;font-size:15px">${user.email}</p>
-            <p style="margin:0 0 4px;color:#6b7280;font-size:12px;text-transform:uppercase;letter-spacing:0.05em">Nova senha temporária</p>
-            <p style="margin:0;font-weight:700;color:#111827;font-size:18px;letter-spacing:3px">${tempPassword}</p>
-          </div>
-          <a href="${env.FRONTEND_URL}/login" style="display:inline-block;background:#72d296;color:#0c0f15;padding:13px 28px;border-radius:6px;text-decoration:none;font-weight:700;font-size:15px">
-            Acessar o TitanFlow
-          </a>
-          <p style="color:#9ca3af;font-size:12px;margin-top:28px;border-top:1px solid #f3f4f6;padding-top:20px">
-            Por segurança, troque sua senha no primeiro acesso. Se não esperava esse convite, ignore este e-mail.
-          </p>
-        </div>
-      `,
-    });
-    console.log('[Resend resend-invite]', JSON.stringify(result));
-  }
-
-  return { id: userId, tempPassword: env.RESEND_API_KEY ? undefined : tempPassword };
+async function assertNotLastAdmin(tenantId: string, userId: string) {
+  const membership = await db('user_tenants').where({ tenant_id: tenantId, user_id: userId }).first();
+  if (!membership) throw httpError('User not found', 404);
+  if (membership.role !== 'admin' || !membership.is_active) return membership;
+  const [{ count }] = await db('user_tenants')
+    .where({ tenant_id: tenantId, role: 'admin', is_active: true })
+    .count('id as count');
+  if (Number(count) <= 1) throw httpError('Workspace needs at least one admin', 409, 'last_admin');
+  return membership;
 }
 
+/** Tira a pessoa do workspace (a conta continua existindo, com os outros workspaces dela) */
 export async function deleteUser(tenantId: string, userId: string) {
-  const user = await db('users').where({ id: userId, tenant_id: tenantId }).first();
-  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
+  await assertNotLastAdmin(tenantId, userId);
 
-  await db('users').where({ id: userId, tenant_id: tenantId }).delete();
+  await db.transaction(async (trx) => {
+    // Leads ainda abertos do captador voltam pra fila; os fechados ficam no histórico
+    await trx('lead_assignments').where({ tenant_id: tenantId, captador_id: userId }).whereNull('outcome').delete();
+    // Sessões abertas neste workspace: a próxima renovação leva a pessoa pra outro workspace dela
+    await trx('user_tenants').where({ tenant_id: tenantId, user_id: userId }).delete();
+  });
   return { id: userId };
 }
 
-export async function updateUser(
-  tenantId: string,
-  userId: string,
-  input: z.infer<typeof updateUserSchema>,
-) {
+export async function updateUser(tenantId: string, userId: string, input: z.infer<typeof updateUserSchema>) {
+  const membership = await db('user_tenants').where({ tenant_id: tenantId, user_id: userId }).first();
+  if (!membership) throw httpError('User not found', 404);
+
+  // Rebaixar ou desativar o último admin deixaria o workspace sem dono
+  const losesAdmin = (input.role !== undefined && input.role !== 'admin') || input.isActive === false;
+  if (losesAdmin) await assertNotLastAdmin(tenantId, userId);
+
   const updates: Record<string, unknown> = { updated_at: new Date() };
   if (input.role !== undefined) updates.role = input.role;
-  if (input.fullName !== undefined) updates.full_name = input.fullName;
   if (input.isActive !== undefined) updates.is_active = input.isActive;
+  await db('user_tenants').where({ id: membership.id }).update(updates);
 
-  const [user] = await db('users')
-    .where({ id: userId, tenant_id: tenantId })
-    .update(updates)
-    .returning(['id', 'email', 'full_name', 'role', 'is_active', 'updated_at']);
 
-  if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
-  return user;
+  return db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.id': membership.id })
+    .select(MEMBER_COLUMNS)
+    .first();
 }

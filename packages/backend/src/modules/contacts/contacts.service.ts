@@ -113,6 +113,13 @@ export async function createContact(tenantId: string, input: CreateContactInput)
       job_title: input.jobTitle || null,
       source: input.source || null,
       niche: input.niche?.trim() || null,
+      address: input.address?.trim() || null,
+      maps_url: input.mapsUrl?.trim() || null,
+      instagram: input.instagram?.trim() || null,
+      website: input.website?.trim() || null,
+      google_rating: input.googleRating ?? null,
+      google_reviews: input.googleReviews ?? null,
+      lead_context: input.leadContext?.trim() || null,
       tags: input.tags ? JSON.stringify(input.tags) : '{}',
       owner_id: input.ownerId || null,
       custom_fields: input.customFields ? JSON.stringify(input.customFields) : '{}',
@@ -137,6 +144,13 @@ export async function updateContact(
   if (input.jobTitle !== undefined) updates.job_title = input.jobTitle || null;
   if (input.source !== undefined) updates.source = input.source || null;
   if (input.niche !== undefined) updates.niche = input.niche.trim() || null;
+  if (input.address !== undefined) updates.address = input.address.trim() || null;
+  if (input.mapsUrl !== undefined) updates.maps_url = input.mapsUrl.trim() || null;
+  if (input.instagram !== undefined) updates.instagram = input.instagram.trim() || null;
+  if (input.website !== undefined) updates.website = input.website.trim() || null;
+  if (input.googleRating !== undefined) updates.google_rating = input.googleRating;
+  if (input.googleReviews !== undefined) updates.google_reviews = input.googleReviews;
+  if (input.leadContext !== undefined) updates.lead_context = input.leadContext.trim() || null;
   if (input.tags !== undefined) updates.tags = JSON.stringify(input.tags);
   if (input.ownerId !== undefined) updates.owner_id = input.ownerId || null;
   if (input.customFields !== undefined) updates.custom_fields = JSON.stringify(input.customFields);
@@ -206,49 +220,93 @@ export async function importContactsCsv(
   return { imported, skipped, errors };
 }
 
+export interface BulkContactInput {
+  fullName: string;
+  phone?: string;
+  email?: string;
+  company?: string;
+  jobTitle?: string;
+  niche?: string;
+  source?: string;
+  address?: string;
+  mapsUrl?: string;
+  instagram?: string;
+  website?: string;
+  googleRating?: number;
+  googleReviews?: number;
+  leadContext?: string;
+}
+
+const onlyDigits = (s: string) => s.replace(/\D/g, '');
+
+/**
+ * Importação em lote (agenda do celular, planilha de leads). Pula duplicados por e-mail ou
+ * telefone — contra o que já existe no workspace e dentro do próprio lote — e grava num insert só.
+ */
 export async function importContactsBulk(
   tenantId: string,
-  contacts: Array<{ fullName: string; phone?: string; email?: string; company?: string }>,
+  contacts: BulkContactInput[],
 ): Promise<{ imported: number; skipped: number; errors: string[] }> {
   const tenant = await db('tenants').where({ id: tenantId }).first('plan');
-  let imported = 0;
-  let skipped = 0;
   const errors: string[] = [];
+  let skipped = 0;
 
-  for (const item of contacts) {
-    if (!item.fullName?.trim()) { skipped++; continue; }
+  const existing = await db('contacts')
+    .where({ tenant_id: tenantId })
+    .select(db.raw('lower(email) as email'), db.raw("regexp_replace(coalesce(phone, ''), '\\D', '', 'g') as phone"));
+  const emails = new Set(existing.map((r: { email: string | null }) => r.email).filter(Boolean));
+  // Telefones curtos demais (ramal, lixo) não servem pra identificar duplicado
+  const phones = new Set(existing.map((r: { phone: string }) => r.phone).filter((p: string) => p.length >= 8));
 
-    if (item.email) {
-      const existing = await db('contacts').where({ tenant_id: tenantId, email: item.email }).first();
-      if (existing) { skipped++; continue; }
-    }
-
-    if (tenant?.plan === 'free') {
-      const [{ count }] = await db('contacts').where({ tenant_id: tenantId }).count('id as count');
-      if (Number(count) >= FREE_CONTACT_LIMIT) {
-        errors.push(`Limite de ${FREE_CONTACT_LIMIT} contatos atingido no plano gratuito`);
-        break;
-      }
-    }
-
-    try {
-      await db('contacts').insert({
-        tenant_id: tenantId,
-        full_name: item.fullName.trim(),
-        phone: item.phone || null,
-        email: item.email || null,
-        company_name: item.company || null,
-        type: 'lead',
-        tags: '{}',
-        custom_fields: '{}',
-      });
-      imported++;
-    } catch {
-      errors.push(`Erro ao importar "${item.fullName}"`);
-    }
+  let room = Infinity;
+  if (tenant?.plan === 'free') {
+    const [{ count }] = await db('contacts').where({ tenant_id: tenantId }).count('id as count');
+    room = Math.max(0, FREE_CONTACT_LIMIT - Number(count));
   }
 
-  return { imported, skipped, errors };
+  const rows: Record<string, unknown>[] = [];
+  for (const item of contacts) {
+    const fullName = item.fullName?.trim();
+    if (!fullName) { skipped++; continue; }
+
+    const email = item.email?.trim().toLowerCase() || null;
+    const phoneDigits = item.phone ? onlyDigits(item.phone) : '';
+    if ((email && emails.has(email)) || (phoneDigits.length >= 8 && phones.has(phoneDigits))) {
+      skipped++;
+      continue;
+    }
+
+    if (rows.length >= room) {
+      errors.push(`Limite de ${FREE_CONTACT_LIMIT} contatos atingido no plano gratuito`);
+      break;
+    }
+
+    if (email) emails.add(email);
+    if (phoneDigits.length >= 8) phones.add(phoneDigits);
+    rows.push({
+      tenant_id: tenantId,
+      full_name: fullName,
+      phone: item.phone?.trim() || null,
+      email,
+      company_name: item.company?.trim() || null,
+      job_title: item.jobTitle?.trim() || null,
+      niche: item.niche?.trim() || null,
+      source: item.source?.trim() || null,
+      address: item.address?.trim() || null,
+      maps_url: item.mapsUrl?.trim() || null,
+      instagram: item.instagram?.trim() || null,
+      website: item.website?.trim() || null,
+      google_rating: item.googleRating ?? null,
+      google_reviews: item.googleReviews ?? null,
+      lead_context: item.leadContext?.trim() || null,
+      type: 'lead',
+      tags: '{}',
+      custom_fields: '{}',
+    });
+  }
+
+  if (rows.length) await db('contacts').insert(rows);
+  return { imported: rows.length, skipped, errors };
 }
 
 export async function uploadContactPhoto(

@@ -22,6 +22,34 @@ export const dialogMotion = {
   exit: { opacity: 0, scale: 0.94, transition: exitTween },
 } as const;
 
+/** Menus e painéis que descem de um botão (perfil, caixa de entrada): caem do botão com um quique leve */
+export const dropdownMotion = {
+  initial: { opacity: 0, scale: 0.92, y: -8, filter: 'blur(4px)' },
+  animate: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { type: 'spring', visualDuration: 0.24, bounce: 0.28, opacity: { duration: 0.12 }, filter: { duration: 0.16 } },
+    // filter (mesmo blur(0)) quebra backdrop-filter e position:fixed dos filhos — some ao terminar
+    transitionEnd: { filter: 'none' },
+  },
+  exit: { opacity: 0, scale: 0.96, y: -4, filter: 'blur(2px)', transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } },
+} as const;
+
+/** Troca de tela: a nova sobe de leve e desfoca pra nítido; a anterior some rápido */
+export const pageMotion = {
+  initial: { opacity: 0, y: 14, filter: 'blur(6px)' },
+  animate: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { type: 'spring', visualDuration: 0.38, bounce: 0.18, opacity: { duration: 0.2 }, filter: { duration: 0.24 } },
+    transitionEnd: { filter: 'none', transform: 'none' },
+  },
+  exit: { opacity: 0, y: -6, filter: 'blur(3px)', transition: { duration: 0.12, ease: [0.4, 0, 1, 1] } },
+} as const;
+
 /**
  * Pra diálogos posicionados com left/top 50%: mantém o translate(-50%, -50%) de centralização
  * e soma por cima o transform que o framer gera (scale da animação).

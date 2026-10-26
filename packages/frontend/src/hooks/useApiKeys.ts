@@ -4,8 +4,9 @@ import { toast } from 'sonner';
 
 const QK = ['api-keys'];
 
-export function useApiKeys() {
-  return useQuery({ queryKey: QK, queryFn: apiKeysService.list });
+/** enabled=false no plano Free: a rota é Starter+ e o 402 abriria o modal de upgrade sozinho */
+export function useApiKeys({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: QK, queryFn: apiKeysService.list, enabled });
 }
 
 export function useCreateApiKey() {

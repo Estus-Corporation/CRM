@@ -37,6 +37,8 @@ import { KanbanSkeleton } from '@/components/ui/Skeleton';
 import type { StageMeta, Deal } from '@/services/pipeline.service';
 import { dealsService, pipelineService } from '@/services/pipeline.service';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/useMediaQuery';
+import { cn } from '@/lib/utils';
 
 export function PipelinePage() {
   const qc = useQueryClient();
@@ -45,6 +47,8 @@ export function PipelinePage() {
   const [activePipelineId, setActivePipelineId] = useState<string>('');
   const [dealModalOpen, setDealModalOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const [mobileStageId, setMobileStageId] = useState<string | null>(null);
   const [defaultStageId, setDefaultStageId] = useState<string>('');
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [activeStage, setActiveStage] = useState<StageMeta | null>(null);
@@ -292,10 +296,14 @@ export function PipelinePage() {
     );
   }
 
+  // Celular: uma etapa por vez (escolhida na grade de etapas), sem rolar o kanban para o lado
+  const mobileStage = localStages.find((s) => s.id === mobileStageId) ?? localStages[0];
+  const visibleStages = isMobile && mobileStage ? [mobileStage] : localStages;
+
   return (
-    <div className="space-y-4 h-full flex flex-col">
-      <div className="flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
+    <div className="space-y-4 flex-1 flex flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+        <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-semibold text-text-primary">Pipeline</h1>
           <div className="flex gap-1">
             {pipelines.map((p) => (
@@ -314,14 +322,41 @@ export function PipelinePage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setSettingsOpen(true)}>
-            <Settings size={14} /> Configurações
+          <Button variant="secondary" size="sm" onClick={() => setSettingsOpen(true)} aria-label="Configurações">
+            <Settings size={14} /> <span className="max-md:hidden">Configurações</span>
           </Button>
-          <Button size="sm" onClick={() => openDealModal(localStages[0]?.id ?? '')}>
+          <Button size="sm" onClick={() => openDealModal((isMobile ? mobileStage?.id : localStages[0]?.id) ?? '')}>
             <Plus size={14} /> Novo negócio
           </Button>
         </div>
       </div>
+
+      {/* Celular: todas as etapas visíveis numa grade; tocar mostra os negócios daquela etapa */}
+      {isMobile && localStages.length > 0 && (
+        <div className="grid flex-shrink-0 grid-cols-2 gap-2">
+          {localStages.map((s) => {
+            const active = s.id === mobileStage?.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setMobileStageId(s.id)}
+                className={cn(
+                  'flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors',
+                  active ? 'border-transparent bg-fg/[0.08]' : 'border-fg/[0.07] hover:bg-fg/[0.04]',
+                )}
+                style={active ? { boxShadow: `inset 0 0 0 1.5px ${s.color}` } : undefined}
+              >
+                <span className="h-2 w-2 flex-shrink-0 rounded-full" style={{ backgroundColor: s.color }} />
+                <span className={cn('min-w-0 flex-1 truncate text-[13px] font-medium', active ? 'text-text-primary' : 'text-text-secondary')}>
+                  {s.name}
+                </span>
+                <span className="flex-shrink-0 rounded-md bg-fg/[0.06] px-1.5 text-[11px] tabular-nums text-text-muted">{s.dealCount}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {loadingKanban ? (
         <KanbanSkeleton columns={localStages.length || 3} />
@@ -333,9 +368,9 @@ export function PipelinePage() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4 flex-1">
-            <SortableContext items={localStages.map((s) => s.id)} strategy={horizontalListSortingStrategy}>
-              {localStages.map((stage) => (
+          <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-md:overflow-visible max-md:[&>*]:!w-full">
+            <SortableContext items={visibleStages.map((s) => s.id)} strategy={horizontalListSortingStrategy}>
+              {visibleStages.map((stage) => (
                 <KanbanColumn
                   key={stage.id}
                   stage={stage}

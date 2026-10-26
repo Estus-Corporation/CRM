@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface AvatarProps {
   name: string;
-  src?: string;
+  /** Foto (URL ou data URL); sem foto, as iniciais */
+  src?: string | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
@@ -19,12 +21,16 @@ function getInitials(name: string) {
 }
 
 export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
-  if (src) {
+  // Foto que não carrega (link quebrado, arquivo corrompido) cai para as iniciais
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+
+  if (src && src !== failedSrc) {
     return (
       <img
         src={src}
         alt={name}
-        className={cn('rounded-full object-cover', sizes[size], className)}
+        onError={() => setFailedSrc(src)}
+        className={cn('flex-shrink-0 rounded-full object-cover', sizes[size], className)}
       />
     );
   }

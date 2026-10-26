@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import * as AuthService from './auth.service';
-import { registerSchema, loginSchema, refreshSchema, updateMeSchema, switchWorkspaceSchema } from './auth.schema';
+import {
+  registerSchema,
+  loginSchema,
+  refreshSchema,
+  updateMeSchema,
+  switchWorkspaceSchema,
+  createWorkspaceSchema,
+} from './auth.schema';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
@@ -44,7 +51,7 @@ export async function logout(req: Request, res: Response, next: NextFunction) {
 
 export async function getMe(req: Request, res: Response, next: NextFunction) {
   try {
-    const user = await AuthService.getMe(req.user!.id);
+    const user = await AuthService.getMe(req.user!.id, req.user!.tenantId, req.user!.role);
     res.json({ data: user });
   } catch (err) {
     next(err);
@@ -54,7 +61,7 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
 export async function updateMe(req: Request, res: Response, next: NextFunction) {
   try {
     const input = updateMeSchema.parse(req.body);
-    const user = await AuthService.updateMe(req.user!.id, input);
+    const user = await AuthService.updateMe(req.user!.id, req.user!.tenantId, req.user!.role, input);
     res.json({ data: user });
   } catch (err) {
     next(err);
@@ -75,6 +82,25 @@ export async function switchWorkspace(req: Request, res: Response, next: NextFun
     const { tenantId } = switchWorkspaceSchema.parse(req.body);
     const result = await AuthService.switchWorkspace(req.user!.id, tenantId);
     res.json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createWorkspace(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { name, email, keyPeople } = createWorkspaceSchema.parse(req.body);
+    const result = await AuthService.createOwnWorkspace(req.user!.id, name, { email, keyPeople });
+    res.status(201).json({ data: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function leaveWorkspace(req: Request, res: Response, next: NextFunction) {
+  try {
+    await AuthService.leaveWorkspace(req.user!.id, req.params.tenantId);
+    res.status(204).send();
   } catch (err) {
     next(err);
   }

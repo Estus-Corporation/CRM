@@ -1,10 +1,20 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Building2, Plus } from 'lucide-react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { authService, type Workspace } from '@/services/auth.service';
+import { createPortal } from 'react-dom';
+import { ChevronDown, Building2, Plus, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import type { Workspace } from '@/services/auth.service';
+import { useEnterWorkspace, useWorkspaces } from '@/hooks/useWorkspaces';
+import { CreateWorkspaceModal } from './CreateWorkspaceModal';
 import { useAuthStore } from '@/store/authStore';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
+import { CompanyLogo } from '@/components/company/CompanyLogo';
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: 'Admin',
+  manager: 'Gerente',
+  seller: 'Vendedor',
+  captador: 'Captador',
+};
 
 const planBadge: Record<string, string> = {
   free: 'FREE',
@@ -13,79 +23,118 @@ const planBadge: Record<string, string> = {
   enterprise: 'ENT',
 };
 
-export function WorkspaceSwitcher() {
-  const [open, setOpen] = useState(false);
-  const [switching, setSwitching] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const qc = useQueryClient();
-  const { user, setAuth, setTokens } = useAuthStore();
+interface WorkspaceSwitcherProps {
+  className?: string;
+  /** Só o ícone (menu lateral recolhido) */
+  compact?: boolean;
+}
 
-  const { data: workspaces = [] } = useQuery<Workspace[]>({
-    queryKey: ['workspaces'],
-    queryFn: authService.listWorkspaces,
-    staleTime: 30 * 1000,
-  });
+/**
+ * Seletor de workspace no rodapé do menu lateral. A lista abre pra cima, em portal (fixed),
+ * pra escapar do overflow do menu.
+ */
+export function WorkspaceSwitcher({ className, compact }: WorkspaceSwitcherProps) {
+  const [open, setOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
+  const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const { data: workspaces = [] } = useWorkspaces();
+  const enter = useEnterWorkspace();
+  const switching = enter.isPending;
 
   const currentTenantId = user?.tenant_id;
   const current = workspaces.find((w) => w.id === currentTenantId);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      const target = e.target as Node;
+      if (ref.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     }
+    const close = () => setOpen(false);
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('resize', close);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', close);
+    };
   }, []);
 
-  const handleSwitch = async (workspace: Workspace) => {
-    if (workspace.id === currentTenantId || switching) return;
-    setSwitching(true);
+  const toggle = () => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ bottom: window.innerHeight - rect.top + 6, left: rect.left, width: Math.max(rect.width, 256) });
+    setOpen((v) => !v);
+  };
+
+  /** Engrenagem: abre o perfil da empresa (troca de workspace antes, se for outro) */
+  const openCompanySettings = async (workspace: Workspace) => {
+    setOpen(false);
+    if (workspace.id !== currentTenantId && !(await handleSwitch(workspace))) return;
+    navigate('/settings#empresa');
+  };
+
+  const handleSwitch = async (workspace: Workspace): Promise<boolean> => {
+    if (workspace.id === currentTenantId) return true;
+    if (switching) return false;
     setOpen(false);
     try {
-      const result = await authService.switchWorkspace(workspace.id);
-      // Update tokens + user tenant_id in store
-      if (user) {
-        setAuth({ ...user, tenant_id: workspace.id, role: workspace.role as typeof user.role }, result.accessToken, result.refreshToken);
-      } else {
-        setTokens(result.accessToken, result.refreshToken);
-      }
-      // Clear all cached queries so new tenant data loads fresh
-      qc.clear();
-      toast.success(`Workspace alterado para "${workspace.name}"`);
+      await enter.mutateAsync(workspace);
+      return true;
     } catch {
-      toast.error('Não foi possível trocar de workspace');
-    } finally {
-      setSwitching(false);
+      return false;
     }
   };
 
   return (
-    <div ref={ref} className="relative">
+    // min-w-0: em espaço estreito o nome do workspace trunca em vez de vazar
+    <div ref={ref} className={cn('relative min-w-0', className)}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         disabled={switching}
+        title={current?.name}
+        aria-label={`Workspace: ${current?.name ?? ''}`}
         className={cn(
           // Esmeralda profundo fixo (não o token): branco sobre o verde claro do tema escuro perderia contraste
-          'flex h-10 items-center gap-2 rounded-[10px] bg-[#0E8F5A] px-3.5 text-sm text-white',
+          'flex h-11 items-center gap-2 rounded-[10px] bg-[#0E8F5A] text-sm text-white',
           'shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition-colors hover:bg-[#0B7D4E]',
+          compact ? 'w-12 justify-center' : 'w-full px-3.5',
           open && 'bg-[#0B7D4E]',
           switching && 'opacity-50 cursor-wait',
         )}
       >
-        <Building2 size={15} className="flex-shrink-0 text-white/90" />
-        <span className="max-w-[140px] truncate font-medium">
-          {switching ? 'Trocando...' : (current?.name ?? '—')}
-        </span>
-        <ChevronDown
-          size={14}
-          className={cn('flex-shrink-0 text-white/80 transition-transform', open && 'rotate-180')}
-        />
+        {/* Com logo, ele aparece no botão; sem logo, o ícone de prédio */}
+        {current?.logo_url ? (
+          <img
+            src={current.logo_url}
+            alt=""
+            className={cn('flex-shrink-0 rounded-md object-contain', compact ? 'h-7 w-7' : 'h-6 w-6')}
+          />
+        ) : (
+          <Building2 size={compact ? 17 : 15} className="flex-shrink-0 text-white/90" />
+        )}
+        {!compact && (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left font-medium">
+              {switching ? 'Trocando...' : (current?.name ?? '—')}
+            </span>
+            {/* Lista abre pra cima: seta aponta pra cima quando fechada */}
+            <ChevronDown
+              size={14}
+              className={cn('flex-shrink-0 text-white/80 transition-transform', !open && 'rotate-180')}
+            />
+          </>
+        )}
       </button>
 
-      {open && (
-        <div className="absolute left-0 top-full mt-1 w-64 bg-bg-surface border border-bg-border rounded-lg shadow-xl z-50 overflow-hidden">
+      {open && createPortal(
+        <div
+          ref={menuRef}
+          style={{ position: 'fixed', bottom: menuPos.bottom, left: menuPos.left, width: menuPos.width }}
+          className="z-[70] overflow-hidden rounded-lg border border-bg-border bg-bg-surface shadow-xl"
+        >
           <div className="px-3 py-2 border-b border-bg-border">
             <p className="text-xs text-text-muted font-medium uppercase tracking-wider">Workspaces</p>
           </div>
@@ -95,32 +144,40 @@ export function WorkspaceSwitcher() {
               <p className="text-xs text-text-muted px-3 py-2">Nenhum workspace encontrado</p>
             ) : (
               workspaces.map((ws) => (
-                <button
+                // Linha = troca de workspace; engrenagem (só admin) = configurar a empresa daquele workspace
+                <div
                   key={ws.id}
-                  onClick={() => handleSwitch(ws)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-bg-border/50 transition-colors',
+                    'flex items-center gap-1 pr-2 transition-colors hover:bg-bg-border/50',
                     ws.id === currentTenantId && 'bg-accent-green/5',
                   )}
                 >
-                  <div className="w-7 h-7 rounded-md bg-accent-green/15 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-accent-green uppercase">
-                      {ws.name.charAt(0)}
-                    </span>
-                  </div>
+                <button
+                  onClick={() => handleSwitch(ws)}
+                  className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pl-3 text-left"
+                  title={ws.id === currentTenantId ? 'Workspace atual' : `Entrar em ${ws.name}`}
+                >
+                  <CompanyLogo name={ws.name} logoUrl={ws.logo_url} className="h-7 w-7 flex-shrink-0 rounded-md text-xs" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-text-primary truncate">{ws.name}</p>
-                    <p className="text-xs text-text-muted capitalize">{ws.role}</p>
+                    <p className="text-xs text-text-muted">{ROLE_LABEL[ws.role] ?? ws.role}</p>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-[10px] font-semibold text-text-muted bg-bg-border px-1.5 py-0.5 rounded">
-                      {planBadge[ws.plan] ?? ws.plan.toUpperCase()}
-                    </span>
-                    {ws.id === currentTenantId && (
-                      <Check size={13} className="text-accent-green" />
-                    )}
-                  </div>
+                  <span className="flex-shrink-0 rounded bg-bg-border px-1.5 py-0.5 text-[10px] font-semibold text-text-muted">
+                    {planBadge[ws.plan] ?? ws.plan.toUpperCase()}
+                  </span>
                 </button>
+                {ws.role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => openCompanySettings(ws)}
+                    aria-label={`Configurar ${ws.name}`}
+                    title="Configurar informações da empresa"
+                    className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-fg/[0.08] hover:text-accent-green"
+                  >
+                    <Settings size={15} />
+                  </button>
+                )}
+                </div>
               ))
             )}
           </div>
@@ -130,15 +187,17 @@ export function WorkspaceSwitcher() {
               className="w-full flex items-center gap-2 px-3 py-2 text-sm text-text-muted hover:text-text-primary hover:bg-bg-border/50 rounded transition-colors"
               onClick={() => {
                 setOpen(false);
-                toast.info('Para entrar em outro workspace, peça um convite ao administrador.');
+                setCreateOpen(true);
               }}
             >
               <Plus size={13} />
-              Entrar em outro workspace
+              Criar novo workspace
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
+      <CreateWorkspaceModal open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

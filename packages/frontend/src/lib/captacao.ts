@@ -1,0 +1,69 @@
+import type { CallStatus } from '@/services/captacao.service';
+
+/** Resultados da ligação, na ordem em que aparecem para o captador */
+export const CALL_STATUS: Record<CallStatus, { label: string; short: string; className: string; dot: string }> = {
+  // Paleta de 3 cores (esmeralda/âmbar/vermelho): "a ligar" tracejado = ainda não ligou; "não atendeu" neutro
+  pending: { label: 'A ligar', short: 'A ligar', className: 'border border-dashed border-fg/[0.22] text-text-muted', dot: 'bg-text-muted' },
+  no_answer: { label: 'Não atendeu', short: 'Não atendeu', className: 'bg-fg/[0.09] text-text-primary', dot: 'bg-text-secondary' },
+  callback: { label: 'Em aguardo', short: 'Aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
+  meeting: { label: 'Reunião marcada', short: 'Reunião', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' },
+  lost: { label: 'Perdido', short: 'Perdido', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
+};
+
+export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'callback', 'meeting', 'lost'];
+
+export function formatBRL(value: number | null | undefined) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0);
+}
+
+/** Lê valor digitado em pt-BR ("12.500,50") ou com ponto decimal ("12500.50"); NaN se inválido */
+export function parseMoney(input: string) {
+  const s = input.trim();
+  if (!s) return NaN;
+  if (s.includes(',')) return Number(s.replace(/\./g, '').replace(',', '.'));
+  // Só pontos: "12.500" / "1.250.000" são milhares; "12500.5" é decimal
+  if (/^\d{1,3}(\.\d{3})+$/.test(s)) return Number(s.replace(/\./g, ''));
+  return Number(s);
+}
+
+/** Datas "YYYY-MM-DD" do banco: formata sem passar por fuso (evita voltar um dia) */
+export function formatDay(value: string) {
+  const [y, m, d] = value.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Instagram vem como "@perfil", "perfil" ou link completo */
+export function instagramUrl(value: string) {
+  const v = value.trim();
+  if (/^https?:\/\//i.test(v)) return v;
+  return `https://instagram.com/${v.replace(/^@/, '').replace(/^(www\.)?instagram\.com\//i, '')}`;
+}
+
+export function instagramHandle(value: string) {
+  const v = value.trim().replace(/\/+$/, '');
+  const fromUrl = v.match(/instagram\.com\/([^/?#]+)/i);
+  return `@${(fromUrl ? fromUrl[1] : v).replace(/^@/, '')}`;
+}
+
+/** Site sem protocolo ganha https:// */
+export function websiteUrl(value: string) {
+  const v = value.trim();
+  return /^https?:\/\//i.test(v) ? v : `https://${v}`;
+}
+
+export function websiteLabel(value: string) {
+  return value.trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/+$/, '');
+}
+
+/** Página do Google do lugar: o link que veio do LeadHunter, ou uma busca no Maps por nome + endereço */
+export function googleUrl(lead: { maps_url: string | null; full_name: string; company_name: string | null; address: string | null }) {
+  if (lead.maps_url) return lead.maps_url;
+  const query = [lead.company_name || lead.full_name, lead.address].filter(Boolean).join(' ');
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+/** Link do WhatsApp a partir de um telefone brasileiro em qualquer formato */
+export function whatsappUrl(phone: string) {
+  const digits = phone.replace(/\D/g, '');
+  return `https://wa.me/${digits.length <= 11 ? `55${digits}` : digits}`;
+}

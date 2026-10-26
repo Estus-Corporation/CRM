@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Download, Trash2, Pencil, Users, User } from 'lucide-react';
+import { Search, Plus, Download, Trash2, Pencil, Users, User, Check } from 'lucide-react';
+import { SelectDropdown } from '@/components/ui/SelectDropdown';
+import { cn } from '@/lib/utils';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/hooks/useContacts';
 import { contactsService, type Contact } from '@/services/contacts.service';
 import { Button } from '@/components/ui/Button';
@@ -20,8 +22,9 @@ import { toast } from 'sonner';
 import { useDebounce } from '@/hooks/useDebounce';
 
 // Mesma grade no cabeçalho de colunas e em cada card — mantém as colunas alinhadas entre cards
+// Celular: colunas "auto" — sem o modo de edição a coluna de ações some (display:none) e o nome ganha o espaço
 const ROW_GRID =
-  'grid-cols-[minmax(0,1fr)_92px_76px] md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_92px_76px] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_92px_76px]';
+  'grid-cols-[minmax(0,1fr)_auto_auto] sm:grid-cols-[minmax(0,1fr)_92px_76px] md:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_92px_76px] lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)_92px_76px]';
 
 
 const TYPE_FILTER_OPTIONS: { value: string; label: string }[] = [
@@ -55,6 +58,8 @@ export function ContactsPage() {
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const [exportLoading, setExportLoading] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Celular: editar/excluir só aparecem nas linhas depois de tocar no lápis
+  const [editMode, setEditMode] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -121,15 +126,16 @@ export function ContactsPage() {
         subtitle={`${data?.meta?.total ?? 0} no total`}
         actions={
           <>
-            <Button variant="secondary" size="sm" onClick={handleExport} disabled={exportLoading}>
+            {/* Celular: exportar/importar só com ícone; "Novo contato" ocupa o resto da linha */}
+            <Button variant="secondary" size="sm" onClick={handleExport} disabled={exportLoading} aria-label="Exportar CSV" className="max-sm:h-11 max-sm:w-11 max-sm:px-0">
               <Download size={14} />
-              {exportLoading ? 'Exportando…' : 'Exportar CSV'}
+              <span className="max-sm:hidden">{exportLoading ? 'Exportando…' : 'Exportar CSV'}</span>
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
+            <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)} aria-label="Importar" className="max-sm:h-11 max-sm:w-11 max-sm:px-0">
               <Users size={14} />
-              Importar
+              <span className="max-sm:hidden">Importar</span>
             </Button>
-            <Button size="lg" onClick={openCreate} className="px-6 text-[15px]">
+            <Button size="lg" onClick={openCreate} className="px-6 text-[15px] max-sm:h-11 max-sm:flex-1">
               <Plus size={18} strokeWidth={2.25} />
               Novo contato
             </Button>
@@ -139,7 +145,7 @@ export function ContactsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative max-w-xs flex-1">
+        <div className="relative flex-1 max-sm:basis-full sm:max-w-xs">
           <Search size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             className="input-base h-10 pl-9"
@@ -148,14 +154,32 @@ export function ContactsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        {/* Celular: lápis liga o modo de edição (editar/excluir aparecem em cada linha) */}
+        <button
+          type="button"
+          onClick={() => setEditMode((v) => !v)}
+          aria-pressed={editMode}
+          aria-label={editMode ? 'Sair do modo de edição' : 'Editar contatos'}
+          className={cn(
+            'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border transition-colors sm:hidden',
+            editMode ? 'border-accent-green/60 bg-accent-green/15 text-accent-green' : 'border-fg/[0.1] bg-field text-text-secondary',
+          )}
+        >
+          {editMode ? <Check size={16} /> : <Pencil size={16} />}
+        </button>
+
+        {/* Tipo: segmentado no desktop, um botão com dropdown no celular */}
         <SegmentedControl
           layoutId="contacts-filter-pill"
           options={TYPE_FILTER_OPTIONS}
           value={typeFilter}
           onChange={setTypeFilter}
+          className="max-sm:hidden"
         />
+        <SelectDropdown title="Tipo" options={TYPE_FILTER_OPTIONS} value={typeFilter} onChange={setTypeFilter} className="flex-1 sm:hidden" />
 
-        <div className="ml-auto">
+        <div className="sm:ml-auto">
           <NicheFilter value={nicheFilter} onChange={setNicheFilter} />
         </div>
       </div>
@@ -184,7 +208,7 @@ export function ContactsPage() {
             <span className="hidden md:block">Nicho</span>
             <span className="hidden lg:block">Telefone</span>
             <span>Tipo</span>
-            <span />
+            <span className={cn(!editMode && 'max-sm:hidden')} />
           </DataListHead>
 
           <DataListBody>
@@ -226,7 +250,10 @@ export function ContactsPage() {
                   <Badge variant={typeBadgeVariant[c.type] ?? 'default'}>{typeLabel[c.type] ?? c.type}</Badge>
                 </span>
                 <div
-                  className="flex justify-end gap-1 opacity-60 transition-opacity duration-200 group-hover:opacity-100"
+                  className={cn(
+                    'flex justify-end gap-1 opacity-60 transition-opacity duration-200 group-hover:opacity-100',
+                    editMode ? 'max-sm:opacity-100' : 'max-sm:hidden',
+                  )}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button

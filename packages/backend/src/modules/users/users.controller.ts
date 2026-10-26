@@ -13,7 +13,7 @@ export async function listUsers(req: Request, res: Response, next: NextFunction)
 export async function inviteUser(req: Request, res: Response, next: NextFunction) {
   try {
     const input = UsersService.inviteUserSchema.parse(req.body);
-    const user = await UsersService.inviteUser(req.user!.tenantId, input);
+    const user = await UsersService.inviteUser(req.user!.tenantId, req.user!.id, input);
     res.status(201).json({ data: user });
   } catch (err) {
     next(err);
@@ -30,19 +30,10 @@ export async function updateUser(req: Request, res: Response, next: NextFunction
   }
 }
 
-export async function resendInvite(req: Request, res: Response, next: NextFunction) {
-  try {
-    const result = await UsersService.resendInvite(req.user!.tenantId, req.params.id);
-    res.json({ data: result });
-  } catch (err) {
-    next(err);
-  }
-}
-
 export async function deleteUser(req: Request, res: Response, next: NextFunction) {
   try {
     if (req.params.id === req.user!.id) {
-      throw Object.assign(new Error('Cannot delete your own account'), { status: 400 });
+      throw Object.assign(new Error('Use "sair do workspace" em Minha conta'), { status: 400 });
     }
     await UsersService.deleteUser(req.user!.tenantId, req.params.id);
     res.status(204).send();

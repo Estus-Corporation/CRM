@@ -22,6 +22,8 @@ import publicRoutes from './modules/public/public.routes';
 import searchRoutes from './modules/search/search.routes';
 import notificationRoutes from './modules/notifications/notifications.routes';
 import contractRoutes from './modules/contracts/contracts.routes';
+import captacaoRoutes from './modules/captacao/captacao.routes';
+import notesRoutes from './modules/notes/notes.routes';
 import { tierRateLimiter } from './shared/middleware/rateLimiter';
 
 const app = express();
@@ -29,7 +31,8 @@ const app = express();
 app.use(corsMiddleware);
 // Webhook route needs raw body — must be registered before express.json()
 app.use('/api/v1/billing/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json());
+// 1 MB: logo da empresa (data URL) e lotes de importação de leads passam do padrão de 100 KB
+app.use(express.json({ limit: '1mb' }));
 app.use('/api/v1', tierRateLimiter);
 
 app.get('/health', (_req, res) => {
@@ -53,6 +56,8 @@ app.use('/api/v1/public', publicRoutes);
 app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/contacts/:contactId/contracts', contractRoutes);
+app.use('/api/v1/captacao', captacaoRoutes);
+app.use('/api/v1/notes', notesRoutes);
 
 app.use(errorHandler);
 

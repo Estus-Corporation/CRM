@@ -74,6 +74,12 @@ export function DesktopSidebar({
             animate={{ width: expanded ? SIDEBAR_EXPANDED : SIDEBAR_COLLAPSED }}
             transition={panelSpring}
           >
+            {/* Faixa de vidro sob o rodapé (Configurações + workspace). Dentro do aside: acompanha a largura do menu */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-white/[0.08] bg-[#03120E]/55 backdrop-blur-md"
+              style={{ height: SIDEBAR_FOOTER_HEIGHT }}
+            />
             <div className="relative flex h-full flex-col" style={{ width: SIDEBAR_EXPANDED }}>
               {children}
             </div>
@@ -96,6 +102,8 @@ export function MobileSidebar({
 }) {
   return (
     <MotionConfig reducedMotion="never">
+      {/* SidebarLink usa Tooltip do Radix: sem o Provider a gaveta quebrava ao abrir */}
+      <Tooltip.Provider delayDuration={250}>
       <AnimatePresence>
         {open && (
           <SidebarContext.Provider value={{ expanded: true, layoutGroup: 'mobile' }}>
@@ -130,6 +138,7 @@ export function MobileSidebar({
           </SidebarContext.Provider>
         )}
       </AnimatePresence>
+      </Tooltip.Provider>
     </MotionConfig>
   );
 }
@@ -192,16 +201,18 @@ export function SidebarTooltip({ label, children }: { label: string; children: R
 
 interface SidebarLinkProps {
   to: string;
+  /** Ativo só na rota exata (NavLink end) */
+  end?: boolean;
   label: string;
   icon: ReactNode;
   onNavigate?: () => void;
 }
 
-export function SidebarLink({ to, label, icon, onNavigate }: SidebarLinkProps) {
+export function SidebarLink({ to, end, label, icon, onNavigate }: SidebarLinkProps) {
   const { layoutGroup } = useSidebar();
   return (
     <SidebarTooltip label={label}>
-      <NavLink to={to} onClick={onNavigate} className="group/link block rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-accent-green/40">
+      <NavLink to={to} end={end} onClick={onNavigate} className="group/link block rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-accent-green/40">
         {({ isActive }) => (
           <motion.div
             className={cn(

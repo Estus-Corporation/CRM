@@ -15,6 +15,12 @@ import { DealDetailPage } from '@/pages/deals/DealDetailPage';
 import { CalendarPage } from '@/pages/calendar/CalendarPage';
 import { ReportsPage } from '@/pages/reports/ReportsPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
+import { CaptacaoPage } from '@/pages/captacao/CaptacaoPage';
+import { MyLeadsPage } from '@/pages/captacao/MyLeadsPage';
+import { MyCommissionsPage } from '@/pages/captacao/MyCommissionsPage';
+import { MyDashboardPage } from '@/pages/captacao/MyDashboardPage';
+import { CompanyPage } from '@/pages/company/CompanyPage';
+import { AccountPage } from '@/pages/account/AccountPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { PrivacyPage, TermsPage } from '@/pages/legal/LegalPages';
 
@@ -68,6 +74,13 @@ export const router = createBrowserRouter([
       { path: '/calendar', element: <CalendarPage /> },
       { path: '/reports', element: <ReportsPage /> },
       { path: '/settings', element: <SettingsPage /> },
+      { path: '/captacao', element: <CaptacaoPage /> },
+      { path: '/meu-painel', element: <MyDashboardPage /> },
+      { path: '/meus-leads', element: <MyLeadsPage key="leads" /> },
+      { path: '/meus-leads/reunioes', element: <MyLeadsPage key="meetings" view="meetings" /> },
+      { path: '/minhas-comissoes', element: <MyCommissionsPage /> },
+      { path: '/empresa', element: <CompanyPage /> },
+      { path: '/conta', element: <AccountPage /> },
     ],
   },
   {

@@ -2,6 +2,8 @@ import axios from 'axios';
 import { API_URL } from '@/lib/constants';
 import { useAuthStore } from '@/store/authStore';
 import { useUpgradeStore } from '@/store/upgradeStore';
+import { queryClient } from '@/lib/queryClient';
+import { toast } from 'sonner';
 
 export const api = axios.create({
   baseURL: API_URL,
@@ -61,8 +63,19 @@ api.interceptors.response.use(
 
     try {
       const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-      const { accessToken, refreshToken: newRefreshToken } = res.data.data;
-      useAuthStore.getState().setTokens(accessToken, newRefreshToken);
+      const { accessToken, refreshToken: newRefreshToken, tenantId, role } = res.data.data;
+      const auth = useAuthStore.getState();
+      auth.setTokens(accessToken, newRefreshToken);
+      // Se a pessoa foi removida do workspace atual, a renovação a leva pra outro workspace dela:
+      // atualiza a sessão na tela e descarta os dados do workspace antigo
+      if (auth.user && tenantId && (tenantId !== auth.user.tenant_id || role !== auth.user.role)) {
+        const movedOut = tenantId !== auth.user.tenant_id;
+        auth.patchUser({ tenant_id: tenantId, role });
+        if (movedOut) {
+          queryClient.clear();
+          toast.info('Você não faz mais parte daquele workspace — voltou para o seu.');
+        }
+      }
       processQueue(null, accessToken);
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return api(originalRequest);
