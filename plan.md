@@ -710,7 +710,7 @@ Motion (GSAP):
 - [ ] **Pendências da T1 (lado CRM):**
   - aplicar a migração `20240032` no banco de dev (`npm run migrate:latest`); validada só num Postgres descartável (no Railway roda no boot); sem ela o `import-bulk` também falha
   - validar em produção com chave `read`+`write` (3 empresas reais, reenvio sem duplicar) — precisa de autorização do usuário
-  - `updateContactSchema.ownerId` é `uuid().optional()`: o dono não pode ser limpo (nulo/'') pela API; preexistente, não alterado
+  - `updateContactSchema.ownerId` era `uuid().optional()` (dono não podia ser limpo); desde 27/10/2026 é `.nullable().optional()`: `PATCH` aceita `null` para limpar, '' segue recusado
 
 ### Roteiro de verificação (curl local, `http://localhost:3011/api/v1`, chave `tlk_...`)
 
