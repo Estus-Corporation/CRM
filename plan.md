@@ -769,3 +769,29 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
   - a distribuição automática diária do captador (`topUpDailyLeads`) não filtra por dono: leads entregues a um seller por pedido podem ser distribuídos a um captador (comportamento anterior, vale para qualquer contato sem `lead_assignments`)
   - limites conhecidos: sem token de reserva por executor — qualquer chave `write` do mesmo workspace pode renovar/entregar um pedido reservado (o desenho prevê um único Radar por workspace); resposta do `result` perdida faz o Radar marcar o pedido como "perdido" enquanto o CRM mostra concluído (dados certos); papel do usuário vem do JWT (admin rebaixado mantém visão ampla até o token expirar, 15 min); cota 0 ou máximo menor não afetam pedidos que já estão na fila; com enriquecimento + Jev cada empresa custa ~2 chamadas no Radar, então máximo por pedido acima de 39 estoura `MAX_CALLS_PER_CAMPAIGN=80` e o pedido volta `failed`
   - fora do escopo, corrigido de passagem: `errorHandler` não devolve mais a mensagem crua de erros 5xx (vazava SQL); `requireApiKey` passa erros de banco para o `next` (antes virava rejeição não tratada)
+
+## M25 — LeadHunter dentro do CRM
+
+> O Radar Local (LeadHunter) deixa de ser um app externo: todas as funções dele, menos as prévias de site, passam a viver no CRM.
+> - Só **admin** executa busca paga; captador, seller e manager pedem em `/solicitacoes` (mesmos campos do formulário do LeadHunter) e o admin executa ou recusa.
+> - Liga/desliga por workspace (`tenants.leadhunter_enabled`), ligado só na Estus, por SQL.
+> - Desenho aprovado em 27/10/2026: `docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md`. Plano com interfaces, testes e ondas: `docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md`.
+> - Substitui o executor externo do M24 T2 (a validação dele em produção foi cancelada).
+
+### Tasks (ondas paralelas; detalhes no plano)
+
+- [ ] **T1** Base: `vitest` no backend, env do LeadHunter, migração `20240037` (flag + tabelas `lh_*`), `requireLeadHunter`
+- [ ] **T2** Domínio (port de `radar/domain.py`): validação, pontuação, chaves de cache, identidade
+- [ ] **T3** CSV: importação e exportação (22 colunas, proteção contra fórmula)
+- [ ] **T4** Provedores DataForSEO e Jev (reserva antes da chamada, sem repetição)
+- [ ] **T5** Store em Postgres (reserva com trava global no limite diário)
+- [ ] **T6** Engine e worker (`FOR UPDATE SKIP LOCKED`, `recover()` no boot, flag desligada não executa)
+- [ ] **T7** API `/api/v1/leadhunter` (só admin) + "Criar contatos"
+- [ ] **T8** Frontend: serviço, hooks, menu "LeadHunter", rotas e guarda
+- [ ] **T9** Tela de campanhas
+- [ ] **T10** Ficha da empresa
+- [ ] **T11** Locais pesquisados, Empresas já encontradas e Integrações
+- [ ] **T12** Pedidos de leads no backend: admin executa/recusa, entrega automática, migração `20240038`, remoção de `/public/lead-requests`
+- [ ] **T13** Pedidos de leads no frontend (campos do LeadHunter; `/solicitacoes` liberado ao captador no `AppShell`)
+- [ ] **T14** Importação do histórico do Radar Local (export Python só leitura + import TS só inserção)
+- [ ] **T15** Remoção de `/public/leads/bulk` e corte em produção (com autorização do usuário em cada passo)
