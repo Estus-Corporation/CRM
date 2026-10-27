@@ -1,7 +1,9 @@
+import { randomUUID } from 'crypto';
 import { db } from '../../db';
 import { getPaginationParams, paginatedResponse } from '../../shared/utils/paginate';
 import type { CreateContactInput, UpdateContactInput, ListContactsQuery } from './contacts.schema';
 import { fireWebhook } from '../integrations/integrations.service';
+import { findActiveMemberById } from '../users/users.service';
 
 export async function listContacts(tenantId: string, query: ListContactsQuery) {
   const { page, limit, offset } = getPaginationParams(query);
@@ -90,7 +92,18 @@ export async function getContact(tenantId: string, id: string) {
 
 const FREE_CONTACT_LIMIT = 300;
 
+async function assertActiveOwner(tenantId: string, ownerId?: string | null) {
+  if (!ownerId) return;
+  if (!(await findActiveMemberById(tenantId, ownerId))) {
+    throw Object.assign(new Error('Responsável não é membro ativo deste workspace'), {
+      status: 422,
+      code: 'invalid_owner',
+    });
+  }
+}
+
 export async function createContact(tenantId: string, input: CreateContactInput) {
+  await assertActiveOwner(tenantId, input.ownerId);
   const tenant = await db('tenants').where({ id: tenantId }).first('plan');
   if (tenant?.plan === 'free') {
     const [{ count }] = await db('contacts').where({ tenant_id: tenantId }).count('id as count');
@@ -135,6 +148,7 @@ export async function updateContact(
   id: string,
   input: UpdateContactInput,
 ) {
+  await assertActiveOwner(tenantId, input.ownerId);
   const updates: Record<string, unknown> = { updated_at: new Date() };
   if (input.type !== undefined) updates.type = input.type;
   if (input.fullName !== undefined) updates.full_name = input.fullName;
@@ -235,28 +249,73 @@ export interface BulkContactInput {
   googleRating?: number;
   googleReviews?: number;
   leadContext?: string;
+  city?: string;
+  leadScore?: number;
+  externalId?: string;
+}
+
+export interface BulkItemResult {
+  externalId: string | null;
+  contactId: string | null;
+  status: 'imported' | 'duplicate' | 'error';
+  error?: string;
 }
 
 const onlyDigits = (s: string) => s.replace(/\D/g, '');
 
+const ADDRESS_MAX = 500;
+
+/** `contacts` não tem coluna de cidade: ela entra no fim do endereço, se ainda não estiver nele. */
+function composeAddress(address?: string, city?: string): string | null {
+  const addr = address?.trim() ?? '';
+  const cityName = city?.trim() ?? '';
+  if (!cityName) return addr.slice(0, ADDRESS_MAX) || null;
+  if (!addr) return cityName.slice(0, ADDRESS_MAX);
+  if (addr.toLowerCase().includes(cityName.toLowerCase())) return addr.slice(0, ADDRESS_MAX);
+  return `${addr}, ${cityName}`.slice(0, ADDRESS_MAX);
+}
+
 /**
- * Importação em lote (agenda do celular, planilha de leads). Pula duplicados por e-mail ou
- * telefone — contra o que já existe no workspace e dentro do próprio lote — e grava num insert só.
+ * Importação em lote (agenda do celular, planilha de leads, LeadHunter). Pula duplicados por
+ * external_id, e-mail ou telefone — contra o que já existe no workspace e dentro do próprio lote —
+ * e grava num insert só. `options.source` sobrescreve o `source` dos itens; `options.ownerId`
+ * vira o responsável. Devolve um resultado por item, na ordem de entrada.
  */
 export async function importContactsBulk(
   tenantId: string,
   contacts: BulkContactInput[],
-): Promise<{ imported: number; skipped: number; errors: string[] }> {
+  options: { ownerId?: string | null; source?: string } = {},
+): Promise<{ imported: number; skipped: number; errors: string[]; items: BulkItemResult[] }> {
   const tenant = await db('tenants').where({ id: tenantId }).first('plan');
   const errors: string[] = [];
+  const items: BulkItemResult[] = [];
   let skipped = 0;
 
   const existing = await db('contacts')
     .where({ tenant_id: tenantId })
-    .select(db.raw('lower(email) as email'), db.raw("regexp_replace(coalesce(phone, ''), '\\D', '', 'g') as phone"));
-  const emails = new Set(existing.map((r: { email: string | null }) => r.email).filter(Boolean));
+    .select('id', db.raw('lower(email) as email'), db.raw("regexp_replace(coalesce(phone, ''), '\\D', '', 'g') as phone"));
+  // valor -> id do contato que já existia; null = veio de outro item do mesmo lote
+  const emails = new Map<string, string | null>();
   // Telefones curtos demais (ramal, lixo) não servem pra identificar duplicado
-  const phones = new Set(existing.map((r: { phone: string }) => r.phone).filter((p: string) => p.length >= 8));
+  const phones = new Map<string, string | null>();
+  for (const r of existing as { id: string; email: string | null; phone: string }[]) {
+    if (r.email) emails.set(r.email, r.id);
+    if (r.phone.length >= 8) phones.set(r.phone, r.id);
+  }
+
+  const itemSource = (item: BulkContactInput) => options.source?.trim() || item.source?.trim() || null;
+  const externalKey = (source: string | null, externalId: string) => `${source ?? ''}\u0000${externalId}`;
+
+  const externalIds = new Map<string, string | null>();
+  const wantedIds = contacts.map((c) => c.externalId?.trim()).filter((id): id is string => !!id);
+  if (wantedIds.length) {
+    const query = db('contacts').where({ tenant_id: tenantId }).whereIn('external_id', wantedIds);
+    if (options.source?.trim()) query.where({ source: options.source.trim() });
+    const found = await query.select('id', 'source', 'external_id');
+    for (const r of found as { id: string; source: string | null; external_id: string }[]) {
+      externalIds.set(externalKey(r.source, r.external_id), r.id);
+    }
+  }
 
   let room = Infinity;
   if (tenant?.plan === 'free') {
@@ -264,49 +323,82 @@ export async function importContactsBulk(
     room = Math.max(0, FREE_CONTACT_LIMIT - Number(count));
   }
 
+  const limitMessage = `Limite de ${FREE_CONTACT_LIMIT} contatos atingido no plano gratuito`;
   const rows: Record<string, unknown>[] = [];
+  let limitHit = false;
   for (const item of contacts) {
-    const fullName = item.fullName?.trim();
-    if (!fullName) { skipped++; continue; }
+    const externalId = item.externalId?.trim() || null;
 
+    if (limitHit) {
+      items.push({ externalId, contactId: null, status: 'error', error: limitMessage });
+      continue;
+    }
+
+    const fullName = item.fullName?.trim();
+    if (!fullName) {
+      skipped++;
+      items.push({ externalId, contactId: null, status: 'error', error: 'Nome da empresa vazio' });
+      continue;
+    }
+
+    const source = itemSource(item);
     const email = item.email?.trim().toLowerCase() || null;
     const phoneDigits = item.phone ? onlyDigits(item.phone) : '';
-    if ((email && emails.has(email)) || (phoneDigits.length >= 8 && phones.has(phoneDigits))) {
+    const hasPhone = phoneDigits.length >= 8;
+    const extKey = externalId ? externalKey(source, externalId) : null;
+    const isDuplicate =
+      (extKey && externalIds.has(extKey)) || (email && emails.has(email)) || (hasPhone && phones.has(phoneDigits));
+    if (isDuplicate) {
       skipped++;
+      const contactId =
+        (extKey && externalIds.get(extKey)) ||
+        (email && emails.get(email)) ||
+        (hasPhone && phones.get(phoneDigits)) ||
+        null;
+      items.push({ externalId, contactId, status: 'duplicate' });
       continue;
     }
 
     if (rows.length >= room) {
-      errors.push(`Limite de ${FREE_CONTACT_LIMIT} contatos atingido no plano gratuito`);
-      break;
+      limitHit = true;
+      errors.push(limitMessage);
+      items.push({ externalId, contactId: null, status: 'error', error: limitMessage });
+      continue;
     }
 
-    if (email) emails.add(email);
-    if (phoneDigits.length >= 8) phones.add(phoneDigits);
+    const id = randomUUID();
+    if (extKey) externalIds.set(extKey, null);
+    if (email) emails.set(email, null);
+    if (hasPhone) phones.set(phoneDigits, null);
     rows.push({
+      id,
       tenant_id: tenantId,
+      owner_id: options.ownerId ?? null,
       full_name: fullName,
       phone: item.phone?.trim() || null,
       email,
       company_name: item.company?.trim() || null,
       job_title: item.jobTitle?.trim() || null,
       niche: item.niche?.trim() || null,
-      source: item.source?.trim() || null,
-      address: item.address?.trim() || null,
+      source,
+      address: composeAddress(item.address, item.city),
       maps_url: item.mapsUrl?.trim() || null,
       instagram: item.instagram?.trim() || null,
       website: item.website?.trim() || null,
       google_rating: item.googleRating ?? null,
       google_reviews: item.googleReviews ?? null,
       lead_context: item.leadContext?.trim() || null,
+      lead_score: item.leadScore ?? null,
+      external_id: externalId,
       type: 'lead',
       tags: '{}',
       custom_fields: '{}',
     });
+    items.push({ externalId, contactId: id, status: 'imported' });
   }
 
   if (rows.length) await db('contacts').insert(rows);
-  return { imported: rows.length, skipped, errors };
+  return { imported: rows.length, skipped, errors, items };
 }
 
 export async function uploadContactPhoto(

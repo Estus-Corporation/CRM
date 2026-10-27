@@ -29,6 +29,30 @@ const MEMBER_COLUMNS = [
   'ut.role', 'ut.is_active', 'ut.created_at',
 ];
 
+/** Membros ativos do workspace (rota pública: só id, nome, e-mail e papel) */
+export function listActiveMembers(tenantId: string): Promise<{ id: string; name: string; email: string; role: string }[]> {
+  return db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.tenant_id': tenantId, 'ut.is_active': true })
+    .select('u.id', 'u.full_name as name', 'u.email', 'ut.role')
+    .orderBy('u.full_name', 'asc');
+}
+
+export function findActiveMemberByEmail(tenantId: string, email: string): Promise<{ id: string } | undefined> {
+  return db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.tenant_id': tenantId, 'ut.is_active': true })
+    .whereRaw('lower(u.email) = lower(?)', [email])
+    .first('u.id');
+}
+
+export function findActiveMemberById(tenantId: string, userId: string): Promise<{ id: string } | undefined> {
+  return db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.tenant_id': tenantId, 'ut.user_id': userId, 'ut.is_active': true })
+    .first('u.id');
+}
+
 export async function listUsers(tenantId: string, query: Record<string, unknown>) {
   const { page, limit, offset } = getPaginationParams(query);
 

@@ -25,6 +25,30 @@ export const createContactSchema = z.object({
   customFields: z.record(z.unknown()).optional(),
 });
 
+const optionalText = (max: number) => z.string().max(max).optional();
+
+// Lote vindo do celular (vCard) ou de planilha — o frontend manda em blocos de até 500
+export const bulkContactSchema = z.object({
+  fullName: z.string().max(255),
+  phone: optionalText(50),
+  email: optionalText(255),
+  company: optionalText(255),
+  jobTitle: optionalText(255),
+  niche: optionalText(255),
+  source: optionalText(100),
+  address: optionalText(500),
+  mapsUrl: optionalText(1000),
+  instagram: optionalText(255),
+  website: optionalText(500),
+  googleRating: z.coerce.number().min(0).max(5).optional(),
+  googleReviews: z.coerce.number().int().min(0).optional(),
+  leadContext: optionalText(5000),
+});
+
+export const bulkImportSchema = z.object({
+  contacts: z.array(bulkContactSchema).min(1).max(500),
+});
+
 export const updateContactSchema = createContactSchema.partial();
 
 export const listContactsQuerySchema = z.object({

@@ -1,34 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { z } from 'zod';
 import * as ContactsService from './contacts.service';
-
-const optionalText = (max: number) => z.string().max(max).optional();
-
-// Lote vindo do celular (vCard) ou de planilha — o frontend manda em blocos de até 500
-const bulkImportSchema = z.object({
-  contacts: z
-    .array(
-      z.object({
-        fullName: z.string().max(255),
-        phone: optionalText(50),
-        email: optionalText(255),
-        company: optionalText(255),
-        jobTitle: optionalText(255),
-        niche: optionalText(255),
-        source: optionalText(100),
-        address: optionalText(500),
-        mapsUrl: optionalText(1000),
-        instagram: optionalText(255),
-        website: optionalText(500),
-        googleRating: z.coerce.number().min(0).max(5).optional(),
-        googleReviews: z.coerce.number().int().min(0).optional(),
-        leadContext: optionalText(5000),
-      }),
-    )
-    .min(1)
-    .max(500),
-});
 
 export const csvUpload = multer({
   storage: multer.memoryStorage(),
@@ -49,6 +21,7 @@ import {
   createContactSchema,
   updateContactSchema,
   listContactsQuerySchema,
+  bulkImportSchema,
 } from './contacts.schema';
 
 export async function listContacts(req: Request, res: Response, next: NextFunction) {
