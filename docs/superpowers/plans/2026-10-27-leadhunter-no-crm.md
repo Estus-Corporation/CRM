@@ -52,7 +52,13 @@
 - `npm run lint --workspace=packages/frontend`
 - `npm run build --workspace=packages/frontend`
 
-**Banco de teste:** Postgres descartável `postgresql://postgres:postgres@localhost:5432/titancrm_test`, criado no container `postgres` do `docker-compose.yml` com `docker compose exec postgres createdb -U postgres titancrm_test`. **Nunca** apontar `TEST_DATABASE_URL` para o banco de dev ou de produção.
+**Banco de teste:** sem Docker. O app roda só no Railway (produção) e o backend não tem `.env` local. Os testes usam o **PostgreSQL 18 nativo do Windows**:
+- serviço `postgresql-x64-18`, início manual, normalmente parado: `Start-Service postgresql-x64-18`, em terminal de administrador;
+- banco descartável `titancrm_test`, criado com `& 'C:\Program Files\PostgreSQL\18\bin\createdb.exe' -U postgres titancrm_test`;
+- `TEST_DATABASE_URL=postgresql://postgres:<senha>@localhost:5432/titancrm_test`, passado só como variável do processo.
+- A senha do `postgres` local é do usuário: a que o `CLAUDE.md` cita não autenticou em 26/10, então perguntar no início da T1.
+
+**Nunca** apontar `TEST_DATABASE_URL` nem `DATABASE_URL` local para o Postgres do Railway (produção).
 
 ## Review Focus
 
@@ -437,7 +443,7 @@ export const onCampaignFinished: { handler: ((tenantId: string, campaignId: stri
     - `'DELETE de empresa inexistente responde 404'`.
 - [ ] **Step 2:** `TEST_DATABASE_URL=… npm run test --workspace=packages/backend -- leadhunter contacts`. Esperado: FAIL.
 - [ ] **Step 3:** implementar o schema, o service, o controller, as rotas, `contacts.ts` e a montagem em `server.ts`.
-- [ ] **Step 4:** rodar os testes. Esperado: PASS. Depois, um `curl` contra `npm run dev:backend` com banco descartável, com a flag ligada para um tenant de teste por `UPDATE tenants SET leadhunter_enabled = true WHERE id = '<id>'`:
+- [ ] **Step 4:** rodar os testes. Esperado: PASS. Depois, um `curl` contra `npm run dev:backend` com `DATABASE_URL` apontando para o `titancrm_test` local (variável do processo; nunca Railway), com a flag ligada para um tenant de teste por `UPDATE tenants SET leadhunter_enabled = true WHERE id = '<id>'`:
   - admin `POST /leadhunter/campaigns` demo → 201 e, em até ~3 s, `GET` mostra `completed` com 10 empresas;
   - seller → 403;
   - outro tenant com flag falsa → 404.
