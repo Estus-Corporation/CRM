@@ -56,7 +56,9 @@ export const bulkImportSchema = z.object({
   contacts: z.array(bulkContactSchema).min(1).max(500),
 });
 
-export const updateContactSchema = createContactSchema.partial();
+export const updateContactSchema = createContactSchema.partial().extend({
+  ownerId: z.string().uuid().nullable().optional(),
+});
 
 export const listContactsQuerySchema = z.object({
   type: contactTypeEnum.optional(),
