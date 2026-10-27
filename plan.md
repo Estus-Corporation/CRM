@@ -686,3 +686,50 @@ Motion (GSAP):
 
 - `feat/m16-landing-page-redesign` — redesign inicial (T1-T8)
 - `fix/m16-landing-visual-audit` — audit fix (T9)
+
+
+## M23 — Integração LeadHunter (Radar Local)
+
+> O Radar Local (LeadHunter) passa a enviar leads ao CRM pela API pública (`X-API-Key`, chave com escopos `read` + `write`) e, numa segunda etapa, atende pedidos de leads feitos no CRM. Verificado só localmente (Postgres descartável, nada em produção).
+
+### Tasks
+
+- [x] **T1** — Envio de leads do LeadHunter (feito e verificado por curl em banco descartável):
+  - migration `20240032_add_leadhunter_fields_to_contacts`: `lead_score` (`CHECK 0..100`) e `external_id` em `contacts`, índice único parcial `(tenant_id, source, external_id)` onde `external_id` não é nulo; com `down`
+  - `importContactsBulk` estendido: devolve `items[]` (`externalId`, `contactId`, `status`: `imported` | `duplicate` | `error`); duplicado por `external_id`, e-mail ou telefone (formatação ignorada); `contactId` do duplicado = contato que já existia (`null` se o duplicado é do próprio lote); `address` = `"<endereço>, <cidade>"`
+  - `GET /api/v1/public/users` (escopo `read`): membros ativos `{id,name,email,role}`
+  - `POST /api/v1/public/leads/bulk` (escopo `write`): 1–500 leads, `ownerEmail` opcional (membro ativo, sem diferenciar maiúsculas), `source` sempre `leadhunter`, responde 200 com resultado por item
+  - `POST /api/v1/public/contacts` agora valida o corpo (`createContactSchema`, 422 em vez de 500)
+  - `POST /contacts/import-bulk` (JWT) segue com `imported/skipped/errors`
+- [ ] **T2** — Pedidos de leads do CRM atendidos pelo LeadHunter (pendente). Desenho em `LeadHunter/docs/PLANO_INTEGRACAO.md`, seção 6.
+- [ ] **Pendências da T1 (lado CRM):**
+  - aplicar a migração `20240032` no banco de dev (`npm run migrate:latest`); validada só num Postgres descartável (no Railway roda no boot); sem ela o `import-bulk` também falha
+  - validar em produção com chave `read`+`write` (3 empresas reais, reenvio sem duplicar) — precisa de autorização do usuário
+  - `updateContactSchema.ownerId` é `uuid().optional()`: o dono não pode ser limpo (nulo/'') pela API; preexistente, não alterado
+
+### Roteiro de verificação (curl local, `http://localhost:3011/api/v1`, chave `tlk_...`)
+
+Backend de teste: Postgres descartável, tenant em plano `starter`, chaves `read+write`, só `read` e só `write`, 1 membro extra ativo e 1 inativo. Cabeçalho: `X-API-Key: tlk_...`.
+
+| # | Comando | Esperado | Observado |
+|---|---|---|---|
+| 1a | `GET /public/users` (read+write) | 200, só `id,name,email,role` | 200 ✅ |
+| 1b | `GET /public/users` (só write) | 403 | 403 `Insufficient scope` ✅ |
+| 2 | `POST /public/leads/bulk` (só read) | 403 | 403 ✅ |
+| 3 | `POST /public/leads/bulk` `{"ownerEmail":"<admin>","leads":[3 itens com externalId]}` | 200, 3× `imported`; banco com `owner_id`, `lead_score`, `external_id`, `source=leadhunter`, `type=lead`, endereço com cidade | 200, `imported:3`; banco confere (`Rua A 10, Ribeirao Preto`) ✅ (dono correto: evidência vem da execução ponta a ponta do LeadHunter; a checagem psql do T4 para esta linha ficou ambígua — `column reference full_name is ambiguous`) |
+| 4 | mesmo lote de novo | 200, 3× `duplicate` com os `contactId` do passo 3 | 200, `skipped:3`, mesmos ids ✅ |
+| 5 | item novo com telefone `(11) 91111-0001` de contato existente (`11911110001`) | `duplicate` com o id dele | 200, `duplicate` com o id do contato ✅ |
+| 6a | `ownerEmail` fora do workspace | 422 `invalid_owner` | 422 ✅ |
+| 6b | 501 itens | 422 | 422 `at most 500` ✅ |
+| 6c | `leadScore: 101` | 422 | 422 ✅ |
+| 7a | `POST /public/contacts` `{}` | 422 | 422 `fullName Required` ✅ |
+| 7b | `POST /public/contacts` `{"fullName":"Teste"}` | 201 | 201 ✅ |
+| 7c | `POST /public/contacts` com `ownerId` de usuário de outro workspace | 422 `invalid_owner` | 422 `Responsável não é membro ativo deste workspace` ✅ |
+| 7d | `POST /public/contacts` com `ownerId` de membro ativo do mesmo workspace (e `PATCH /contacts/:id` idem) | 201 (200 no PATCH) | 201 / 200 ✅; membro inativo → 422 ✅ |
+| 8 | `POST /contacts/import-bulk` (JWT) | 201 com `imported/skipped/errors` | 201, `imported:1, skipped:1, errors:[]` (+ `items`) ✅ |
+| a | contato com telefone `(16) 99999-1234`, depois lead `16999991234` | `duplicate` com o id do contato | 200, `duplicate` com o id ✅ |
+| b | `ownerEmail` de membro inativo | 422 `invalid_owner` | 422 ✅ |
+| c | `ownerEmail` em caixa diferente da gravada | funciona | 200, `imported`; dono = membro certo ✅ |
+| d | `leadScore: -1` | 422 | 422 ✅ |
+| e | telefone com 51 caracteres num lote com item válido | 422 no lote inteiro | 422 `at most 50`; nada gravado (o Radar Local corta o telefone antes de enviar) ✅ |
+| g | chave de outro tenant: `GET /public/users`; lote com `externalId`/telefone do 1º tenant; `ownerEmail` do 1º tenant | só os próprios membros; `imported` (sem `duplicate`); 422 | confere ✅ |
