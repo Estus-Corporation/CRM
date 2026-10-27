@@ -709,7 +709,7 @@ Motion (GSAP):
   - frontend: tela `/solicitacoes` ("Solicitações de leads"), item no menu (Vendas e Captação) e bloco de cotas em Configurações (admin)
 - [ ] **Pendências da T1 (lado CRM):**
   - aplicar a migração `20240035` no banco de dev (`npm run migrate:latest`); validada só num Postgres descartável (no Railway roda no boot); sem ela o `import-bulk` também falha
-  - validar em produção com chave `read`+`write` (3 empresas reais, reenvio sem duplicar) — precisa de autorização do usuário
+  - **envio validado em produção em 27/10/2026** (deploy `d3f90b2`, migrações `20240035`/`20240036` rodaram no boot, chave `read`+`write`; empresas enviadas pelo LeadHunter e conferidas no CRM). Falta registrar reenvio sem duplicar e duplicado como "já existia"
   - `updateContactSchema.ownerId` era `uuid().optional()` (dono não podia ser limpo); desde 27/10/2026 é `.nullable().optional()`: `PATCH` aceita `null` para limpar, '' segue recusado
 
 ### Roteiro de verificação (curl local, `http://localhost:3011/api/v1`, chave `tlk_...`)

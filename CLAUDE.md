@@ -293,7 +293,7 @@ See [plan.md](./plan.md) for current progress.
 | M7 — Billing & Premium Tiers | ✅ Done |
 | M8 — Polish, Search, Deployment | ✅ Done |
 
-## Next: validar M24 T1/T2 em produção com o LeadHunter (precisa de autorização do usuário; ver pendências no plan.md); demais itens no backlog de [plan.md](./plan.md) (Z-API, webhook Stripe prod, Google OAuth prod)
+## Next: M24 T1 (envio de leads) validado em produção em 27/10/2026 (reenvio sem duplicar e duplicado ainda sem registro); validar M24 T2 (pedidos do CRM, `CRM_POLL=1`) com o LeadHunter, precisa de autorização do usuário e créditos DataForSEO (ver pendências no plan.md); demais itens no backlog de [plan.md](./plan.md) (Z-API, webhook Stripe prod, Google OAuth prod)
 
 | Task | Descrição | Status |
 |---|---|---|
