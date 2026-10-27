@@ -1,6 +1,13 @@
 import { db } from '../../db';
 import type { CreateEventInput, UpdateEventInput, ListEventsQuery } from './calendar.schema';
 
+/** Só participantes que são membros ativos deste espaço (ids de fora são ignorados) */
+async function tenantMemberIds(tenantId: string, ids: string[]) {
+  if (ids.length === 0) return [];
+  const rows = await db('user_tenants').where({ tenant_id: tenantId, is_active: true }).whereIn('user_id', ids).select('user_id');
+  return rows.map((r) => r.user_id as string);
+}
+
 async function getEventWithAttendees(tenantId: string, id: string) {
   const event = await db('calendar_events as e')
     .leftJoin('users as u', 'e.created_by', 'u.id')
@@ -67,12 +74,14 @@ export async function createEvent(tenantId: string, userId: string, input: Creat
       start_at: input.startAt,
       end_at: input.endAt,
       all_day: input.allDay ?? false,
+      external_attendees: JSON.stringify(input.externalAttendees ?? []),
     })
     .returning('*');
 
-  if (input.attendeeIds && input.attendeeIds.length > 0) {
+  const attendeeIds = await tenantMemberIds(tenantId, input.attendeeIds ?? []);
+  if (attendeeIds.length > 0) {
     await db('calendar_event_attendees').insert(
-      input.attendeeIds.map((uid) => ({ event_id: event.id, user_id: uid, status: 'pending' })),
+      attendeeIds.map((uid) => ({ event_id: event.id, user_id: uid, status: 'pending' })),
     );
   }
 
@@ -88,6 +97,7 @@ export async function updateEvent(tenantId: string, id: string, input: UpdateEve
   if (input.allDay !== undefined) updates.all_day = input.allDay;
   if (input.dealId !== undefined) updates.deal_id = input.dealId ?? null;
   if (input.contactId !== undefined) updates.contact_id = input.contactId ?? null;
+  if (input.externalAttendees !== undefined) updates.external_attendees = JSON.stringify(input.externalAttendees);
 
   const [event] = await db('calendar_events')
     .where({ id, tenant_id: tenantId })
@@ -97,10 +107,11 @@ export async function updateEvent(tenantId: string, id: string, input: UpdateEve
   if (!event) throw Object.assign(new Error('Event not found'), { status: 404 });
 
   if (input.attendeeIds !== undefined) {
+    const attendeeIds = await tenantMemberIds(tenantId, input.attendeeIds);
     await db('calendar_event_attendees').where('event_id', id).delete();
-    if (input.attendeeIds.length > 0) {
+    if (attendeeIds.length > 0) {
       await db('calendar_event_attendees').insert(
-        input.attendeeIds.map((uid) => ({ event_id: id, user_id: uid, status: 'pending' })),
+        attendeeIds.map((uid) => ({ event_id: id, user_id: uid, status: 'pending' })),
       );
     }
   }

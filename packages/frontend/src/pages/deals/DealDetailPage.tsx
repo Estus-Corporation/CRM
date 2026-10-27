@@ -79,7 +79,7 @@ export function DealDetailPage() {
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-xl font-semibold text-text-primary flex-1">{deal.title}</h1>
+        <h1 className="page-title-sm flex-1">{deal.title}</h1>
         <Badge variant={statusVariant[deal.status] ?? 'default'}>
           {statusLabel[deal.status] ?? deal.status}
         </Badge>

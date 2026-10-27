@@ -17,6 +17,7 @@ import { ReportsPage } from '@/pages/reports/ReportsPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { CaptacaoPage } from '@/pages/captacao/CaptacaoPage';
 import { MyLeadsPage } from '@/pages/captacao/MyLeadsPage';
+import { MyLeadDetailPage } from '@/pages/captacao/MyLeadDetailPage';
 import { MyCommissionsPage } from '@/pages/captacao/MyCommissionsPage';
 import { MyDashboardPage } from '@/pages/captacao/MyDashboardPage';
 import { LeadRequestsPage } from '@/pages/lead-requests/LeadRequestsPage';
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
       { path: '/meu-painel', element: <MyDashboardPage /> },
       { path: '/meus-leads', element: <MyLeadsPage key="leads" /> },
       { path: '/meus-leads/reunioes', element: <MyLeadsPage key="meetings" view="meetings" /> },
+      { path: '/meus-leads/lead/:id', element: <MyLeadDetailPage /> },
       { path: '/minhas-comissoes', element: <MyCommissionsPage /> },
       { path: '/solicitacoes', element: <LeadRequestsPage /> },
       { path: '/empresa', element: <CompanyPage /> },

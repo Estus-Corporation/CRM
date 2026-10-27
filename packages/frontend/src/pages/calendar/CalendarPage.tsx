@@ -34,11 +34,12 @@ export function CalendarPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <h1 className="text-2xl font-semibold text-text-primary">Calendário</h1>
+      <div className="mb-5 flex flex-shrink-0 items-center justify-between">
+        <h1 className="page-title">Calendário</h1>
       </div>
 
-      <div className="flex-1 min-h-0">
+      {/* Coluna flexível até o fim da tela: o calendário ocupa o que sobra abaixo do título */}
+      <div className="flex min-h-0 flex-1 flex-col">
         <EventManagerCalendar
           events={events}
           onEventCreate={handleCreate}

@@ -82,6 +82,7 @@ export function SelectDropdown<T extends string>({ value, options, onChange, tit
         {open && (
           <motion.div
             ref={panelRef}
+            data-floating
             {...dropdownMotion}
             style={{
               transformOrigin: pos.bottom !== undefined ? 'bottom left' : 'top left',

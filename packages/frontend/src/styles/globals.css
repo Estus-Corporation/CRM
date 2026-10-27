@@ -102,6 +102,25 @@
 }
 
 @layer components {
+  /* Título de página: Sora (a fonte de destaque da marca, a mesma da landing), grande e justa.
+     Cresce com a tela: ~30px no celular, até 44px em telas largas. */
+  .page-title {
+    font-family: theme('fontFamily.display');
+    font-weight: 600;
+    font-size: clamp(30px, 2.4vw + 14px, 44px);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
+    color: rgb(var(--text-primary));
+  }
+  /* Títulos de detalhe (um contato, um negócio): mesma fonte, um degrau abaixo */
+  .page-title-sm {
+    font-family: theme('fontFamily.display');
+    font-weight: 600;
+    font-size: clamp(24px, 1.6vw + 12px, 32px);
+    line-height: 1.12;
+    letter-spacing: -0.03em;
+    color: rgb(var(--text-primary));
+  }
   /* Vidro líquido: translúcido, desfoca o fundo ambiente, borda com reflexo no canto superior.
      No escuro é um véu branco sobre a tinta; no claro, uma lâmina branca leitosa sobre o papel. */
   .card {

@@ -36,6 +36,15 @@ export interface MyLead {
   meeting_at: string | null;
   meeting_mode: MeetingMode | null;
   meeting_location: string | null;
+  /** Detalhes da reunião (vão pro evento do calendário dos admins) */
+  meeting_duration: number | null;
+  meeting_attendee_ids: string[];
+  meeting_guests: MeetingGuest[];
+}
+
+export interface MeetingGuest {
+  name: string;
+  title?: string;
 }
 
 export type MeetingMode = 'online' | 'presencial';
@@ -47,6 +56,9 @@ export interface UpdateMyLeadInput {
   meetingAt?: string | null;
   meetingMode?: MeetingMode | null;
   meetingLocation?: string | null;
+  meetingDuration?: number | null;
+  meetingAttendeeIds?: string[];
+  meetingGuests?: MeetingGuest[];
 }
 
 export interface MySummary {
@@ -163,10 +175,31 @@ export interface AssignmentFilters {
   limit?: number;
 }
 
+export interface AdminBusySlot {
+  start: string;
+  end: string;
+  kind: 'event' | 'lead_meeting';
+  /** Primeiro nome dos admins envolvidos (vazio em reunião de captação) */
+  admins: string[];
+}
+
 export const captacaoService = {
   // ── Captador ──
   async myLeads(params: { scope: MyLeadsScope; status?: CallStatus }): Promise<MyLead[]> {
     const { data } = await api.get<{ data: MyLead[] }>('/captacao/me/leads', { params });
+    return data.data;
+  },
+
+  /** Horários ocupados dos admins (hoje + 14 dias), sem detalhes dos compromissos */
+  async adminBusy(from: Date, to: Date): Promise<AdminBusySlot[]> {
+    const { data } = await api.get<{ data: AdminBusySlot[] }>('/captacao/me/admin-busy', {
+      params: { from: from.toISOString(), to: to.toISOString() },
+    });
+    return data.data;
+  },
+
+  async myLead(id: string): Promise<MyLead> {
+    const { data } = await api.get<{ data: MyLead }>(`/captacao/me/leads/${id}`);
     return data.data;
   },
 

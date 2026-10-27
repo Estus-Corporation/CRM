@@ -161,10 +161,10 @@ export function NotesPanel() {
         transition={panelSpring}
         aria-hidden={!notesOpen}
       >
-        {/* pt-[72px] = altura do cabeçalho (64px) + respiro do topo: alinha com o corpo da pasta */}
-        <div className="h-full pr-3 pt-[72px]" style={{ width: NOTES_WIDTH }}>
+        {/* Já fica abaixo do header (AppShell): só o respiro entre a pasta e as notas */}
+        <div className="h-full pl-3" style={{ width: NOTES_WIDTH }}>
           <div
-            className="folder-surface h-full overflow-hidden rounded-t-[22px]"
+            className="folder-surface h-full overflow-hidden rounded-[22px]"
             style={{ boxShadow: '0 24px 48px -24px rgba(0, 0, 0, 0.55)' }}
           >
             {notesOpen && isDesktop && <NotesEditor key={tenantId} />}

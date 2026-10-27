@@ -688,27 +688,27 @@ Motion (GSAP):
 - `fix/m16-landing-visual-audit` — audit fix (T9)
 
 
-## M23 — Integração LeadHunter (Radar Local)
+## M24 — Integração LeadHunter (Radar Local)
 
 > O Radar Local (LeadHunter) passa a enviar leads ao CRM pela API pública (`X-API-Key`, chave com escopos `read` + `write`) e, numa segunda etapa, atende pedidos de leads feitos no CRM. Verificado só localmente (Postgres descartável, nada em produção).
 
 ### Tasks
 
 - [x] **T1** — Envio de leads do LeadHunter (feito e verificado por curl em banco descartável):
-  - migration `20240032_add_leadhunter_fields_to_contacts`: `lead_score` (`CHECK 0..100`) e `external_id` em `contacts`, índice único parcial `(tenant_id, source, external_id)` onde `external_id` não é nulo; com `down`
+  - migration `20240035_add_leadhunter_fields_to_contacts`: `lead_score` (`CHECK 0..100`) e `external_id` em `contacts`, índice único parcial `(tenant_id, source, external_id)` onde `external_id` não é nulo; com `down`
   - `importContactsBulk` estendido: devolve `items[]` (`externalId`, `contactId`, `status`: `imported` | `duplicate` | `error`); duplicado por `external_id`, e-mail ou telefone (formatação ignorada); `contactId` do duplicado = contato que já existia (`null` se o duplicado é do próprio lote); `address` = `"<endereço>, <cidade>"`
   - `GET /api/v1/public/users` (escopo `read`): membros ativos `{id,name,email,role}`
   - `POST /api/v1/public/leads/bulk` (escopo `write`): 1–500 leads, `ownerEmail` opcional (membro ativo, sem diferenciar maiúsculas), `source` sempre `leadhunter`, responde 200 com resultado por item
   - `POST /api/v1/public/contacts` agora valida o corpo (`createContactSchema`, 422 em vez de 500)
   - `POST /contacts/import-bulk` (JWT) segue com `imported/skipped/errors`
 - [x] **T2** — Pedidos de leads do CRM atendidos pelo LeadHunter (feito e verificado por curl em banco descartável; desenho em `LeadHunter/docs/PLANO_INTEGRACAO.md`, seção 6):
-  - migration `20240033_create_lead_requests`: tabela `lead_requests` (status `queued|claimed|running|done|partial|failed|cancelled`, `CHECK quantity 1..50`), `contacts.lead_request_id` (SET NULL), `tenants.lead_request_max_quantity` (padrão 20, 1–50) e `tenants.lead_request_daily_per_user` (padrão 3, 0–50; 0 desativa); com `down`
+  - migration `20240036_create_lead_requests`: tabela `lead_requests` (status `queued|claimed|running|done|partial|failed|cancelled`, `CHECK quantity 1..50`), `contacts.lead_request_id` (SET NULL), `tenants.lead_request_max_quantity` (padrão 20, 1–50) e `tenants.lead_request_daily_per_user` (padrão 3, 0–50; 0 desativa); com `down`
   - módulo `modules/lead-requests`: rotas JWT `/lead-requests` (criar, listar, ver com contatos entregues, cancelar só `queued`; seller/captador só os próprios, admin/manager todos com `?userId=`); cota diária = pedidos não cancelados do dia (America/Sao_Paulo) com `pg_advisory_xact_lock`; captador liberado no `CAPTADOR_ALLOWED`
   - rotas do executor `/public/lead-requests` (fila = `read`; `claim`/`progress`/`result` = `write`): claim por `UPDATE ... WHERE status='queued' RETURNING` (409 `not_queued`), reserva de 30 min renovada por `progress`, reserva vencida volta para a fila na próxima leitura; `result` grava leads com dono = quem pediu (se ainda ativo), `lead_request_id` nos novos, `lead_assignments` se quem pediu é captador, `done`→`partial` se algum item falhou, notificação `lead_request.finished`
   - cotas lidas/editadas por `GET`/`PATCH /tenant` (`leadRequestMaxQuantity`, `leadRequestDailyPerUser`, só admin)
   - frontend: tela `/solicitacoes` ("Solicitações de leads"), item no menu (Vendas e Captação) e bloco de cotas em Configurações (admin)
 - [ ] **Pendências da T1 (lado CRM):**
-  - aplicar a migração `20240032` no banco de dev (`npm run migrate:latest`); validada só num Postgres descartável (no Railway roda no boot); sem ela o `import-bulk` também falha
+  - aplicar a migração `20240035` no banco de dev (`npm run migrate:latest`); validada só num Postgres descartável (no Railway roda no boot); sem ela o `import-bulk` também falha
   - validar em produção com chave `read`+`write` (3 empresas reais, reenvio sem duplicar) — precisa de autorização do usuário
   - `updateContactSchema.ownerId` era `uuid().optional()` (dono não podia ser limpo); desde 27/10/2026 é `.nullable().optional()`: `PATCH` aceita `null` para limpar, '' segue recusado
 
@@ -757,14 +757,14 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 | 9 | chave do tenant B em fila/claim/progress/result do pedido A; admin B `GET` do pedido A; `:id` não-UUID; sem chave/chave inválida | fila vazia; 404 ×3 e pedido inalterado; 404; 404; 401 | ✅ |
 | 10 | membro desativado antes do `result` | contatos sem dono, sem notificação, pedido `done` | ✅ |
 | 11 | reserva vencida (`claim_expires_at` no passado) | volta para `queued` com "Reserva expirada; voltou para a fila."; `result` tardio → 409 | ✅ |
-| 12 | `migrate:down` e `migrate:latest` | `down` remove tabela e colunas; `latest` reaplica | ✅ (desceu 20240033 e 20240032, reaplicou as duas) |
+| 12 | `migrate:down` e `migrate:latest` | `down` remove tabela e colunas; `latest` reaplica | ✅ (desceu 20240036 e 20240035, reaplicou as duas) |
 | e2e | worker do Radar Local (transporte HTTP real) contra este backend, DataForSEO simulado | reserva, campanha `live`, entrega `done` | ✅ 2 novos (um com emoji no nome) + 1 duplicado, notificação certa; segunda consulta sem chamada paga |
 | 13 | `result` com mais leads que a quantidade; `niche` com 101 caracteres; `googleReviews` 3e9 | 422 `too_many_leads`; 422; 422 — pedido continua reservado | ✅ |
 | 14 | falha do banco no meio da importação (CHECK temporária no banco descartável) | 500 genérico ("Internal server error", detalhe só no log); pedido volta a `running`, nenhum contato nem notificação; reenvio depois entrega | ✅ (transação única no `result`) |
 | 15 | captador abre um pedido cujo lead foi tirado dele | vê só os leads ainda atribuídos a ele; admin vê todos | ✅ |
 
 - [ ] **Pendências da T2 (lado CRM):**
-  - aplicar as migrações `20240032` e `20240033` no banco de dev (`npm run migrate:latest`); no Railway rodam no boot
+  - aplicar as migrações `20240035` e `20240036` no banco de dev (`npm run migrate:latest`); no Railway rodam no boot
   - validar em produção com chave `read`+`write` e o Radar Local com `CRM_POLL=1` — precisa de autorização do usuário
   - a distribuição automática diária do captador (`topUpDailyLeads`) não filtra por dono: leads entregues a um seller por pedido podem ser distribuídos a um captador (comportamento anterior, vale para qualquer contato sem `lead_assignments`)
   - limites conhecidos: sem token de reserva por executor — qualquer chave `write` do mesmo workspace pode renovar/entregar um pedido reservado (o desenho prevê um único Radar por workspace); resposta do `result` perdida faz o Radar marcar o pedido como "perdido" enquanto o CRM mostra concluído (dados certos); papel do usuário vem do JWT (admin rebaixado mantém visão ampla até o token expirar, 15 min); cota 0 ou máximo menor não afetam pedidos que já estão na fila; com enriquecimento + Jev cada empresa custa ~2 chamadas no Radar, então máximo por pedido acima de 39 estoura `MAX_CALLS_PER_CAMPAIGN=80` e o pedido volta `failed`

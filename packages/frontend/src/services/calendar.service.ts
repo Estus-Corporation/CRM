@@ -15,6 +15,13 @@ export interface CalendarEvent {
   contact_name: string | null;
   deal_title: string | null;
   attendees: { event_id: string; user_id: string; user_name: string; status: string }[];
+  /** Convidados do lado do cliente (sem conta): nome e cargo */
+  external_attendees: ExternalAttendee[];
+}
+
+export interface ExternalAttendee {
+  name: string;
+  title?: string;
 }
 
 export interface CreateEventInput {
@@ -26,6 +33,7 @@ export interface CreateEventInput {
   dealId?: string;
   contactId?: string;
   attendeeIds?: string[];
+  externalAttendees?: ExternalAttendee[];
 }
 
 export const calendarService = {

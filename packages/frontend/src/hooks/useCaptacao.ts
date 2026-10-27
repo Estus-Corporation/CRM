@@ -13,6 +13,7 @@ import {
 export const captacaoKeys = {
   all: ['captacao'] as const,
   myLeads: (scope: string, status?: string) => ['captacao', 'me', 'leads', scope, status ?? ''] as const,
+  myLead: (id: string) => ['captacao', 'me', 'lead', id] as const,
   mySummary: ['captacao', 'me', 'summary'] as const,
   captadores: ['captacao', 'captadores'] as const,
   available: (params: object) => ['captacao', 'available', params] as const,
@@ -38,6 +39,32 @@ export function useMyStats(period: 'week' | 'month') {
   });
 }
 
+/** Um lead (página do lead). Abre na hora com o que já veio na lista e atualiza em seguida */
+export function useMyLead(id: string) {
+  const qc = useQueryClient();
+  return useQuery({
+    queryKey: captacaoKeys.myLead(id),
+    queryFn: () => captacaoService.myLead(id),
+    initialData: () =>
+      qc
+        .getQueriesData<MyLead[]>({ queryKey: ['captacao', 'me', 'leads'] })
+        .flatMap(([, list]) => list ?? [])
+        .find((l) => l.id === id),
+    initialDataUpdatedAt: 0,
+  });
+}
+
+/** Agenda dos admins (só busca com o modal aberto) */
+export function useAdminBusy(enabled: boolean, from: Date, to: Date) {
+  return useQuery({
+    queryKey: ['captacao', 'me', 'admin-busy', from.toISOString(), to.toISOString()],
+    queryFn: () => captacaoService.adminBusy(from, to),
+    enabled,
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+  });
+}
+
 export function useMySummary() {
   return useQuery({ queryKey: captacaoKeys.mySummary, queryFn: captacaoService.mySummary });
 }
@@ -51,6 +78,7 @@ export function useUpdateMyLead() {
       qc.setQueriesData<MyLead[]>({ queryKey: ['captacao', 'me', 'leads'] }, (old) =>
         old?.map((l) => (l.id === lead.id ? { ...l, ...lead } : l)),
       );
+      qc.setQueryData<MyLead>(captacaoKeys.myLead(lead.id), (old) => (old ? { ...old, ...lead } : lead));
       qc.invalidateQueries({ queryKey: ['captacao', 'me'] });
     },
     onError: () => toast.error('Não foi possível salvar o lead'),

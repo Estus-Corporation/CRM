@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Phone, PhoneCall, CalendarCheck, Wallet, CheckCircle2, ChevronDown } from 'lucide-react';
+import { Phone, PhoneCall, CalendarCheck, Wallet, CheckCircle2 } from 'lucide-react';
+import { SelectDropdown } from '@/components/ui/SelectDropdown';
 import { useMyLeads, useMySummary } from '@/hooks/useCaptacao';
 import type { CallStatus } from '@/services/captacao.service';
 import { CALL_STATUS, CALL_STATUS_ORDER, formatBRL } from '@/lib/captacao';
 import { LeadCard } from '@/components/captacao/LeadCard';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
 
 type Scope = 'today' | 'open' | 'all';
 
@@ -17,6 +16,11 @@ const SCOPE_OPTIONS: { value: Scope; label: string }[] = [
   { value: 'today', label: 'Hoje' },
   { value: 'open', label: 'Em aberto' },
   { value: 'all', label: 'Todos' },
+];
+
+const STATUS_OPTIONS: { value: CallStatus | ''; label: string }[] = [
+  { value: '', label: 'Todos os status' },
+  ...CALL_STATUS_ORDER.map((st) => ({ value: st, label: CALL_STATUS[st].label })),
 ];
 
 function StatCard({ icon: Icon, label, value, hint }: { icon: typeof Phone; label: string; value: string; hint?: string }) {
@@ -112,48 +116,13 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
           </div>
         )}
 
+        {/* Dois botões: período (só em Meus leads) e status da ligação */}
         {view !== 'meetings' && (
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {view === 'leads' && (
-            <SegmentedControl
-              layoutId="my-leads-scope"
-              options={SCOPE_OPTIONS}
-              value={scope}
-              onChange={setScope}
-              className="max-sm:w-full max-sm:[&>button]:flex-1"
-            />
+            <SelectDropdown title="Período" options={SCOPE_OPTIONS} value={scope} onChange={setScope} className="w-40 max-sm:flex-1" />
           )}
-          {/* Celular: um botão só com todas as opções (seletor nativo do sistema) */}
-          <label className="relative basis-full sm:hidden">
-            <span className="sr-only">Filtrar por status</span>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as CallStatus | '')}
-              className="input-base h-10 w-full appearance-none pr-9 text-sm"
-            >
-              {(['', ...CALL_STATUS_ORDER] as const).map((s) => (
-                <option key={s || 'all'} value={s}>
-                  {s ? CALL_STATUS[s].label : 'Todos os status'}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-text-muted" />
-          </label>
-          <div className="hidden flex-wrap gap-1.5 sm:flex">
-            {(['', ...CALL_STATUS_ORDER] as const).map((s) => (
-              <button
-                key={s || 'all'}
-                type="button"
-                onClick={() => setStatus(s)}
-                className={cn(
-                  'h-8 rounded-full px-3 text-xs font-medium transition-colors',
-                  status === s ? 'bg-fg/[0.1] text-text-primary' : 'text-text-muted hover:text-text-primary',
-                )}
-              >
-                {s ? CALL_STATUS[s].label : 'Todos os status'}
-              </button>
-            ))}
-          </div>
+          <SelectDropdown title="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} className="w-52 max-sm:flex-1" />
         </div>
         )}
 

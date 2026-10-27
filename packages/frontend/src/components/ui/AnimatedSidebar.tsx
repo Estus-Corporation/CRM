@@ -11,7 +11,7 @@ import { SilkShader } from './SilkShader';
 export const SIDEBAR_COLLAPSED = 72;
 export const SIDEBAR_EXPANDED = 264;
 /** Altura do rodapé do menu — a faixa de vidro que atravessa a base do app usa a mesma */
-export const SIDEBAR_FOOTER_HEIGHT = 128;
+export const SIDEBAR_FOOTER_HEIGHT = 68;
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 // Mola física sem bounce: o painel e o conteúdo ao lado assentam juntos, sem tranco
@@ -65,9 +65,9 @@ export function DesktopSidebar({
         <SidebarContext.Provider value={{ expanded, layoutGroup: 'desktop' }}>
           <motion.aside
             className={cn(
-              // Translúcido: o fundo ambiente do app aparece de leve através do menu
-              // Transparente: o shader "Silk" de fundo é do AppShell e passa contínuo por trás do menu
-              'force-dark sidebar-ink relative z-20 hidden h-full flex-shrink-0 overflow-hidden md:block',
+              // Fundo próprio bem leve (o shader "Silk" do AppShell aparece quase inteiro por trás);
+              // a borda direita marca onde o menu termina
+              'force-dark sidebar-ink relative z-20 hidden h-full flex-shrink-0 overflow-hidden rounded-r-[24px] border-r border-white/[0.06] bg-[#03120E]/25 md:block',
               className,
             )}
             initial={false}
@@ -209,7 +209,10 @@ interface SidebarLinkProps {
 }
 
 export function SidebarLink({ to, end, label, icon, onNavigate }: SidebarLinkProps) {
-  const { layoutGroup } = useSidebar();
+  const { layoutGroup, expanded } = useSidebar();
+  // Recolhido: fundo de hover/ativo vira um quadrado arredondado em volta do ícone (centro em 24px),
+  // em vez de uma faixa que continuava escondida à direita
+  const pillShape = expanded ? 'inset-0' : 'inset-y-0 left-0.5 w-11';
   return (
     <SidebarTooltip label={label}>
       <NavLink to={to} end={end} onClick={onNavigate} className="group/link block rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-accent-green/40">
@@ -226,15 +229,15 @@ export function SidebarLink({ to, end, label, icon, onNavigate }: SidebarLinkPro
             transition={hoverSpring}
           >
             {!isActive && (
-              <span className="absolute inset-0 rounded-[10px] bg-fg/[0.04] opacity-0 transition-opacity duration-300 ease-out group-hover/link:opacity-100" />
+              <span className={cn('absolute rounded-[12px] bg-fg/[0.04] opacity-0 transition-opacity duration-300 ease-out group-hover/link:opacity-100', pillShape)} />
             )}
             {isActive && (
               <motion.span
                 layoutId={`sidebar-active-${layoutGroup}`}
-                className="absolute inset-0 rounded-[10px] bg-fg/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+                className={cn('absolute rounded-[12px] bg-fg/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]', pillShape)}
                 transition={pillSpring}
               >
-                <span className="brand-bar absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full" />
+                {expanded && <span className="brand-bar absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-full" />}
               </motion.span>
             )}
             <span

@@ -8,7 +8,12 @@ export const createEventSchema = z.object({
   allDay: z.boolean().optional().default(false),
   dealId: z.string().uuid().optional(),
   contactId: z.string().uuid().optional(),
-  attendeeIds: z.array(z.string().uuid()).optional(),
+  attendeeIds: z.array(z.string().uuid()).max(50).optional(),
+  // Convidados do lado do cliente: só nome e cargo
+  externalAttendees: z
+    .array(z.object({ name: z.string().trim().min(1).max(120), title: z.string().trim().max(80).optional() }))
+    .max(30)
+    .optional(),
 });
 
 export const updateEventSchema = createEventSchema.partial();

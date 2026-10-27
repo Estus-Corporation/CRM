@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import {
   LayoutDashboard,
   Kanban,
@@ -7,9 +7,6 @@ import {
   Calendar,
   BarChart3,
   Settings,
-  PanelLeftClose,
-  Menu,
-  Inbox,
   NotebookPen,
   PhoneCall,
   Headset,
@@ -22,8 +19,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
-import { useNotifications } from '@/hooks/useNotifications';
-import { NotificationPanel } from '@/components/notifications/NotificationPanel';
+import { useTenant } from '@/hooks/useTenant';
+import { CompanyLogo } from '@/components/company/CompanyLogo';
 import { motion } from 'framer-motion';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 import {
@@ -99,11 +96,8 @@ const captadorSections: NavSection[] = [
   },
 ];
 
-// "Sobre a empresa" é pra quem foi convidado; o admin escreve o perfil em Configurações
-const adminSections: NavSection[] = managerSections.map((s) => ({
-  ...s,
-  items: s.items.filter((i) => i.to !== '/empresa'),
-}));
+// Admin vê o mesmo menu do gerente (inclusive "Sobre a empresa", como a equipe enxerga o perfil)
+const adminSections: NavSection[] = managerSections;
 
 export function sectionsFor(role: string | undefined) {
   if (role === 'captador') return captadorSections;
@@ -116,83 +110,69 @@ const headerIconClass =
   'relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-200 hover:bg-fg/[0.06] hover:text-text-primary';
 
 /**
- * Topo do menu: recolher/expandir à esquerda (hambúrguer quando recolhido),
- * caixa de entrada e notas à direita (somem no modo recolhido — não cabem em 72px).
+ * Topo do menu. Computador: o espaço atual — clicar no logo recolhe/expande o menu (Ctrl+B também);
+ * o nome ao lado abre a troca de espaço. Celular: X de fechar à esquerda e notas à direita.
  */
 function SidebarHeader({ onToggle, onNavigate }: { onToggle?: () => void; onNavigate?: () => void }) {
   const { expanded } = useSidebar();
   const mobile = !!onNavigate;
-  const { unreadCount } = useNotifications();
+  const { data: tenant } = useTenant();
   const notesOpen = useUIStore((s) => s.notesOpen);
   const toggleNotes = useUIStore((s) => s.toggleNotes);
-  const [inboxOpen, setInboxOpen] = useState(false);
-  const inboxRef = useRef<HTMLButtonElement>(null);
-  const closeInbox = useCallback(() => setInboxOpen(false), []);
 
-  return (
-    // Mobile: o X de fechar a gaveta fica na ponta esquerda; notas vão pra direita
-    <div className={cn('relative flex h-16 flex-shrink-0 items-center pr-3', mobile ? 'pl-16' : 'pl-4')}>
-      {onToggle && (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={expanded ? 'Recolher menu' : 'Expandir menu'}
-          title={expanded ? 'Recolher menu (Ctrl+B)' : 'Expandir menu (Ctrl+B)'}
-          // pl-4 + w-10: centro em 36px, o mesmo eixo dos ícones do menu recolhido
-          className={headerIconClass}
-        >
-          {expanded ? <PanelLeftClose size={19} strokeWidth={1.75} /> : <Menu size={20} strokeWidth={1.9} />}
-          {/* Recolhido, a caixa de entrada some: o ponto avisa que há novidade */}
-          {!expanded && unreadCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent-green ring-2 ring-[#03120E]" />
-          )}
-        </button>
-      )}
-
-      <motion.div
-        className="ml-auto flex items-center gap-1"
-        initial={false}
-        animate={{ opacity: expanded ? 1 : 0 }}
-        transition={{ duration: expanded ? 0.3 : 0.12, delay: expanded ? 0.08 : 0 }}
-        style={{ pointerEvents: expanded ? 'auto' : 'none' }}
-        aria-hidden={!expanded}
-      >
-        {/* Celular: caixa de entrada fica na barra de cima (Topbar), não no menu */}
-        {!mobile && (
-        <button
-          ref={inboxRef}
-          type="button"
-          onClick={() => setInboxOpen((v) => !v)}
-          tabIndex={expanded ? 0 : -1}
-          aria-label="Caixa de entrada"
-          title="Caixa de entrada"
-          className={cn(headerIconClass, inboxOpen && 'bg-fg/[0.06] text-text-primary')}
-        >
-          <Inbox size={19} strokeWidth={1.75} />
-          {unreadCount > 0 && (
-            <span className="absolute right-0.5 top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-accent-green px-1 text-[10px] font-bold text-bg-darker ring-2 ring-[#03120E]">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-        </button>
-        )}
+  if (mobile) {
+    return (
+      <div className="relative flex h-16 flex-shrink-0 items-center pl-16 pr-3">
         <button
           type="button"
           onClick={() => {
             toggleNotes();
             onNavigate?.();
           }}
-          tabIndex={expanded ? 0 : -1}
           aria-label="Notas"
           aria-pressed={notesOpen}
           title={notesOpen ? 'Fechar notas' : 'Notas'}
-          className={cn(headerIconClass, notesOpen && 'bg-accent-green/15 text-accent-green hover:text-accent-green')}
+          className={cn(headerIconClass, 'ml-auto', notesOpen && 'bg-accent-green/15 text-accent-green hover:text-accent-green')}
         >
           <NotebookPen size={18} strokeWidth={1.75} />
         </button>
-      </motion.div>
+      </div>
+    );
+  }
 
-      {!mobile && <NotificationPanel open={inboxOpen} onClose={closeInbox} anchorRef={inboxRef} />}
+  return (
+    // px-3 + card de 48px: no menu recolhido o card vira só o logo, centrado em 36px (eixo dos ícones)
+    <div className="relative flex h-16 flex-shrink-0 items-center px-3">
+      <div
+        className={cn(
+          // Esmeralda profundo fixo (não o token): branco sobre o verde claro do tema escuro perderia contraste
+          'flex h-12 items-center gap-2 overflow-hidden rounded-[12px] bg-[#0E8F5A] p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition-[width] duration-300 ease-out',
+          expanded ? 'w-full' : 'w-12',
+        )}
+      >
+        <SidebarTooltip label="Expandir menu (Ctrl+B)">
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label={expanded ? 'Recolher menu' : 'Expandir menu'}
+            title={expanded ? 'Recolher menu (Ctrl+B)' : undefined}
+            className="flex-shrink-0 rounded-[9px] outline-none transition-transform duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-white/50"
+          >
+            <CompanyLogo name={tenant?.name} logoUrl={tenant?.logo_url} className="h-9 w-9 rounded-[9px] text-sm" />
+          </button>
+        </SidebarTooltip>
+
+        <motion.div
+          className="min-w-0 flex-1"
+          initial={false}
+          animate={{ opacity: expanded ? 1 : 0 }}
+          transition={{ duration: expanded ? 0.3 : 0.12, delay: expanded ? 0.08 : 0 }}
+          style={{ pointerEvents: expanded ? 'auto' : 'none' }}
+          aria-hidden={!expanded}
+        >
+          <WorkspaceSwitcher variant="name" />
+        </motion.div>
+      </div>
     </div>
   );
 }
@@ -228,8 +208,9 @@ function SidebarContent({ onNavigate, onToggle }: { onNavigate?: () => void; onT
         ))}
       </nav>
 
-      {/* Altura fixa: a faixa de vidro do AppShell (SIDEBAR_FOOTER_HEIGHT) se alinha a este rodapé */}
-      <div className="flex flex-shrink-0 flex-col justify-center gap-1 p-3" style={{ height: SIDEBAR_FOOTER_HEIGHT }}>
+      {/* Computador: altura fixa, a faixa de vidro (SIDEBAR_FOOTER_HEIGHT) se alinha a este rodapé.
+          O espaço fica no topo do menu; no celular continua aqui embaixo */}
+      <div className="flex flex-shrink-0 flex-col justify-center gap-1 p-3" style={{ height: onNavigate ? undefined : SIDEBAR_FOOTER_HEIGHT }}>
         {/* Admin/gerente: configurações do workspace. Vendedor/captador: as da própria conta */}
         <SidebarLink
           to={role === 'admin' || role === 'manager' ? '/settings' : '/conta'}
@@ -237,7 +218,7 @@ function SidebarContent({ onNavigate, onToggle }: { onNavigate?: () => void; onT
           icon={<Settings {...ICON} />}
           onNavigate={onNavigate}
         />
-        <SidebarWorkspace />
+        {onNavigate && <SidebarWorkspace />}
       </div>
     </>
   );
