@@ -8,7 +8,6 @@ This file documents everything an AI assistant needs to know to contribute effec
 
 ### Ao iniciar qualquer sessão
 1. Ler este `CLAUDE.md` e o `plan.md` para se contextualizar
-2. Ler `memory/project-state.md` e `memory/feedback-dev-workflow.md`
 
 ### Ao iniciar qualquer feature ou modificação
 1. Trabalhar direto na `main` (decisão do usuário em 2026-10-26 — não criar branch `feat/...` a menos que ele peça)
@@ -19,22 +18,12 @@ This file documents everything an AI assistant needs to know to contribute effec
 Executar **tudo isso automaticamente, sem precisar ser pedido**:
 1. `git add` nos arquivos alterados
 2. `git commit` com mensagem descritiva no padrão `feat(MXX-TX): descrição`
-3. Atualizar `CLAUDE.md` — marcar milestone como `✅ Done` e atualizar seção **Key implementation notes**
-4. Atualizar `memory/project-state.md` — refletir o estado atual do projeto
-5. Commit das atualizações de documentação: `docs: atualiza CLAUDE.md e memória pós MXX-TX`
-6. `git push` da `main` (sem PR — trabalho direto na main)
+3. Atualizar `CLAUDE.md` (marcar milestone como `✅ Done` e atualizar **Key implementation notes**) e `plan.md`
+4. Commit das atualizações de documentação: `docs: atualiza CLAUDE.md pós MXX-TX`
+5. `git push` da `main` (sem PR — trabalho direto na main)
 
-### Quando o usuário disser "atualize a memória"
-1. Atualizar `memory/project-state.md` com estado atual, últimas decisões e próximas tarefas
-2. Atualizar `MEMORY.md` se necessário
-3. Commitar: `docs: atualiza memória do projeto`
-
-### Docker — nome do serviço correto
-O serviço do banco neste projeto se chama `postgres` (não `db`):
-```bash
-docker compose exec postgres psql -U postgres -d titancrm
-```
-Sempre rodar comandos Docker da **raiz do repositório**.
+### Banco de dados — sem Docker
+Produção = Postgres do Railway. Local (dev e testes) = PostgreSQL 18 nativo do Windows, serviço `postgresql-x64-18` (início manual: `Start-Service postgresql-x64-18` como administrador). **Nunca** apontar backend local, script ou teste para o banco do Railway sem autorização explícita.
 
 ---
 
@@ -49,14 +38,15 @@ Sempre rodar comandos Docker da **raiz do repositório**.
 ## Monorepo Structure
 
 ```
-CRMTitanLabs/
+CRM/
 ├── packages/
-│   ├── backend/        # Express + TypeScript + Knex + PostgreSQL
-│   └── frontend/       # React + Vite + TypeScript + Tailwind CSS
+│   ├── backend/        # Express + TypeScript + Knex + PostgreSQL (Dockerfile = build do Railway)
+│   └── frontend/       # React + Vite + TypeScript + Tailwind CSS (Vercel)
+├── docs/superpowers/   # specs e planos de implementação
 ├── CLAUDE.md
 ├── plan.md
-├── package.json        # npm workspaces root
-└── docker-compose.yml  # Postgres 16 + pgAdmin
+├── railway.json        # deploy do backend
+└── package.json        # npm workspaces root
 ```
 
 Run commands from the **repo root** unless noted otherwise.
@@ -66,8 +56,8 @@ Run commands from the **repo root** unless noted otherwise.
 ## Commands
 
 ```bash
-# Start local DB
-docker compose up -d
+# Start local DB (PowerShell como administrador)
+Start-Service postgresql-x64-18
 
 # Install all deps (run from root)
 npm install
@@ -146,7 +136,7 @@ Design language reference: **Linear** (clean, productivity-focused) + **Pipedriv
 
 Every user belongs to exactly one tenant (workspace). Tenant isolation is enforced at the **service layer**:
 
-1. `tenantScope` middleware extracts `tenant_id` from the decoded JWT and sets `req.tenantId`.
+1. `requireAuth` extracts `tenantId` from the decoded JWT and sets `req.user.tenantId` / `req.tenantId` (there is no separate `tenantScope` middleware).
 2. Every service function receives `tenantId` as its **first argument**.
 3. Every Knex query on a tenant-scoped table **must** include `.where({ tenant_id: tenantId })`.
 4. Never query a tenant-scoped table without scoping — this is a data leak.
@@ -293,7 +283,7 @@ See [plan.md](./plan.md) for current progress.
 | M7 — Billing & Premium Tiers | ✅ Done |
 | M8 — Polish, Search, Deployment | ✅ Done |
 
-## Next: **M25 — LeadHunter dentro do CRM** (planejado em 27/10/2026, nada implementado). Executar o plano [docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md](./docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md) (desenho: [docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md](./docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md)) com `superpowers:subagent-driven-development` em ondas paralelas, a partir da T1. A validação do M24 T2 em produção foi **cancelada** (o executor externo sai na F3 do M25). Demais itens no backlog de [plan.md](./plan.md) (Z-API, webhook Stripe prod, Google OAuth prod)
+## Next: **M25 — LeadHunter dentro do CRM** (planejado em 27/10/2026, nada implementado). Executar o plano [docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md](./docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md) (desenho: [docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md](./docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md)) com `superpowers:subagent-driven-development` em ondas paralelas, a partir da T1 — prompt pronto e instruções de onde rodar em [docs/superpowers/prompts/2026-10-27-executar-m25.md](./docs/superpowers/prompts/2026-10-27-executar-m25.md) (sessão aberta no CRM com `--add-dir ../LeadHunter`). A validação do M24 T2 em produção foi **cancelada** (o executor externo sai na F3 do M25). Demais itens no backlog de [plan.md](./plan.md) (Z-API, webhook Stripe prod, Google OAuth prod)
 
 | Task | Descrição | Status |
 |---|---|---|
@@ -372,7 +362,7 @@ See [plan.md](./plan.md) for current progress.
 
 - **M19 T1 — redesign visual ✅** (base pro redesign das outras telas): **paleta "Aurora Slate"** em `tailwind.config.ts` — `bg.primary #0a0d15`, `darker #07090f`, `surface #131926`, `border #1f2636`, textos azulados, verde `#72d296` segue como acento da marca + tokens `aurora.{green,teal,blue,violet}` (usar como luz/gradiente, nunca preenchimento grande); `status.open` = `#6b8cff`. Fonte do app: **Geist** (Inter vira fallback). **Vidro líquido**: `.card` em `globals.css` é translúcido (`backdrop-filter`) com reflexo de borda via `::before` mascarado — por isso `.card` tem `position: relative`; `.card-interactive` (hover com elevação), `.glass-panel` (dropdowns/painéis flutuantes, quase opaco), `.kpi-highlight` (halo verde só no KPI principal), `.app-backdrop` (fundo ambiente fixo com gradientes + grão, montado no `AppShell`). **Regra de brilho**: só o botão `primary` e o KPI principal brilham — não espalhar. **Menu lateral**: `src/components/ui/AnimatedSidebar.tsx` (framer-motion) + `layout/Sidebar.tsx`; recolhe por botão ou **Ctrl+B**, estado em `uiStore` persistido (`titanflow-ui`); só a largura externa anima, filhos em wrapper de largura fixa (não animar `width` de conteúdo — trava). `MotionConfig reducedMotion="never"` de propósito: a máquina do usuário tem efeitos de animação do Windows desligados e o framer cortava tudo. **Busca**: `components/search/TopbarSearch.tsx` inline no topo (Ctrl+K foca); `SearchModal` removido. Topbar e cabeçalho do menu têm `h-14` (bordas alinhadas). `LogoIcon` aceita `variant="aurora"`.
 - **Preview visual local**: conta `preview@titanflow.local` / `Preview@1234` (workspace "Aurora Vendas", com contatos/negócios de exemplo) no banco local, usada pra screenshots com puppeteer-core + Chrome headless.
-- **Dev local sem Docker**: PostgreSQL 18 nativo do Windows (serviço `postgresql-x64-18`), usuário `postgres` / senha `maracujatitan`, banco `titancrm`.
+- **Dev local sem Docker**: PostgreSQL 18 nativo do Windows (serviço `postgresql-x64-18`, início manual), usuário `postgres`, banco `titancrm` (testes do M25: `titancrm_test`). A senha antiga anotada aqui não autentica mais (26/10/2026): pedir ao usuário. O backend não tem `.env` local hoje.
 
 - **M18 T1 — config de produção ✅**: callback do Google OAuth usa `BACKEND_URL` (novo env, default `http://localhost:3001`) — antes derivava de `FRONTEND_URL.replace(':5173', ':3001')` e quebrava em prod. Remetente dos convites vem de `EMAIL_FROM` (default `TitanFlow <onboarding@resend.dev>`). Páginas públicas `/privacidade` e `/termos` em `src/pages/legal/LegalPages.tsx` (exigidas pelo Google para publicar o OAuth consent screen). `packages/frontend/vercel.json` com rewrite SPA (sem ele deep links como `/auth/callback` davam 404 no Vercel — se o Root Directory do Vercel for a raiz do repo, mover o arquivo). CI backend estava vermelho no main com 2 erros tsc (`deal.reopened` fora de `SUPPORTED_EVENTS`; `ipKeyGenerator(req)` → `ipKeyGenerator(req.ip ?? '')`) — corrigidos. Número WhatsApp já é real (`5516992386188`).
 - **Pendências para usuários reais (auditoria 2026-09-28)**: (1) rate limiter nunca atua — `tierRateLimiter` roda antes do `requireAuth` e faz `skip` quando `!req.user`; falta limite no `/auth/login` e `app.set('trust proxy', 1)`; (2) webhook Stripe `customer.subscription.updated` lê plano de `price.metadata.plan` e cai p/ `'free'` se ausente — rebaixa pagantes na renovação; `past_due`/`invoice.payment_failed` não tratados; (3) login por senha de usuário só-Google dá 500 (`bcrypt.compare` com hash null); (4) sem 'esqueci minha senha'; (5) convite manda senha temporária (`Math.random`) no e-mail; (6) tokens do Google no query string do `/auth/callback`; (7) zero testes automatizados. Sem domínio próprio o Resend só entrega pro dono da conta — em prod sem domínio, remover `RESEND_API_KEY` faz a UI mostrar a senha temporária.
@@ -404,9 +394,8 @@ See [plan.md](./plan.md) for current progress.
 - Skeletons: `TableSkeleton`, `KanbanSkeleton`, `CardSkeleton` in `src/components/ui/Skeleton.tsx`
 - `EmptyState` component in `src/components/ui/EmptyState.tsx` — used in Contacts and Deals list pages
 - Mobile: hamburger button in AppShell opens sidebar overlay on `< md` screens
-- Production deploy: `docker-compose.prod.yml` (Postgres + backend tsx + nginx frontend)
-- CI: `.github/workflows/ci.yml` — tsc type-check on backend + frontend on PR
-- CD: `.github/workflows/cd.yml` — builds Docker images and pushes to GHCR on merge to main
+- Production deploy: Railway (backend via `railway.json` → `packages/backend/Dockerfile`, Postgres do Railway) + Vercel (frontend)
+- CI: `.github/workflows/ci.yml` — tsc type-check on backend + frontend on PR and push to main (o CD para GHCR foi removido em 27/10/2026: falhava em todo push e não era usado)
 - Stripe: `payment_method_types: ['card']` set in `billing.service.ts` — fixes checkout for BRL accounts
 - Stripe webhook uses raw body — registered before `express.json()` in `server.ts`
 - `upgradeStore` (Zustand) holds `{ open, requiredPlan, showUpgrade, closeUpgrade }`
@@ -415,7 +404,7 @@ See [plan.md](./plan.md) for current progress.
 - Public API via `X-API-Key`: `GET /api/v1/public/contacts`, `/public/deals`, `POST /public/contacts`
 - Webhooks HMAC-signed with `X-Titan-Signature: sha256=<hmac>`
 - `LandingPage` at `src/pages/landing/LandingPage.tsx` — public route `/`, redirects auth'd users to `/dashboard`; WhatsApp floating button (expand-on-hover)
-- `AppShell` has WhatsApp floating button (icon-only, bottom-right) — replace `5511999999999` with real number in prod
+- `AppShell` has WhatsApp floating button (icon-only, bottom-right)
 - `useTenant()` hook (`src/hooks/useTenant.ts`) — calls `GET /tenant`, used in Dashboard + ReportsPage
 - `PipelineSettingsModal` supports inline stage rename: click pencil → edit in place → Enter/✓ confirms, Escape cancels
 - `ContactForm` has `ownerId` field (select from active users via `useUsers()`), mapped to `owner_id` on backend
@@ -428,13 +417,8 @@ See [plan.md](./plan.md) for current progress.
 - `GoogleButton` component at `src/components/auth/GoogleButton.tsx`; shown in LoginPage and RegisterPage
 - `AuthCallbackPage` at `/auth/callback` — reads `accessToken`/`refreshToken`/`isNew` from query string; redirects to `/onboarding` if new user, `/dashboard` if existing
 - `OnboardingPage` at `/onboarding` (ProtectedRoute) — Step 1: create pipeline + 4 default stages; Step 2: optional team invite
-- **Pending infra tasks**: (1) Google OAuth: preencher Branding (home/privacy/terms URLs), publicar app, criar Web client e setar `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`BACKEND_URL` no Render; (2) configure Stripe webhook URL (funciona com `*.onrender.com`, domínio próprio não é obrigatório)
-- Docker prod build: both Dockerfiles use `context: .` (repo root) — required for npm workspaces lockfile
-- Backend Dockerfile CMD: `node_modules/.bin/tsx packages/backend/src/server.ts` (run from repo root `/app`)
-- `docker-compose.prod.yml` uses `DATABASE_URL` from `.env` with `?sslmode=disable` for local Postgres
-- Migrations in prod: `docker compose -f docker-compose.prod.yml exec backend node_modules/.bin/tsx node_modules/.bin/knex --knexfile packages/backend/knexfile.ts migrate:latest`
-- Dev workflow: use `docker compose up -d` (docker-compose.yml, password: `postgres`) for local DB, then `npm run dev:backend`
-- `packages/backend/.env` DATABASE_URL must use `localhost` (not `db`) when running backend outside Docker
+- **Pending infra tasks**: (1) Google OAuth: preencher Branding (home/privacy/terms URLs), publicar app, criar Web client e setar `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`BACKEND_URL` no Railway; (2) configure Stripe webhook URL (funciona com `*.up.railway.app`, domínio próprio não é obrigatório)
+- Backend Dockerfile (build do Railway) usa contexto na raiz do repo (lockfile dos workspaces npm); CMD `node_modules/.bin/tsx packages/backend/src/server.ts`. Migrations em produção rodam sozinhas no boot.
 - `rateLimiter.ts` uses `ipKeyGenerator` from `express-rate-limit` to handle IPv6 addresses correctly
 
 ## Kanban / Pipeline — notas críticas (M11)

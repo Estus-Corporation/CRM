@@ -18,7 +18,7 @@ Titan Labs CRM substitui ferramentas dispersas (WhatsApp, planilhas) por uma pla
 - [Banco de Dados](#banco-de-dados)
 - [API Reference](#api-reference)
 - [Sistema de Planos e Permissões](#sistema-de-planos-e-permissões)
-- [Deploy com Docker](#deploy-com-docker)
+- [Deploy (Railway + Vercel)](#deploy-railway--vercel)
 - [CI/CD](#cicd)
 - [Design System](#design-system)
 - [Arquitetura Multi-tenant](#arquitetura-multi-tenant)
@@ -109,7 +109,7 @@ CRMTitanLabs/
 │   │   │   │   └── public/
 │   │   │   └── shared/                 # Middleware, tipos, utilitários
 │   │   ├── knexfile.ts
-│   │   ├── Dockerfile
+│   │   ├── Dockerfile              # usado pelo Railway (railway.json)
 │   │   └── .env
 │   └── frontend/                       # React + Vite + TypeScript + Tailwind CSS
 │       ├── src/
@@ -138,15 +138,10 @@ CRMTitanLabs/
 │       │   ├── store/                  # Zustand stores
 │       │   └── services/
 │       │       └── api.ts              # Instância Axios centralizada
-│       ├── nginx.conf                  # Config Nginx para produção
-│       ├── Dockerfile
 │       └── .env
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                      # Type-check em PRs
-│       └── cd.yml                      # Build e push Docker em merge para main
-├── docker-compose.yml                  # Postgres 16 + pgAdmin (desenvolvimento)
-├── docker-compose.prod.yml             # Stack completa de produção
+│       └── ci.yml                      # Type-check em PRs e na main
 ├── CLAUDE.md                           # Instruções para o assistente de IA
 ├── plan.md                             # Roadmap de milestones
 └── package.json                        # npm workspaces root
@@ -198,8 +193,7 @@ CRMTitanLabs/
 
 - **Node.js** 20+
 - **npm** 9+ (workspaces)
-- **Docker** e **Docker Compose**
-- **PostgreSQL 16** (via Docker ou instalação local)
+- **PostgreSQL** local só para desenvolvimento e testes (no Windows: PostgreSQL 18 nativo, serviço `postgresql-x64-18`). Produção usa o Postgres do Railway.
 
 ---
 
@@ -218,15 +212,14 @@ cd CRMTitanLabs
 npm install
 ```
 
-### 3. Subir o banco de dados
+### 3. Banco de dados local
 
-```bash
-docker compose up -d
+Sem Docker. Iniciar o PostgreSQL nativo e criar o banco (PowerShell como administrador para o `Start-Service`):
+
+```powershell
+Start-Service postgresql-x64-18
+& 'C:\Program Files\PostgreSQL\18\bin\createdb.exe' -U postgres titancrm
 ```
-
-Isso inicia:
-- **PostgreSQL 16** em `localhost:5432` (usuário: `postgres`, senha: `postgres`, banco: `titancrm`)
-- **pgAdmin 4** em `http://localhost:5050` (usuário: `admin@titancrm.com`, senha: `admin`)
 
 ### 4. Configurar variáveis de ambiente
 
@@ -234,10 +227,9 @@ Crie o arquivo `packages/backend/.env`:
 
 
 ```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/titancrm
+DATABASE_URL=postgresql://postgres:<senha-local>@localhost:5432/titancrm
 JWT_SECRET=your-super-secret-jwt-key-change-in-production
 JWT_REFRESH_SECRET=your-super-secret-refresh-key-change-in-production
-[guid]::NewGuid().ToString() #para gerar secret key
 PORT=3001
 NODE_ENV=development
 FRONTEND_URL=http://localhost:5173
@@ -577,431 +569,12 @@ Rotas gated retornam HTTP **402** com:
 
 ---
 
-## Deploy com Docker
-
-Esta seção cobre todos os arquivos e comandos necessários para construir e subir o projeto em produção com Docker.
-
-### Arquivos Docker necessários
-
-```
-CRMTitanLabs/
-├── docker-compose.yml              # Desenvolvimento local (Postgres + pgAdmin)
-├── docker-compose.prod.yml         # Produção (Postgres + Backend + Frontend/Nginx)
-├── packages/
-│   ├── backend/
-│   │   └── Dockerfile
-│   └── frontend/
-│       ├── Dockerfile
-│       └── nginx.conf
-```
-
----
-
-### `docker-compose.yml` — Desenvolvimento local
-
-```yaml
-version: '3.8'
-
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: titancrm_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: titancrm
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: titancrm_pgadmin
-    restart: unless-stopped
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@titancrm.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - "5050:80"
-    depends_on:
-      - postgres
-
-volumes:
-  postgres_data:
-```
-
-```bash
-# Subir em background
-docker compose up -d
-
-# Ver logs
-docker compose logs -f
-
-# Parar
-docker compose down
-```
-
----
-
-### `docker-compose.prod.yml` — Produção
-
-```yaml
-version: '3.8'
-
-services:
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    volumes:
-      - postgres_prod_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  backend:
-    build:
-      context: .
-      dockerfile: packages/backend/Dockerfile
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
-      NODE_ENV: production
-      PORT: 3001
-      FRONTEND_URL: ${FRONTEND_URL}
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
-      STRIPE_PRICE_STARTER: ${STRIPE_PRICE_STARTER}
-      STRIPE_PRICE_PRO: ${STRIPE_PRICE_PRO}
-      RESEND_API_KEY: ${RESEND_API_KEY}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-    ports:
-      - "3001:3001"
-    depends_on:
-      db:
-        condition: service_healthy
-
-  frontend:
-    build:
-      context: .
-      dockerfile: packages/frontend/Dockerfile
-      args:
-        VITE_API_URL: /api/v1
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-
-volumes:
-  postgres_prod_data:
-```
-
-> **Importante:** O `context: .` (raiz do repositório) é obrigatório nos dois serviços de build para que o `package-lock.json` do npm workspaces esteja disponível durante a construção das imagens.
-
----
-
-### `packages/backend/Dockerfile`
-
-```dockerfile
-FROM node:20-alpine AS deps
-WORKDIR /app
-
-# Copiar manifests do workspace inteiro
-COPY package.json package-lock.json ./
-COPY packages/backend/package.json ./packages/backend/
-
-# Instalar dependências de produção
-RUN npm ci --workspace=packages/backend --omit=dev
-
-# ─────────────────────────────────────────
-FROM node:20-alpine AS runtime
-WORKDIR /app
-
-# Copiar dependências instaladas
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/packages/backend/node_modules ./packages/backend/node_modules 2>/dev/null || true
-
-# Copiar código-fonte do backend
-COPY packages/backend ./packages/backend
-COPY package.json ./
-
-EXPOSE 3001
-
-# Executar a partir da raiz do workspace
-CMD ["node_modules/.bin/tsx", "packages/backend/src/server.ts"]
-```
-
----
-
-### `packages/frontend/Dockerfile`
-
-```dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-
-# Copiar manifests do workspace
-COPY package.json package-lock.json ./
-COPY packages/frontend/package.json ./packages/frontend/
-
-# Instalar dependências
-RUN npm ci --workspace=packages/frontend
-
-# Copiar código-fonte e construir
-COPY packages/frontend ./packages/frontend
-
-ARG VITE_API_URL=/api/v1
-ENV VITE_API_URL=$VITE_API_URL
-
-RUN npm run build --workspace=packages/frontend
-
-# ─────────────────────────────────────────
-FROM nginx:alpine AS serve
-WORKDIR /usr/share/nginx/html
-
-# Copiar arquivos estáticos buildados
-COPY --from=build /app/packages/frontend/dist .
-
-# Copiar config do Nginx
-COPY packages/frontend/nginx.conf /etc/nginx/conf.d/default.conf
-
-EXPOSE 80
-
-CMD ["nginx", "-g", "daemon off;"]
-```
-
----
-
-### `packages/frontend/nginx.conf`
-
-```nginx
-server {
-    listen 80;
-    server_name _;
-    root /usr/share/nginx/html;
-    index index.html;
-
-    gzip on;
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
-    gzip_min_length 1024;
-
-    # Proxy para o backend
-    location /api/ {
-        proxy_pass http://backend:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    # SPA fallback — necessário para React Router
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Cache de assets estáticos
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-```
-
----
-
-### `.env` de produção
-
-Crie um arquivo `.env` na **raiz do repositório** para uso pelo `docker-compose.prod.yml`:
-
-```env
-# PostgreSQL
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=troque_por_senha_segura
-POSTGRES_DB=titancrm
-
-# Backend
-DATABASE_URL=postgresql://postgres:troque_por_senha_segura@db:5432/titancrm?sslmode=disable
-JWT_SECRET=gere_uma_string_aleatoria_minimo_32_caracteres
-JWT_REFRESH_SECRET=gere_outra_string_aleatoria_minimo_32_caracteres
-FRONTEND_URL=https://seudominio.com.br
-
-# Stripe (opcional)
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_STARTER=price_...
-STRIPE_PRICE_PRO=price_...
-
-# Email (opcional)
-RESEND_API_KEY=re_...
-
-# Google OAuth (opcional)
-GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=xxx
-```
-
-> **Segurança:** Nunca commite o `.env` de produção. Adicione-o ao `.gitignore`.
-
----
-
-### Comandos de produção
-
-#### Subir a stack completa
-
-```bash
-# Build e subir todos os serviços
-docker compose -f docker-compose.prod.yml up -d --build
-
-# Ver logs em tempo real
-docker compose -f docker-compose.prod.yml logs -f
-
-# Ver logs de um serviço específico
-docker compose -f docker-compose.prod.yml logs -f backend
-docker compose -f docker-compose.prod.yml logs -f frontend
-docker compose -f docker-compose.prod.yml logs -f db
-```
-
-#### Migrations em produção
-
-As migrations rodam automaticamente na inicialização do backend. Para rodar manualmente:
-
-```bash
-# Rodar migrations pendentes
-docker compose -f docker-compose.prod.yml exec backend \
-  node_modules/.bin/tsx node_modules/.bin/knex \
-  --knexfile packages/backend/knexfile.ts \
-  migrate:latest
-
-# Rollback
-docker compose -f docker-compose.prod.yml exec backend \
-  node_modules/.bin/tsx node_modules/.bin/knex \
-  --knexfile packages/backend/knexfile.ts \
-  migrate:rollback
-```
-
-#### Gerenciar imagens e containers
-
-```bash
-# Rebuild de um serviço específico
-docker compose -f docker-compose.prod.yml build backend
-docker compose -f docker-compose.prod.yml build frontend
-
-# Rebuild do frontend com URL de API customizada
-docker compose -f docker-compose.prod.yml build \
-  --build-arg VITE_API_URL=https://seudominio.com.br/api/v1 frontend
-
-# Restart sem rebuild
-docker compose -f docker-compose.prod.yml restart backend
-
-# Parar e remover containers (preserva volumes/dados)
-docker compose -f docker-compose.prod.yml down
-
-# Parar e remover tudo incluindo volumes — APAGA O BANCO
-docker compose -f docker-compose.prod.yml down -v
-```
-
-#### Acesso ao banco em produção
-
-```bash
-# Abrir psql dentro do container
-docker compose -f docker-compose.prod.yml exec db \
-  psql -U postgres -d titancrm
-
-# Dump do banco de dados
-docker compose -f docker-compose.prod.yml exec db \
-  pg_dump -U postgres titancrm > backup_$(date +%Y%m%d).sql
-
-# Restaurar dump
-docker compose -f docker-compose.prod.yml exec -T db \
-  psql -U postgres titancrm < backup_20240101.sql
-```
-
-#### Verificar saúde dos serviços
-
-```bash
-# Status dos containers
-docker compose -f docker-compose.prod.yml ps
-
-# Health check direto no backend
-curl http://localhost:3001/health
-
-# Health check via Nginx (frontend)
-curl http://localhost/api/v1/health
-```
-
----
-
-### Build manual das imagens (sem Docker Compose)
-
-```bash
-# Backend — o contexto DEVE ser a raiz do repositório
-docker build \
-  -t titancrm-backend:latest \
-  -f packages/backend/Dockerfile \
-  .
-
-docker run -d \
-  --name titancrm-backend \
-  -p 3001:3001 \
-  --env-file .env \
-  titancrm-backend:latest
-
-# Frontend — o contexto DEVE ser a raiz do repositório
-docker build \
-  -t titancrm-frontend:latest \
-  -f packages/frontend/Dockerfile \
-  --build-arg VITE_API_URL=https://seudominio.com.br/api/v1 \
-  .
-
-docker run -d \
-  --name titancrm-frontend \
-  -p 80:80 \
-  titancrm-frontend:latest
-```
-
----
-
-### Publicar imagens no GitHub Container Registry (GHCR)
-
-```bash
-# Autenticar
-echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USERNAME --password-stdin
-
-# Backend
-docker build -t ghcr.io/<owner>/titancrm-backend:latest -f packages/backend/Dockerfile .
-docker push ghcr.io/<owner>/titancrm-backend:latest
-
-# Frontend
-docker build \
-  -t ghcr.io/<owner>/titancrm-frontend:latest \
-  -f packages/frontend/Dockerfile \
-  --build-arg VITE_API_URL=/api/v1 \
-  .
-docker push ghcr.io/<owner>/titancrm-frontend:latest
-```
-
-### Atualizar produção com nova imagem
-
-```bash
-# Baixar novas imagens publicadas
-docker compose -f docker-compose.prod.yml pull
-
-# Recriar containers com as novas imagens
-docker compose -f docker-compose.prod.yml up -d
-```
+## Deploy (Railway + Vercel)
+
+- **Backend:** Railway, a partir do `railway.json` (builder `DOCKERFILE` → `packages/backend/Dockerfile`). Postgres do próprio Railway (`DATABASE_URL=${{Postgres.DATABASE_URL}}`). As migrations rodam sozinhas no boot (`db.migrate.latest()` em `server.ts`). Health check em `/health`.
+- **Frontend:** Vercel, Root Directory `packages/frontend`, variável `VITE_API_URL`; `vercel.json` faz o rewrite de SPA.
+- Push na `main` publica os dois. Variáveis de produção ficam nos painéis do Railway e da Vercel, nunca no repositório.
+- Banco de produção: nunca apontar um backend local, script ou teste para ele sem autorização explícita.
 
 ---
 
@@ -1014,16 +587,6 @@ Dispara em: push para `main`, pull requests para `main`
 - **Backend:** `npx tsc --noEmit` (type-check TypeScript)
 - **Frontend:** `npm run lint` (tsc --noEmit)
 - Node 20 com cache de npm
-
-### CD — `.github/workflows/cd.yml`
-
-Dispara em: merge para `main`
-
-- Build das imagens Docker do backend e frontend
-- Push para GitHub Container Registry (GHCR)
-- Tags: `latest` + SHA do commit (`ghcr.io/<owner>/titancrm-backend:latest`)
-
-> **Atenção:** O build context no CD deve ser `.` (raiz do repo) e não `./packages/*`, caso contrário o npm workspaces não encontrará o `package-lock.json` raiz e falhará.
 
 ---
 
@@ -1116,5 +679,3 @@ requireTier('pro')        // Verifica plano do tenant (lê do DB, não do JWT)
 |--------|-----------|
 | Google OAuth em produção | Configurar `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` com o domínio real nas credenciais do Google Cloud Console |
 | Stripe webhook em produção | Registrar `https://seudominio.com.br/api/v1/billing/webhook` no painel Stripe após configurar o domínio |
-| Número WhatsApp | Substituir `5511999999999` pelo número real em `LandingPage.tsx` e `AppShell.tsx` |
-| CD workflow | Corrigir build context de `./packages/*` para `.` nas GitHub Actions |

@@ -13,6 +13,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md` — leia antes de qualquer tarefa.
 
+**Como rodar:** prompt e pré-requisitos em `docs/superpowers/prompts/2026-10-27-executar-m25.md`. A sessão abre no CRM com `../LeadHunter` adicionado (leitura do Python + commit da T14).
+
 ## Global Constraints
 
 **Repositório e commits**

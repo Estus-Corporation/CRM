@@ -765,7 +765,7 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 
 - [ ] **Pendências da T2 (lado CRM):**
   - aplicar as migrações `20240035` e `20240036` no banco de dev (`npm run migrate:latest`); no Railway rodam no boot
-  - validar em produção com chave `read`+`write` e o Radar Local com `CRM_POLL=1` — precisa de autorização do usuário
+  - ~~validar em produção com chave `read`+`write` e o Radar Local com `CRM_POLL=1`~~ — cancelado em 27/10/2026: o M25 traz o LeadHunter para dentro do CRM e remove o executor externo
   - a distribuição automática diária do captador (`topUpDailyLeads`) não filtra por dono: leads entregues a um seller por pedido podem ser distribuídos a um captador (comportamento anterior, vale para qualquer contato sem `lead_assignments`)
   - limites conhecidos: sem token de reserva por executor — qualquer chave `write` do mesmo workspace pode renovar/entregar um pedido reservado (o desenho prevê um único Radar por workspace); resposta do `result` perdida faz o Radar marcar o pedido como "perdido" enquanto o CRM mostra concluído (dados certos); papel do usuário vem do JWT (admin rebaixado mantém visão ampla até o token expirar, 15 min); cota 0 ou máximo menor não afetam pedidos que já estão na fila; com enriquecimento + Jev cada empresa custa ~2 chamadas no Radar, então máximo por pedido acima de 39 estoura `MAX_CALLS_PER_CAMPAIGN=80` e o pedido volta `failed`
   - fora do escopo, corrigido de passagem: `errorHandler` não devolve mais a mensagem crua de erros 5xx (vazava SQL); `requireApiKey` passa erros de banco para o `next` (antes virava rejeição não tratada)
