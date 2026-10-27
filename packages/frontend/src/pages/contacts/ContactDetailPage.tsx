@@ -85,7 +85,7 @@ export function ContactDetailPage() {
         >
           <ArrowLeft size={18} />
         </button>
-        <h1 className="text-xl font-semibold text-text-primary flex-1">{contact.full_name}</h1>
+        <h1 className="page-title-sm flex-1">{contact.full_name}</h1>
         <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
           <Pencil size={13} /> Editar
         </Button>

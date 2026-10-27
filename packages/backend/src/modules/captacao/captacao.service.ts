@@ -57,6 +57,7 @@ const MY_LEAD_COLUMNS = [
   'a.id', 'a.call_status', 'a.call_notes', 'a.call_updated_at', 'a.assigned_for', 'a.outcome',
   'a.closed_at', 'a.commission_paid_at', 'a.concluded_at',
   'a.meeting_at', 'a.meeting_mode', 'a.meeting_location',
+  'a.meeting_duration', 'a.meeting_attendee_ids', 'a.meeting_guests',
   db.raw('a.commission_value::float8 as commission_value'),
   'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.lead_context',
   // Dados de prospecção (LeadHunter / planilha)
@@ -83,6 +84,74 @@ export async function listMyLeads(tenantId: string, userId: string, query: MyLea
     .limit(500);
 }
 
+/** Um lead do captador (página do lead) — só os atribuídos a ele */
+export async function getMyLead(tenantId: string, userId: string, id: string) {
+  const lead = await db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .where({ 'a.id': id, 'a.tenant_id': tenantId, 'a.captador_id': userId })
+    .select(MY_LEAD_COLUMNS)
+    .first();
+  if (!lead) throw httpError('Lead not found', 404);
+  return lead;
+}
+
+/**
+ * Mantém o evento da reunião no calendário igual ao lead: reunião concluída → cria/atualiza o evento
+ * (admins como participantes); outro resultado ou lead reaberto sem reunião → remove o evento.
+ */
+async function syncMeetingEvent(tenantId: string, userId: string, assignmentId: string) {
+  const a = await db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .where({ 'a.id': assignmentId, 'a.tenant_id': tenantId })
+    .first(
+      'a.call_status', 'a.concluded_at', 'a.meeting_at', 'a.meeting_mode', 'a.meeting_location', 'a.meeting_event_id',
+      'a.meeting_duration', 'a.meeting_attendee_ids', 'a.meeting_guests', 'a.contact_id', 'c.full_name', 'c.company_name',
+    );
+  if (!a) return;
+
+  const wantsEvent = a.concluded_at && a.call_status === 'meeting' && a.meeting_at;
+  if (!wantsEvent) {
+    if (a.meeting_event_id) {
+      await db('calendar_events').where({ id: a.meeting_event_id, tenant_id: tenantId }).delete();
+      await db('lead_assignments').where({ id: assignmentId }).update({ meeting_event_id: null });
+    }
+    return;
+  }
+
+  const start = new Date(a.meeting_at);
+  const end = new Date(start.getTime() + (a.meeting_duration ?? 60) * 60_000);
+  const mode = a.meeting_mode === 'online' ? 'Online' : 'Presencial';
+  const fields = {
+    title: `Reunião: ${a.company_name || a.full_name}`,
+    description: [`${mode}${a.meeting_location ? ` · ${a.meeting_location}` : ''}`, 'Marcada pela captação'].join('\n'),
+    start_at: start,
+    end_at: end,
+    contact_id: a.contact_id,
+    external_attendees: JSON.stringify(a.meeting_guests ?? []),
+    updated_at: new Date(),
+  };
+
+  // Participantes: os admins escolhidos (só admins ativos do espaço); sem escolha, todos os admins
+  const admins: string[] = await db('user_tenants').where({ tenant_id: tenantId, role: 'admin', is_active: true }).pluck('user_id');
+  const chosen = ((a.meeting_attendee_ids ?? []) as string[]).filter((id) => admins.includes(id));
+  // Só os admins participam (quem captou fica registrado no próprio lead, não na reunião)
+  const attendeeIds = chosen.length ? chosen : admins;
+
+  let eventId = a.meeting_event_id as string | null;
+  const updated = eventId ? await db('calendar_events').where({ id: eventId, tenant_id: tenantId }).update(fields) : 0;
+  if (!updated) {
+    const [event] = await db('calendar_events')
+      .insert({ tenant_id: tenantId, created_by: userId, all_day: false, ...fields })
+      .returning('id');
+    eventId = event.id as string;
+    await db('lead_assignments').where({ id: assignmentId }).update({ meeting_event_id: eventId });
+  }
+  await db('calendar_event_attendees').where({ event_id: eventId }).delete();
+  if (attendeeIds.length) {
+    await db('calendar_event_attendees').insert(attendeeIds.map((uid) => ({ event_id: eventId, user_id: uid, status: 'pending' })));
+  }
+}
+
 export async function updateMyLead(tenantId: string, userId: string, id: string, input: UpdateMyLeadInput) {
   const lead = await db('lead_assignments')
     .where({ id, tenant_id: tenantId, captador_id: userId })
@@ -97,6 +166,9 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
   if (input.meetingAt !== undefined) updates.meeting_at = input.meetingAt ? new Date(input.meetingAt) : null;
   if (input.meetingMode !== undefined) updates.meeting_mode = input.meetingMode;
   if (input.meetingLocation !== undefined) updates.meeting_location = input.meetingLocation || null;
+  if (input.meetingDuration !== undefined) updates.meeting_duration = input.meetingDuration;
+  if (input.meetingAttendeeIds !== undefined) updates.meeting_attendee_ids = JSON.stringify(input.meetingAttendeeIds);
+  if (input.meetingGuests !== undefined) updates.meeting_guests = JSON.stringify(input.meetingGuests);
 
   // "Concluir lead" exige um resultado escolhido; "Editar" reabre
   if (input.concluded === true) {
@@ -106,13 +178,23 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
       throw httpError('Meeting date and mode are required', 422, 'meeting_required');
     }
     // Só reunião guarda agenda
-    if (status !== 'meeting') Object.assign(updates, { meeting_at: null, meeting_mode: null, meeting_location: null });
+    if (status !== 'meeting') {
+      Object.assign(updates, {
+        meeting_at: null,
+        meeting_mode: null,
+        meeting_location: null,
+        meeting_duration: null,
+        meeting_attendee_ids: '[]',
+        meeting_guests: '[]',
+      });
+    }
     updates.concluded_at = new Date();
   } else if (input.concluded === false) {
     updates.concluded_at = null;
   }
 
   await db('lead_assignments').where({ id, tenant_id: tenantId, captador_id: userId }).update(updates);
+  if (input.concluded !== undefined) await syncMeetingEvent(tenantId, userId, id);
 
   return db('lead_assignments as a')
     .join('contacts as c', 'a.contact_id', 'c.id')
@@ -540,4 +622,63 @@ export async function updateSettings(tenantId: string, input: { commissionRate?:
   if (input.leadsPerDay !== undefined) updates.daily_leads_per_captador = input.leadsPerDay;
   await db('tenants').where({ id: tenantId }).update(updates);
   return getSettings(tenantId);
+}
+
+/**
+ * Agenda dos admins pro captador marcar reunião sem conflito: só os horários ocupados (sem título,
+ * sem descrição). Conta eventos do calendário com algum admin (criador ou participante) e as
+ * reuniões já marcadas pela captação (1h cada).
+ */
+export async function getAdminBusy(tenantId: string, from: Date, to: Date) {
+  const admins = await db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.tenant_id': tenantId, 'ut.role': 'admin', 'ut.is_active': true })
+    .select('u.id', 'u.full_name');
+  const adminIds = admins.map((a) => a.id as string);
+  const nameOf = (id: string) => (admins.find((a) => a.id === id)?.full_name as string | undefined)?.split(' ')[0];
+
+  const events = adminIds.length
+    ? await db('calendar_events as e')
+        .where('e.tenant_id', tenantId)
+        .where('e.start_at', '<', to)
+        .where('e.end_at', '>', from)
+        .where((w) =>
+          w
+            .whereIn('e.created_by', adminIds)
+            .orWhereExists(
+              db('calendar_event_attendees as a').whereRaw('a.event_id = e.id').whereIn('a.user_id', adminIds),
+            ),
+        )
+        .select('e.id', 'e.start_at', 'e.end_at', 'e.created_by')
+    : [];
+  const attendees = events.length
+    ? await db('calendar_event_attendees').whereIn('event_id', events.map((e) => e.id)).whereIn('user_id', adminIds).select('event_id', 'user_id')
+    : [];
+
+  const meetings = await db('lead_assignments')
+    .where({ tenant_id: tenantId, call_status: 'meeting' })
+    .whereNull('meeting_event_id')
+    .whereNotNull('meeting_at')
+    .where('meeting_at', '>=', new Date(from.getTime() - 3_600_000))
+    .where('meeting_at', '<', to)
+    .select('meeting_at', 'meeting_duration');
+
+  return [
+    ...events.map((e) => {
+      const ids = new Set([...attendees.filter((a) => a.event_id === e.id).map((a) => a.user_id as string)]);
+      if (adminIds.includes(e.created_by)) ids.add(e.created_by);
+      return {
+        start: e.start_at,
+        end: e.end_at,
+        kind: 'event' as const,
+        admins: [...ids].map(nameOf).filter(Boolean),
+      };
+    }),
+    ...meetings.map((m) => ({
+      start: m.meeting_at,
+      end: new Date(new Date(m.meeting_at).getTime() + (m.meeting_duration ?? 60) * 60_000),
+      kind: 'lead_meeting' as const,
+      admins: [] as string[],
+    })),
+  ].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
 }

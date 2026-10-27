@@ -10,33 +10,32 @@ interface KpiCardProps {
   highlight?: boolean;
 }
 
+/**
+ * Card de indicador: ícone num quadrado arredondado à esquerda, e ao lado rótulo, valor e descrição.
+ * Celular (2 colunas estreitas): o ícone sobe e o texto usa a largura toda.
+ */
 export function KpiCard({ label, value, sub, icon: Icon, highlight }: KpiCardProps) {
   return (
-    <div className={cn('card card-interactive overflow-hidden py-4 pl-5 pr-4 sm:p-5', highlight && 'kpi-highlight')}>
-      <div className="flex items-center justify-between gap-3">
-        {/* Celular: sem o ícone, o rótulo usa a largura toda e quebra em 2 linhas se precisar */}
-        <p className="text-[15.5px] font-semibold leading-tight text-text-primary max-sm:line-clamp-2 sm:truncate sm:text-[13px] sm:font-medium sm:leading-snug sm:text-text-secondary">
+    <div className={cn('card card-interactive flex gap-4 overflow-hidden p-4 max-sm:flex-col max-sm:gap-3 sm:items-center sm:p-5', highlight && 'kpi-highlight')}>
+      {Icon && (
+        <span
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[12px] border border-accent-green/20 bg-gradient-to-br from-accent-green/[0.22] to-accent-green/[0.06] text-accent-green shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] sm:h-12 sm:w-12 sm:rounded-[14px]"
+        >
+          <Icon size={20} strokeWidth={1.9} className="sm:h-[22px] sm:w-[22px]" />
+        </span>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[12.5px] font-medium leading-snug text-text-secondary max-sm:line-clamp-2 max-sm:whitespace-normal">
           {label}
         </p>
-        {Icon && (
-          <span
-            className={cn(
-              'flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-[10px] border max-sm:hidden',
-              highlight
-                ? 'border-accent-green/25 bg-accent-green/10 text-accent-green'
-                : 'border-fg/[0.06] bg-fg/[0.03] text-text-secondary',
-            )}
-          >
-            <Icon size={16} strokeWidth={1.75} />
-          </span>
-        )}
+        <p className="mt-1.5 truncate text-[24px] font-semibold leading-none tracking-[-0.02em] text-text-primary tabular-nums sm:text-[28px]">
+          {value}
+        </p>
+        <p className="mt-1.5 truncate text-[12px] leading-snug text-text-muted max-sm:line-clamp-2 max-sm:whitespace-normal sm:h-4">
+          {sub ?? ''}
+        </p>
       </div>
-      <p className="mt-2.5 truncate text-[26px] font-semibold sm:mt-3 sm:text-[34px] leading-none tracking-[-0.02em] text-text-primary tabular-nums">
-        {value}
-      </p>
-      <p className="mt-2 truncate text-[13px] leading-snug text-text-secondary max-sm:line-clamp-2 max-sm:whitespace-normal sm:h-4 sm:text-[12.5px] sm:text-text-muted">
-        {sub ?? ''}
-      </p>
     </div>
   );
 }

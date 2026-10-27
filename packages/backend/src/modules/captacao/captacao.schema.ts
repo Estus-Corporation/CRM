@@ -11,6 +11,13 @@ export const updateMyLeadSchema = z.object({
   meetingAt: z.string().datetime({ offset: true }).nullable().optional(),
   meetingMode: z.enum(['online', 'presencial']).nullable().optional(),
   meetingLocation: z.string().trim().max(500).nullable().optional(),
+  // Detalhes que vão pro evento do calendário
+  meetingDuration: z.number().int().min(15).max(480).nullable().optional(),
+  meetingAttendeeIds: z.array(z.string().uuid()).max(20).optional(),
+  meetingGuests: z
+    .array(z.object({ name: z.string().trim().min(1).max(120), title: z.string().trim().max(80).optional() }))
+    .max(20)
+    .optional(),
 });
 
 export const myLeadsQuerySchema = z.object({

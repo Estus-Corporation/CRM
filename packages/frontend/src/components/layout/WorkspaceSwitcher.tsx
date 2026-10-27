@@ -27,16 +27,18 @@ interface WorkspaceSwitcherProps {
   className?: string;
   /** Só o ícone (menu lateral recolhido) */
   compact?: boolean;
+  /** "name": só o nome do espaço + seta, sobre o card verde do topo do menu lateral; a lista abre pra baixo */
+  variant?: 'pill' | 'name';
 }
 
 /**
  * Seletor de workspace no rodapé do menu lateral. A lista abre pra cima, em portal (fixed),
  * pra escapar do overflow do menu.
  */
-export function WorkspaceSwitcher({ className, compact }: WorkspaceSwitcherProps) {
+export function WorkspaceSwitcher({ className, compact, variant = 'pill' }: WorkspaceSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
   const ref = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -65,7 +67,14 @@ export function WorkspaceSwitcher({ className, compact }: WorkspaceSwitcherProps
 
   const toggle = () => {
     const rect = ref.current?.getBoundingClientRect();
-    if (rect) setMenuPos({ bottom: window.innerHeight - rect.top + 6, left: rect.left, width: Math.max(rect.width, 256) });
+    if (rect) {
+      setMenuPos(
+        variant === 'name'
+          ? // Abaixo do topo do menu, alinhada com o logo do espaço (52px à esquerda do nome)
+            { top: rect.bottom + 10, left: Math.max(8, rect.left - 50), width: 256 }
+          : { bottom: window.innerHeight - rect.top + 6, left: rect.left, width: Math.max(rect.width, 256) },
+      );
+    }
     setOpen((v) => !v);
   };
 
@@ -91,6 +100,23 @@ export function WorkspaceSwitcher({ className, compact }: WorkspaceSwitcherProps
   return (
     // min-w-0: em espaço estreito o nome do workspace trunca em vez de vazar
     <div ref={ref} className={cn('relative min-w-0', className)}>
+      {variant === 'name' ? (
+        <button
+          onClick={toggle}
+          disabled={switching}
+          title="Trocar de espaço"
+          aria-label={`Espaço: ${current?.name ?? ''}`}
+          className={cn(
+            'flex h-9 w-full min-w-0 items-center gap-1.5 rounded-lg px-1.5 text-left text-white transition-colors hover:bg-white/10',
+            switching && 'cursor-wait opacity-50',
+          )}
+        >
+          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">
+            {switching ? 'Trocando…' : (current?.name ?? '—')}
+          </span>
+          <ChevronDown size={14} className={cn('flex-shrink-0 text-white/80 transition-transform', open && 'rotate-180')} />
+        </button>
+      ) : (
       <button
         onClick={toggle}
         disabled={switching}
@@ -128,11 +154,12 @@ export function WorkspaceSwitcher({ className, compact }: WorkspaceSwitcherProps
           </>
         )}
       </button>
+      )}
 
       {open && createPortal(
         <div
           ref={menuRef}
-          style={{ position: 'fixed', bottom: menuPos.bottom, left: menuPos.left, width: menuPos.width }}
+          style={{ position: 'fixed', top: menuPos.top, bottom: menuPos.bottom, left: menuPos.left, width: menuPos.width }}
           className="z-[70] overflow-hidden rounded-lg border border-bg-border bg-bg-surface shadow-xl"
         >
           <div className="px-3 py-2 border-b border-bg-border">

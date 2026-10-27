@@ -9,6 +9,8 @@ router.use(requireAuth);
 
 // Captador: só os próprios leads (cada consulta filtra por captador_id = usuário logado)
 router.get('/me/leads', CaptacaoController.listMyLeads);
+router.get('/me/leads/:id', CaptacaoController.getMyLead);
+router.get('/me/admin-busy', CaptacaoController.getAdminBusy);
 router.patch('/me/leads/:id', CaptacaoController.updateMyLead);
 router.get('/me/summary', CaptacaoController.getMySummary);
 router.get('/me/stats', CaptacaoController.getMyStats);

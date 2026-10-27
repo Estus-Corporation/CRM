@@ -67,7 +67,7 @@ export function CompanyPage() {
       <header className="relative flex flex-wrap items-center gap-4">
         <CompanyLogo name={tenant?.name} logoUrl={tenant?.logo_url} className="h-16 w-16 flex-shrink-0 text-2xl" />
         <div className={cn('min-w-0 flex-1', isAdmin && 'max-md:pr-8')}>
-          <h1 className="truncate text-2xl font-semibold text-text-primary">{tenant?.name}</h1>
+          <h1 className="page-title truncate">{tenant?.name}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-secondary">
             {tenant?.service_type && <span>{tenant.service_type}</span>}
           </div>

@@ -27,6 +27,24 @@ export const listMyLeads = wrap(async (req, res) => {
   res.json({ data });
 });
 
+// Horários ocupados dos admins (padrão: hoje + 14 dias)
+export const getAdminBusy = wrap(async (req, res) => {
+  const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().setHours(0, 0, 0, 0));
+  const to = req.query.to ? new Date(String(req.query.to)) : new Date(from.getTime() + 15 * 86_400_000);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || to <= from) {
+    res.status(422).json({ error: 'Invalid range' });
+    return;
+  }
+  // Até 60 dias por consulta
+  const capped = new Date(Math.min(to.getTime(), from.getTime() + 60 * 86_400_000));
+  res.json({ data: await CaptacaoService.getAdminBusy(req.user!.tenantId, from, capped) });
+});
+
+export const getMyLead = wrap(async (req, res) => {
+  const data = await CaptacaoService.getMyLead(req.user!.tenantId, req.user!.id, req.params.id);
+  res.json({ data });
+});
+
 export const updateMyLead = wrap(async (req, res) => {
   const input = updateMyLeadSchema.parse(req.body);
   const data = await CaptacaoService.updateMyLead(req.user!.tenantId, req.user!.id, req.params.id, input);

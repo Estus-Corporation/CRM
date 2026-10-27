@@ -198,7 +198,7 @@ export function MyDashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-sm text-text-secondary">Olá{firstName ? `, ${firstName}` : ''}</p>
-          <h1 className="mt-0.5 text-2xl font-semibold text-text-primary">Seu desempenho</h1>
+          <h1 className="page-title mt-1">Seu desempenho</h1>
           <p className="mt-0.5 text-sm text-text-muted">
             {period === 'week' ? 'Últimos 7 dias' : 'Últimos 30 dias'}, comparado ao período anterior
           </p>

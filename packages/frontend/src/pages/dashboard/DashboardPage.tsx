@@ -38,8 +38,8 @@ export function DashboardPage() {
     // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
     <div className="mobile-sections space-y-5 max-md:space-y-3">
       <div className="pt-1">
-        <h1 className="text-[26px] font-semibold tracking-[-0.02em] text-text-primary">Olá, {user?.full_name?.split(' ')[0]}</h1>
-        <p className="mt-1 text-[14px] text-text-secondary">Resumo do seu workspace hoje</p>
+        <h1 className="page-title">Olá, {user?.full_name?.split(' ')[0]}</h1>
+        <p className="mt-1.5 text-[14px] text-text-secondary">Resumo do seu workspace hoje</p>
       </div>
 
       {isFree && contactCount > 0 && (

@@ -2,7 +2,6 @@ import { useLayoutEffect, useState } from 'react';
 import { Navigate, useLocation, useOutlet } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { pageMotion } from '@/lib/motion';
-import { Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { MobileTabBar } from './MobileTabBar';
@@ -14,14 +13,15 @@ import { SilkShader } from '@/components/ui/SilkShader';
 import { useTenant } from '@/hooks/useTenant';
 import { applyTheme, useTheme } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
-import { cn } from '@/lib/utils';
 
 const CAPTADOR_PATHS = ['/meu-painel', '/conta', '/empresa', '/meus-leads', '/meus-leads/reunioes','/minhas-comissoes'];
 
 /** Para onde cada papel pode ir; fora disso redireciona (o backend também bloqueia) */
 function roleRedirect(role: string | undefined, pathname: string) {
   // Captador cai no painel dele (o "dashboard" de quem liga)
-  if (role === 'captador') return CAPTADOR_PATHS.includes(pathname) ? null : '/meu-painel';
+  if (role === 'captador') {
+    return CAPTADOR_PATHS.includes(pathname) || pathname.startsWith('/meus-leads/lead/') ? null : '/meu-painel';
+  }
   if (pathname.startsWith('/captacao') && role !== 'admin' && role !== 'manager') return '/dashboard';
   return null;
 }
@@ -43,7 +43,7 @@ export function AppShell() {
 
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-[#03120E]">
+    <div className="relative flex h-screen overflow-hidden bg-[#03120E] md:py-3">
       {/* Fundo único do app: shader "Silk" com blur leve + película escura.
           Passa contínuo por trás do menu, da aba e do espaço vazio do cabeçalho. */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
@@ -53,52 +53,39 @@ export function AppShell() {
       {/* Faixa de vidro da base: só sob o rodapé do menu (fica dentro do DesktopSidebar) */}
       <Sidebar mobileOpen={mobileSidebarOpen} onMobileClose={() => setMobileSidebarOpen(false)} />
 
-      {/* Área da direita como uma pasta: aba (cabeçalho) + corpo que desce até a base da tela */}
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden pr-3 pt-2 max-md:pl-3">
-        {/* Mobile hamburger prepended inside the topbar area */}
-        <div className="md:hidden absolute left-5 top-2 z-50 flex h-[52px] items-center">
-          <button
-            onClick={() => setMobileSidebarOpen(true)}
-            aria-label="Abrir menu"
-            className="flex h-11 w-11 items-center justify-center rounded-[10px] text-white transition-colors duration-200 hover:bg-fg/[0.05]"
-          >
-            <Menu size={23} strokeWidth={1.75} />
-          </button>
-        </div>
+      {/* Área da direita: header de ponta a ponta no topo; embaixo a pasta (e as notas, quando abertas) */}
+      <div className="relative z-10 flex min-w-0 flex-1 flex-col overflow-hidden md:ml-3">
+        <Topbar onOpenMenu={() => setMobileSidebarOpen(true)} />
 
-        <Topbar />
-        <div
-          // Cantos de baixo retos: encosta no limite inferior da tela.
-          // Sem aba (captador não tem busca no topo): canto superior esquerdo arredondado também
-          className={cn(
-            'folder-surface relative min-h-0 flex-1 overflow-hidden rounded-t-[22px]',
-            // Celular não tem a aba (busca vira botão): canto arredondado sempre
-            role !== 'captador' && 'md:rounded-tl-none',
-          )}
-          style={{ boxShadow: '0 24px 48px -24px rgba(0, 0, 0, 0.55)' }}
-        >
-          {/* pb no celular: espaço para a barra de navegação inferior */}
-          <main className="h-full overflow-y-auto overflow-x-hidden p-4 max-md:pb-28 md:p-6">
-            <ErrorBoundary>
-              {redirectTo ? (
-                <Navigate to={redirectTo} replace />
-              ) : (
-                // Troca de tela animada; useOutlet congela a tela antiga enquanto ela sai
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div key={pathname} {...pageMotion} className="flex min-h-full flex-col">
-                    {outlet}
-                  </motion.div>
-                </AnimatePresence>
-              )}
-            </ErrorBoundary>
-          </main>
+        <div className="flex min-h-0 flex-1 pr-3 pt-3 max-md:pl-3">
+          <div
+            // Computador: solta da base da tela, com os quatro cantos arredondados
+            className="folder-surface relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-t-[22px] md:rounded-b-[22px]"
+            style={{ boxShadow: '0 24px 48px -24px rgba(0, 0, 0, 0.55)' }}
+          >
+            {/* pb no celular: espaço para a barra de navegação inferior */}
+            <main className="h-full overflow-y-auto overflow-x-hidden p-4 max-md:pb-28 md:p-6">
+              <ErrorBoundary>
+                {redirectTo ? (
+                  <Navigate to={redirectTo} replace />
+                ) : (
+                  // Troca de tela animada; useOutlet congela a tela antiga enquanto ela sai
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div key={pathname} {...pageMotion} className="flex min-h-full flex-col">
+                      {outlet}
+                    </motion.div>
+                  </AnimatePresence>
+                )}
+              </ErrorBoundary>
+            </main>
+          </div>
+
+          {/* Notas: abrem à direita da pasta, abaixo do header (botão ao lado da foto) */}
+          <NotesPanel />
         </div>
       </div>
 
       <MobileTabBar />
-
-      {/* Notas: abre à direita e a pasta encolhe (botão no topo do menu lateral) */}
-      <NotesPanel />
 
       <ChangePasswordModal />
       <UpgradeModal />

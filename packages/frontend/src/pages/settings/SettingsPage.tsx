@@ -132,7 +132,7 @@ export function SettingsPage() {
     <div className="mobile-sections space-y-6 max-md:space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Configurações</h1>
+          <h1 className="page-title">Configurações</h1>
           <p className="text-sm text-text-secondary mt-0.5">Configurações deste workspace: empresa, plano e equipe</p>
         </div>
         {/* Perfil pessoal (foto, nome, senha, workspaces) fica em Minha conta */}

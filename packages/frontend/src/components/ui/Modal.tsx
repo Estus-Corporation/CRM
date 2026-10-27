@@ -11,9 +11,13 @@ interface ModalProps {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  /** Sem o título/descrição visíveis (o título continua pra leitor de tela) e o X solto no canto */
+  hideHeader?: boolean;
 }
 
-export function Modal({ open, onClose, title, description, children, className }: ModalProps) {
+const isFloating = (target: EventTarget | null) => target instanceof Element && !!target.closest('[data-floating]');
+
+export function Modal({ open, onClose, title, description, children, className, hideHeader = false }: ModalProps) {
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       {/* forceMount + AnimatePresence: o Radix mantém o modal montado até a animação de saída terminar */}
@@ -23,7 +27,14 @@ export function Modal({ open, onClose, title, description, children, className }
             <Dialog.Overlay asChild forceMount>
               <motion.div className="fixed inset-0 z-40 bg-black/55" {...overlayMotion} />
             </Dialog.Overlay>
-            <Dialog.Content asChild forceMount>
+            <Dialog.Content
+              asChild
+              forceMount
+              // Listas que abrem em portal (hora, selects) ficam fora do Content: clicar nelas não fecha a janela
+              onPointerDownOutside={(e) => isFloating(e.target) && e.preventDefault()}
+              onInteractOutside={(e) => isFloating(e.target) && e.preventDefault()}
+              onFocusOutside={(e) => isFloating(e.target) && e.preventDefault()}
+            >
               <motion.div
                 {...dialogMotion}
                 transformTemplate={centerTransform}
@@ -33,6 +44,18 @@ export function Modal({ open, onClose, title, description, children, className }
                   className,
                 )}
               >
+                {hideHeader ? (
+                  <>
+                    <Dialog.Title className="sr-only">{title}</Dialog.Title>
+                    <button
+                      onClick={onClose}
+                      aria-label="Fechar"
+                      className="absolute right-3 top-3 z-10 rounded-lg p-1.5 text-text-muted transition-colors hover:bg-fg/[0.06] hover:text-text-primary"
+                    >
+                      <X size={17} />
+                    </button>
+                  </>
+                ) : (
                 <div className="mb-5 flex items-start justify-between gap-4">
                   <div>
                     <Dialog.Title className="text-[17px] font-semibold text-text-primary">{title}</Dialog.Title>
@@ -48,6 +71,7 @@ export function Modal({ open, onClose, title, description, children, className }
                     <X size={17} />
                   </button>
                 </div>
+                )}
                 {children}
               </motion.div>
             </Dialog.Content>

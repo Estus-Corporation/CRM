@@ -357,7 +357,7 @@ export function PipelinePage() {
   if (!pipelines || pipelines.length === 0) {
     return (
       <div className="space-y-5">
-        <h1 className="text-2xl font-semibold text-text-primary">Pipeline</h1>
+        <h1 className="page-title">Pipeline</h1>
         <div className="card p-12 flex flex-col items-center justify-center gap-4 text-center">
           <p className="text-text-secondary text-sm">Nenhum pipeline ainda. Crie um para começar.</p>
           <Button onClick={handleCreateFirstPipeline} disabled={createPipeline.isPending}>
@@ -377,7 +377,7 @@ export function PipelinePage() {
     <div className="mobile-sections space-y-4 flex-1 flex flex-col max-md:space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-text-primary">Pipeline</h1>
+          <h1 className="page-title">Pipeline</h1>
           <div className="flex gap-1">
             {pipelines.map((p) => (
               <button
