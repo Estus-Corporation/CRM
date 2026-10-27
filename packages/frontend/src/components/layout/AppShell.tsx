@@ -60,9 +60,9 @@ export function AppShell() {
           <button
             onClick={() => setMobileSidebarOpen(true)}
             aria-label="Abrir menu"
-            className="flex h-10 w-10 items-center justify-center rounded-[10px] text-white transition-colors duration-200 hover:bg-fg/[0.05]"
+            className="flex h-11 w-11 items-center justify-center rounded-[10px] text-white transition-colors duration-200 hover:bg-fg/[0.05]"
           >
-            <Menu size={19} strokeWidth={1.75} />
+            <Menu size={23} strokeWidth={1.75} />
           </button>
         </div>
 

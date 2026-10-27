@@ -114,7 +114,7 @@ const headerIconClass =
 
 /**
  * Topo do menu: recolher/expandir à esquerda (hambúrguer quando recolhido),
- * caixa de entrada e notas à direita (somem no modo recolhido — não cabem em 72px).
+ * caixa de entrada à direita (some no modo recolhido — não cabe em 72px). Notas: no celular aqui, no computador no topo.
  */
 function SidebarHeader({ onToggle, onNavigate }: { onToggle?: () => void; onNavigate?: () => void }) {
   const { expanded } = useSidebar();
@@ -183,7 +183,7 @@ function SidebarHeader({ onToggle, onNavigate }: { onToggle?: () => void; onNavi
           aria-label="Notas"
           aria-pressed={notesOpen}
           title={notesOpen ? 'Fechar notas' : 'Notas'}
-          className={cn(headerIconClass, notesOpen && 'bg-accent-green/15 text-accent-green hover:text-accent-green')}
+          className={cn(headerIconClass, !mobile && 'hidden', notesOpen && 'bg-accent-green/15 text-accent-green hover:text-accent-green')}
         >
           <NotebookPen size={18} strokeWidth={1.75} />
         </button>

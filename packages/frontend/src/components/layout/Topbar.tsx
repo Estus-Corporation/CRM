@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Inbox, LogOut, Search, UserCog, X } from 'lucide-react';
+import { Inbox, LogOut, NotebookPen, UserCog } from 'lucide-react';
+import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/auth.service';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Avatar } from '@/components/ui/Avatar';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { TopbarSearch } from '@/components/search/TopbarSearch';
 import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 import { ThemeToggle } from './ThemeToggle';
@@ -25,9 +26,6 @@ export function Topbar() {
   // Celular: a foto abre um menu (Minha conta, tema, Sair); no desktop vai direto pra Minha conta
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const { pathname } = useLocation();
-  useEffect(() => setSearchOpen(false), [pathname]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -54,13 +52,10 @@ export function Topbar() {
     navigate('/login');
   };
 
-  const openAccount = () => {
-    if (window.matchMedia('(min-width: 768px)').matches) {
-      navigate('/conta');
-    } else {
-      setMenuOpen((v) => !v);
-    }
-  };
+  // Foto abre o menu da conta (Minha conta, Tema, Sair) no celular e no computador
+  const openAccount = () => setMenuOpen((v) => !v);
+  const notesOpen = useUIStore((s) => s.notesOpen);
+  const toggleNotes = useUIStore((s) => s.toggleNotes);
 
   return (
     <>
@@ -90,35 +85,32 @@ export function Topbar() {
 
         <div className="min-w-[8px] flex-1 md:min-w-[24px]" />
 
-        {/* Ícones flutuando sobre o fundo do app — sempre em tinta clara */}
+        {/* Ícones flutuando sobre o fundo do app — sempre em tinta clara. Computador: fixos no canto
+            da tela, pra não andarem junto com a pasta quando as notas abrem e ela encolhe */}
         {/* -translate-y-1: centraliza na faixa de fundo entre o topo da tela e o corpo da pasta */}
-        <div className="force-dark sidebar-ink flex h-[52px] flex-shrink-0 -translate-y-1 items-center gap-1.5 self-center">
-          {/* No celular não cabem junto da busca. Notificações ficam na caixa de entrada do menu lateral */}
-          <div className="hidden items-center gap-1.5 sm:flex">
-            <ThemeToggle />
-          </div>
-
+        <div className="force-dark sidebar-ink flex h-[52px] flex-shrink-0 -translate-y-1 items-center gap-1.5 self-center max-md:mr-2.5 md:fixed md:right-8 md:top-[10px] md:translate-y-0">
           {user && (
-            <div className="ml-1.5 flex items-center gap-1.5 border-l border-fg/[0.07] pl-3 max-md:ml-0 max-md:border-l-0 max-md:pl-0">
-              {user.role !== 'captador' && (
-                <button
-                  type="button"
-                  onClick={() => setSearchOpen(true)}
-                  aria-label="Buscar"
-                  className={cn(iconButton, 'md:hidden')}
-                >
-                  <Search size={19} strokeWidth={1.75} />
-                </button>
-              )}
+            <div className="flex items-center gap-1.5">
+              {/* Computador: notas ao lado da foto (no celular ficam no menu lateral) */}
+              <button
+                type="button"
+                onClick={toggleNotes}
+                aria-label="Notas"
+                aria-pressed={notesOpen}
+                title={notesOpen ? 'Fechar notas' : 'Notas'}
+                className={cn(iconButton, 'max-md:hidden', notesOpen && 'bg-fg/[0.12] text-text-primary')}
+              >
+                <NotebookPen size={19} strokeWidth={1.75} />
+              </button>
               {/* Celular: caixa de entrada ao lado da foto (no desktop ela fica no topo do menu lateral) */}
               <button
                 ref={inboxRef}
                 type="button"
                 onClick={() => setInboxOpen((v) => !v)}
                 aria-label="Caixa de entrada"
-                className={cn(iconButton, 'md:hidden', inboxOpen && 'bg-fg/[0.06] text-text-primary')}
+                className={cn(iconButton, 'h-11 w-11 md:hidden', inboxOpen && 'bg-fg/[0.06] text-text-primary')}
               >
-                <Inbox size={22} strokeWidth={1.75} />
+                <Inbox size={25} strokeWidth={1.75} />
                 {unreadCount > 0 && (
                   <span className="absolute right-0.5 top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-accent-green px-1 text-[10px] font-bold text-bg-darker ring-2 ring-[#03120E]">
                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -143,7 +135,7 @@ export function Topbar() {
                   <Avatar
                     name={user.full_name}
                     src={user.avatar_url}
-                    className="h-9 w-9 bg-bg-surface text-[13px] ring-2 ring-bg-primary"
+                    className="h-11 w-11 bg-bg-surface text-sm ring-2 ring-bg-primary"
                   />
                 </button>
 
@@ -152,7 +144,7 @@ export function Topbar() {
                     <motion.div
                       {...dropdownMotion}
                       style={{ transformOrigin: 'top right' }}
-                      className="glass-panel absolute right-0 top-full z-50 mt-2 w-60 rounded-xl p-1.5 shadow-2xl md:hidden"
+                      className="glass-panel absolute right-0 top-full z-50 mt-2 w-60 rounded-xl p-1.5 shadow-2xl"
                     >
                       <div className="border-b border-fg/[0.06] px-2.5 pb-2.5 pt-1.5">
                         <p className="truncate text-sm font-semibold text-text-primary">{user.full_name}</p>
@@ -186,10 +178,6 @@ export function Topbar() {
                 </AnimatePresence>
               </div>
 
-              {/* Desktop: Sair fica ao lado da foto; no celular vai pro menu da foto */}
-              <button onClick={handleLogout} title="Sair" className={cn(iconButton, 'max-md:hidden')}>
-                <LogOut size={19} strokeWidth={1.75} />
-              </button>
             </div>
           )}
         </div>
@@ -197,23 +185,6 @@ export function Topbar() {
 
       <NotificationPanel open={inboxOpen} onClose={closeInbox} anchorRef={inboxRef} />
 
-      {/* Busca do celular: cobre o topo inteiro; fecha no X ou ao abrir um resultado */}
-      <AnimatePresence>
-        {searchOpen && (
-          <motion.div
-            {...dropdownMotion}
-            style={{ transformOrigin: 'top right' }}
-            className="glass-panel fixed inset-x-3 top-2 z-50 flex items-center gap-2 rounded-2xl p-2 shadow-2xl md:hidden"
-          >
-            <div className="min-w-0 flex-1">
-              <TopbarSearch autoFocus />
-            </div>
-            <button type="button" onClick={() => setSearchOpen(false)} aria-label="Fechar busca" className={iconButton}>
-              <X size={19} strokeWidth={1.75} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   );
 }

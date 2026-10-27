@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   DndContext,
@@ -9,10 +10,15 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  closestCorners,
+  closestCenter,
+  defaultDropAnimationSideEffects,
+  pointerWithin,
+  rectIntersection,
+  type CollisionDetection,
+  type DropAnimation,
 } from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable';
-import { GripVertical, Plus, Settings } from 'lucide-react';
+import { Plus, Settings } from 'lucide-react';
 import {
   useKanban,
   usePipelines,
@@ -27,18 +33,48 @@ import {
   invalidateStageDeals,
 } from '@/hooks/usePipeline';
 import { useQueryClient } from '@tanstack/react-query';
-import { KanbanColumn } from '@/components/kanban/KanbanColumn';
-import { KanbanCard } from '@/components/kanban/KanbanCard';
+import { KanbanColumn, StageHeader } from '@/components/kanban/KanbanColumn';
+import { DealCardView } from '@/components/kanban/KanbanCard';
 import { DealForm } from '@/components/kanban/DealForm';
 import { PipelineSettingsModal } from '@/components/pipeline/PipelineSettingsModal';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { KanbanSkeleton } from '@/components/ui/Skeleton';
-import type { StageMeta, Deal } from '@/services/pipeline.service';
+import type { StageMeta, Deal, StageDealsPage } from '@/services/pipeline.service';
 import { dealsService, pipelineService } from '@/services/pipeline.service';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
+
+// Ao soltar, a cópia desliza até o encaixe; o card original reaparece no fim
+const dropAnimation: DropAnimation = {
+  duration: 220,
+  easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0' } } }),
+};
+
+type StageDealsCache = { pages: StageDealsPage[]; pageParams: unknown[] };
+
+/**
+ * Colisão guiada pelo mouse: o card cai na coluna em que o cursor está (closestCorners usava os
+ * cantos de colunas altas e às vezes mantinha o card na coluna de origem). Arrastando etapa,
+ * só as colunas contam.
+ */
+const kanbanCollision: CollisionDetection = (args) => {
+  if (args.active.data.current?.type === 'column') {
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((c) => c.data.current?.type === 'column'),
+    });
+  }
+  const hits = pointerWithin(args);
+  if (hits.length > 0) {
+    // Cursor sobre um card: ele vence a coluna que o contém
+    const card = hits.find((h) => args.droppableContainers.find((c) => c.id === h.id)?.data.current?.type === 'deal');
+    return card ? [card] : hits;
+  }
+  return rectIntersection(args);
+};
 
 export function PipelinePage() {
   const qc = useQueryClient();
@@ -53,6 +89,8 @@ export function PipelinePage() {
   const [activeDeal, setActiveDeal] = useState<Deal | null>(null);
   const [activeStage, setActiveStage] = useState<StageMeta | null>(null);
   const [localStages, setLocalStages] = useState<StageMeta[]>([]);
+  // Coluna sob o card arrastado (destaque na cor da etapa)
+  const [overStageId, setOverStageId] = useState<string | null>(null);
 
   // Optimistic deals per stage used only during active drag to prevent flicker
   const [optimisticDealsMap, setOptimisticDealsMap] = useState<Record<string, Deal[]> | null>(null);
@@ -81,6 +119,16 @@ export function PipelinePage() {
   }, [kanban]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  /** Grava a lista de uma etapa direto no cache (a tela atualiza na hora, antes do servidor) */
+  function writeStageDeals(stageId: string, deals: Deal[]) {
+    qc.setQueryData<StageDealsCache>(pipelineKeys.stageDeals(stageId), (old) => {
+      if (!old) return old;
+      const [first, ...rest] = old.pages;
+      // Tudo numa página só: as demais ficam vazias pra não duplicar cards
+      return { ...old, pages: [{ ...first, deals }, ...rest.map((pg) => ({ ...pg, deals: [] }))] };
+    });
+  }
 
   // Resolve loaded deals for a stage from the query cache
   function getCachedDeals(stageId: string): Deal[] {
@@ -127,6 +175,7 @@ export function PipelinePage() {
         deals.some((d) => d.id === over.id),
       )?.[0];
 
+    setOverStageId(overStageId ?? null);
     if (!activeStageId || !overStageId || activeStageId === overStageId) return;
 
     setOptimisticDealsMap((prev) => {
@@ -140,9 +189,18 @@ export function PipelinePage() {
     });
   };
 
+  const handleDragCancel = () => {
+    setActiveDeal(null);
+    setActiveStage(null);
+    setOverStageId(null);
+    setOptimisticDealsMap(null);
+    dragOriginStageId.current = null;
+  };
+
   const handleDragEnd = async ({ active, over }: DragEndEvent) => {
     setActiveDeal(null);
     setActiveStage(null);
+    setOverStageId(null);
 
     if (!over) {
       setOptimisticDealsMap(null);
@@ -176,39 +234,53 @@ export function PipelinePage() {
       return;
     }
 
+    const snapshot = optimisticDealsMap ?? {};
+    setOptimisticDealsMap(null);
+
     if (originStageId === overStageId) {
-      // Same-column reorder
-      const stageDeals = optimisticDealsMap?.[originStageId] ?? getCachedDeals(originStageId);
+      // Mesma coluna: só reordena
+      const stageDeals = snapshot[originStageId] ?? getCachedDeals(originStageId);
       const oldIdx = stageDeals.findIndex((d) => d.id === active.id);
       const overIdx = stageDeals.findIndex((d) => d.id === over.id);
-      setOptimisticDealsMap(null);
       if (oldIdx === -1 || overIdx === -1 || oldIdx === overIdx) return;
       const reordered = arrayMove(stageDeals, oldIdx, overIdx);
-      // Optimistically update cache
-      qc.setQueryData(pipelineKeys.stageDeals(originStageId), (old: { pages: { deals: Deal[] }[] } | undefined) => {
-        if (!old) return old;
-        const allDeals = old.pages.flatMap((p) => p.deals);
-        const map = new Map(reordered.map((d, i) => [d.id, i]));
-        const sorted = [...allDeals].sort((a, b) => (map.get(a.id) ?? 0) - (map.get(b.id) ?? 0));
-        return { ...old, pages: [{ ...old.pages[0], deals: sorted }] };
-      });
-      await dealsService.reorder(originStageId, reordered.map((d) => d.id));
-      invalidateStageDeals(qc, [originStageId]);
-    } else {
-      // Cross-column move
-      const destDeals = optimisticDealsMap?.[overStageId] ?? getCachedDeals(overStageId);
-      const position = destDeals.findIndex((d) => d.id === over.id);
-      setOptimisticDealsMap(null);
-      try {
-        await moveDeal.mutateAsync({ id: String(active.id), stageId: overStageId, position });
-        invalidateStageDeals(qc, [originStageId, overStageId]);
-        // Invalidate kanban meta to update counts/values
-        qc.invalidateQueries({ queryKey: pipelineKeys.kanban(activePipelineId) });
-      } catch {
-        invalidateStageDeals(qc, [originStageId, overStageId]);
-        qc.invalidateQueries({ queryKey: pipelineKeys.kanban(activePipelineId) });
-      }
+      writeStageDeals(originStageId, reordered);
+      dealsService
+        .reorder(originStageId, reordered.map((d) => d.id))
+        .catch(() => toast.error('Não foi possível salvar a ordem'))
+        .finally(() => invalidateStageDeals(qc, [originStageId]));
+      return;
     }
+
+    // Outra coluna: move no cache na hora e salva em segundo plano
+    const deal = getCachedDeals(originStageId).find((d) => d.id === active.id) ?? activeDeal;
+    if (!deal) return;
+    const origin = getCachedDeals(originStageId).filter((d) => d.id !== active.id);
+    const dest = (snapshot[overStageId] ?? getCachedDeals(overStageId)).filter((d) => d.id !== active.id);
+    const overIdx = dest.findIndex((d) => d.id === over.id);
+    const position = overIdx === -1 ? dest.length : overIdx;
+    dest.splice(position, 0, { ...deal, stage_id: overStageId });
+    writeStageDeals(originStageId, origin);
+    writeStageDeals(overStageId, dest);
+
+    const value = Number(deal.value) || 0;
+    qc.setQueryData<StageMeta[]>(pipelineKeys.kanban(activePipelineId), (stages) =>
+      stages?.map((st) =>
+        st.id === originStageId
+          ? { ...st, dealCount: Math.max(0, st.dealCount - 1), totalValue: st.totalValue - value }
+          : st.id === overStageId
+            ? { ...st, dealCount: st.dealCount + 1, totalValue: st.totalValue + value }
+            : st,
+      ),
+    );
+
+    moveDeal
+      .mutateAsync({ id: String(active.id), stageId: overStageId, position })
+      .catch(() => toast.error('Não foi possível mover o negócio'))
+      .finally(() => {
+        invalidateStageDeals(qc, [originStageId, overStageId]);
+        qc.invalidateQueries({ queryKey: pipelineKeys.kanban(activePipelineId) });
+      });
   };
 
   const handleMarkWon = (id: string, title: string) => {
@@ -364,10 +436,11 @@ export function PipelinePage() {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={kanbanCollision}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
           <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-md:overflow-visible max-md:[&>*]:!w-full">
             <SortableContext items={visibleStages.map((s) => s.id)} strategy={horizontalListSortingStrategy}>
@@ -380,7 +453,7 @@ export function PipelinePage() {
                   onWon={(id, title) => handleMarkWon(id, title)}
                   onLost={(id, title) => handleMarkLost(id, title)}
                   onDealClick={(deal) => navigate(`/deals/${deal.id}`)}
-                  isCardDragActive={activeDeal !== null}
+                  isDropTarget={activeDeal !== null && overStageId === stage.id}
                 />
               ))}
             </SortableContext>
@@ -395,29 +468,27 @@ export function PipelinePage() {
             )}
           </div>
 
-          <DragOverlay>
-            {activeDeal && (
-              <KanbanCard
-                deal={activeDeal}
-                onWon={() => {}}
-                onLost={() => {}}
-                onClick={() => {}}
-              />
-            )}
-            {activeStage && (
-              <div className="flex flex-col w-72 flex-shrink-0 rotate-1 opacity-90">
-                <div className="flex items-center gap-2 mb-3 px-1">
-                  <GripVertical size={14} className="text-text-muted" />
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: activeStage.color }} />
-                  <span className="text-sm font-medium text-text-primary">{activeStage.name}</span>
-                  <span className="text-xs text-text-muted bg-bg-surface px-1.5 py-0.5 rounded">
-                    {activeStage.dealCount}
-                  </span>
+          {/* Portal no body: a área principal tem backdrop-filter, que vira referência de position:fixed
+              e deixava a cópia deslocada do mouse */}
+          {createPortal(
+            <DragOverlay dropAnimation={dropAnimation} zIndex={80}>
+              {activeDeal && (
+                <div className="w-[268px]">
+                  <DealCardView
+                    deal={activeDeal}
+                    overlay
+                  />
                 </div>
-                <div className="flex-1 min-h-24 rounded-lg bg-bg-surface/50 ring-1 ring-accent-green/40" />
-              </div>
-            )}
-          </DragOverlay>
+              )}
+              {activeStage && (
+                <div className="w-72 rotate-[1.5deg] rounded-2xl border border-accent-green/40 bg-bg-surface shadow-[0_28px_56px_-16px_rgba(0,0,0,0.75)]">
+                  <StageHeader stage={activeStage} />
+                  <div className="mx-2 mb-2 h-24 rounded-xl bg-fg/[0.03]" />
+                </div>
+              )}
+            </DragOverlay>,
+            document.body,
+          )}
         </DndContext>
       )}
 
