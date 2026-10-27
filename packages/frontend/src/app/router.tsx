@@ -19,6 +19,7 @@ import { CaptacaoPage } from '@/pages/captacao/CaptacaoPage';
 import { MyLeadsPage } from '@/pages/captacao/MyLeadsPage';
 import { MyCommissionsPage } from '@/pages/captacao/MyCommissionsPage';
 import { MyDashboardPage } from '@/pages/captacao/MyDashboardPage';
+import { LeadRequestsPage } from '@/pages/lead-requests/LeadRequestsPage';
 import { CompanyPage } from '@/pages/company/CompanyPage';
 import { AccountPage } from '@/pages/account/AccountPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -79,6 +80,7 @@ export const router = createBrowserRouter([
       { path: '/meus-leads', element: <MyLeadsPage key="leads" /> },
       { path: '/meus-leads/reunioes', element: <MyLeadsPage key="meetings" view="meetings" /> },
       { path: '/minhas-comissoes', element: <MyCommissionsPage /> },
+      { path: '/solicitacoes', element: <LeadRequestsPage /> },
       { path: '/empresa', element: <CompanyPage /> },
       { path: '/conta', element: <AccountPage /> },
     ],

@@ -35,6 +35,8 @@ export const updateTenantSchema = z.object({
   instagram: z.string().trim().max(255).nullable().optional(),
   website: z.string().trim().max(255).nullable().optional(),
   address: z.string().trim().max(500).nullable().optional(),
+  leadRequestMaxQuantity: z.number().int().min(1).max(50).optional(),
+  leadRequestDailyPerUser: z.number().int().min(0).max(50).optional(),
 });
 
 // Toda a equipe lê o workspace (inclusive captador) — nada de dados de cobrança aqui
@@ -44,6 +46,8 @@ const PUBLIC_COLUMNS = [
   'phone', 'instagram', 'website', 'address',
   // Arquivo de serviços e preços: só os dados dele (o conteúdo vem por GET /tenant/offer-file)
   'offer_file_name', 'offer_file_mime', 'offer_file_size',
+  // Cotas dos pedidos de leads
+  'lead_request_max_quantity', 'lead_request_daily_per_user',
 ];
 
 /** Membros ativos do workspace (foto, papel, desde quando) — o mais antigo primeiro */
@@ -78,6 +82,8 @@ export async function updateTenant(tenantId: string, input: z.infer<typeof updat
   for (const key of ['phone', 'instagram', 'website', 'address'] as const) {
     if (input[key] !== undefined) updates[key] = input[key] || null;
   }
+  if (input.leadRequestMaxQuantity !== undefined) updates.lead_request_max_quantity = input.leadRequestMaxQuantity;
+  if (input.leadRequestDailyPerUser !== undefined) updates.lead_request_daily_per_user = input.leadRequestDailyPerUser;
   if (input.keyPeople !== undefined) updates.key_people = JSON.stringify(input.keyPeople);
 
   await db('tenants').where({ id: tenantId }).update(updates);

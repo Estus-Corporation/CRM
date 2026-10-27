@@ -16,6 +16,7 @@ import {
   CalendarCheck,
   Wallet,
   Building2,
+  SearchCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -55,6 +56,7 @@ const sections: NavSection[] = [
       { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
       { to: '/deals', icon: Briefcase, label: 'Negócios' },
       { to: '/contacts', icon: Users, label: 'Contatos' },
+      { to: '/solicitacoes', icon: SearchCheck, label: 'Solicitações de leads' },
     ],
   },
   {
@@ -88,6 +90,7 @@ const captadorSections: NavSection[] = [
     items: [
       { to: '/meus-leads', icon: PhoneCall, label: 'Meus leads', end: true },
       { to: '/meus-leads/reunioes', icon: CalendarCheck, label: 'Reuniões' },
+      { to: '/solicitacoes', icon: SearchCheck, label: 'Solicitações de leads' },
     ],
   },
   {

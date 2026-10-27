@@ -34,15 +34,22 @@ export const bulkContactSchema = z.object({
   email: optionalText(255),
   company: optionalText(255),
   jobTitle: optionalText(255),
-  niche: optionalText(255),
+  niche: optionalText(100),
   source: optionalText(100),
   address: optionalText(500),
   mapsUrl: optionalText(1000),
   instagram: optionalText(255),
   website: optionalText(500),
   googleRating: z.coerce.number().min(0).max(5).optional(),
-  googleReviews: z.coerce.number().int().min(0).optional(),
+  googleReviews: z.coerce.number().int().min(0).max(2147483647).optional(),
   leadContext: optionalText(5000),
+});
+
+// Item de lead vindo do Radar Local (LeadHunter): exige externalId
+export const leadHunterLeadSchema = bulkContactSchema.extend({
+  city: z.string().max(100).optional(),
+  leadScore: z.number().int().min(0).max(100).optional(),
+  externalId: z.string().min(1).max(100),
 });
 
 export const bulkImportSchema = z.object({

@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import type { Knex } from 'knex';
 import { db } from '../../db';
 import { getPaginationParams, paginatedResponse } from '../../shared/utils/paginate';
 import type { CreateContactInput, UpdateContactInput, ListContactsQuery } from './contacts.schema';
@@ -284,14 +285,15 @@ function composeAddress(address?: string, city?: string): string | null {
 export async function importContactsBulk(
   tenantId: string,
   contacts: BulkContactInput[],
-  options: { ownerId?: string | null; source?: string } = {},
+  options: { ownerId?: string | null; source?: string; leadRequestId?: string | null; trx?: Knex.Transaction } = {},
 ): Promise<{ imported: number; skipped: number; errors: string[]; items: BulkItemResult[] }> {
-  const tenant = await db('tenants').where({ id: tenantId }).first('plan');
+  const q = options.trx ?? db;
+  const tenant = await q('tenants').where({ id: tenantId }).first('plan');
   const errors: string[] = [];
   const items: BulkItemResult[] = [];
   let skipped = 0;
 
-  const existing = await db('contacts')
+  const existing = await q('contacts')
     .where({ tenant_id: tenantId })
     .select('id', db.raw('lower(email) as email'), db.raw("regexp_replace(coalesce(phone, ''), '\\D', '', 'g') as phone"));
   // valor -> id do contato que já existia; null = veio de outro item do mesmo lote
@@ -309,7 +311,7 @@ export async function importContactsBulk(
   const externalIds = new Map<string, string | null>();
   const wantedIds = contacts.map((c) => c.externalId?.trim()).filter((id): id is string => !!id);
   if (wantedIds.length) {
-    const query = db('contacts').where({ tenant_id: tenantId }).whereIn('external_id', wantedIds);
+    const query = q('contacts').where({ tenant_id: tenantId }).whereIn('external_id', wantedIds);
     if (options.source?.trim()) query.where({ source: options.source.trim() });
     const found = await query.select('id', 'source', 'external_id');
     for (const r of found as { id: string; source: string | null; external_id: string }[]) {
@@ -319,7 +321,7 @@ export async function importContactsBulk(
 
   let room = Infinity;
   if (tenant?.plan === 'free') {
-    const [{ count }] = await db('contacts').where({ tenant_id: tenantId }).count('id as count');
+    const [{ count }] = await q('contacts').where({ tenant_id: tenantId }).count('id as count');
     room = Math.max(0, FREE_CONTACT_LIMIT - Number(count));
   }
 
@@ -390,6 +392,7 @@ export async function importContactsBulk(
       lead_context: item.leadContext?.trim() || null,
       lead_score: item.leadScore ?? null,
       external_id: externalId,
+      lead_request_id: options.leadRequestId ?? null,
       type: 'lead',
       tags: '{}',
       custom_fields: '{}',
@@ -397,7 +400,7 @@ export async function importContactsBulk(
     items.push({ externalId, contactId: id, status: 'imported' });
   }
 
-  if (rows.length) await db('contacts').insert(rows);
+  if (rows.length) await q('contacts').insert(rows);
   return { imported: rows.length, skipped, errors, items };
 }
 

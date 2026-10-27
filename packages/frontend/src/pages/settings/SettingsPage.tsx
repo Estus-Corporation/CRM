@@ -7,6 +7,7 @@ import { useBilling, useCreateCheckoutSession, useCreatePortalSession } from '@/
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/Button';
 import { CompanyProfileForm } from '@/components/company/CompanyProfileForm';
+import { LeadRequestQuotaForm } from '@/components/lead-requests/LeadRequestQuotaForm';
 import { TeamPanel } from '@/components/team/TeamPanel';
 import { useTenant } from '@/hooks/useTenant';
 import { Spinner } from '@/components/ui/Spinner';
@@ -168,6 +169,13 @@ export function SettingsPage() {
           <div>
             <BillingSection isAdmin={isAdmin} />
           </div>
+
+          {/* Cotas dos pedidos de leads (só admin) */}
+          {isAdmin && (
+            <div>
+              <LeadRequestQuotaForm />
+            </div>
+          )}
 
           {/* Integrations sections — gated by starter tier */}
           <div>

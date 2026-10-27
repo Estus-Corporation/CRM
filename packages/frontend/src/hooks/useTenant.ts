@@ -29,6 +29,9 @@ export interface Tenant {
   key_people: KeyPerson[];
   /** Membros ativos do workspace, o mais antigo primeiro */
   members: TenantMember[];
+  /** Cotas dos pedidos de leads: máx. de empresas por pedido e pedidos por dia por usuário (0 = desativado) */
+  lead_request_max_quantity: number;
+  lead_request_daily_per_user: number;
 }
 
 export interface TenantMember {
@@ -61,6 +64,8 @@ export interface UpdateTenantInput {
   instagram?: string | null;
   website?: string | null;
   address?: string | null;
+  leadRequestMaxQuantity?: number;
+  leadRequestDailyPerUser?: number;
 }
 
 const tenantKeys = {

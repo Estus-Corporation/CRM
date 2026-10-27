@@ -11,6 +11,7 @@ const CAPTADOR_ALLOWED: Array<{ prefix: string; methods?: string[] }> = [
   { prefix: '/api/v1/captacao/me' },
   { prefix: '/api/v1/notifications' },
   { prefix: '/api/v1/notes' },
+  { prefix: '/api/v1/lead-requests' },
   { prefix: '/api/v1/tenant', methods: ['GET'] },
 ];
 

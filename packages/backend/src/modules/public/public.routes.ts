@@ -2,26 +2,23 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { requireApiKey } from '../../shared/middleware/requireApiKey';
 import { z } from 'zod';
 import { listContacts, createContact, importContactsBulk } from '../contacts/contacts.service';
-import { bulkContactSchema, createContactSchema } from '../contacts/contacts.schema';
+import { leadHunterLeadSchema, createContactSchema } from '../contacts/contacts.schema';
 import { listActiveMembers, findActiveMemberByEmail } from '../users/users.service';
 import { listDeals } from '../deals/deals.service';
 import { getPaginationParams } from '../../shared/utils/paginate';
+import leadRequestsPublicRoutes from '../lead-requests/lead-requests.public.routes';
 
 const router = Router();
 
 const leadsBulkSchema = z.object({
   ownerEmail: z.string().email().optional(),
   leads: z
-    .array(
-      bulkContactSchema.extend({
-        city: z.string().max(100).optional(),
-        leadScore: z.number().int().min(0).max(100).optional(),
-        externalId: z.string().min(1).max(100),
-      }),
-    )
+    .array(leadHunterLeadSchema)
     .min(1)
     .max(500),
 });
+
+router.use('/lead-requests', leadRequestsPublicRoutes);
 
 // GET /public/users
 router.get(
