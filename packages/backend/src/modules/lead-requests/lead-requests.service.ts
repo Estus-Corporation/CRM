@@ -1,15 +1,14 @@
+import { randomUUID } from 'node:crypto';
+import type { Knex } from 'knex';
 import { db } from '../../db';
-import { importContactsBulk } from '../contacts/contacts.service';
+import { validateCampaign, type CampaignConfig } from '../leadhunter/domain';
+import { createCampaignChecked } from '../leadhunter/leadhunter.service';
+import * as store from '../leadhunter/store';
 import { createNotification } from '../notifications/notifications.service';
-import type { CreateLeadRequestInput, ListLeadRequestsQuery, ResultInput } from './lead-requests.schema';
+import { findActiveMemberById } from '../users/users.service';
+import type { CreateLeadRequestInput, ExecuteLeadRequestInput, ListLeadRequestsQuery } from './lead-requests.schema';
 
-// Reserva do Radar Local: vencida, o pedido volta para a fila; `progress` renova
-const CLAIM_TTL_MINUTES = 30;
 const LIST_LIMIT = 100;
-const QUEUE_LIMIT = 20;
-
-// "Hoje" no fuso do Brasil — o servidor e o banco rodam em UTC
-const TODAY = "(now() AT TIME ZONE 'America/Sao_Paulo')::date";
 
 type Viewer = { id: string; role: string };
 
@@ -18,7 +17,6 @@ function httpError(message: string, status: number, code?: string) {
 }
 
 const isPrivileged = (viewer: Viewer) => viewer.role === 'admin' || viewer.role === 'manager';
-const claimExpiry = () => db.raw('now() + make_interval(mins => ?)', [CLAIM_TTL_MINUTES]);
 
 function baseQuery(tenantId: string) {
   return db('lead_requests as lr')
@@ -28,72 +26,189 @@ function baseQuery(tenantId: string) {
 
 const PUBLIC_FIELDS = [
   'lr.id', 'lr.niche', 'lr.city', 'lr.quantity', 'lr.notes', 'lr.status', 'lr.message',
-  'lr.delivered_count', 'lr.requested_by', 'u.full_name as requester_name',
-  'lr.claimed_at', 'lr.finished_at', 'lr.created_at', 'lr.updated_at',
+  'lr.service', 'lr.keywords', 'lr.coordinates', 'lr.enrich', 'lr.use_jev', 'lr.force_refresh',
+  'lr.campaign_id', 'lr.decided_by', 'lr.delivered_count', 'lr.requested_by', 'u.full_name as requester_name',
+  'lr.finished_at', 'lr.created_at', 'lr.updated_at',
 ];
 
 async function findLeadRequest(tenantId: string, id: string) {
   return baseQuery(tenantId).where('lr.id', id).first(PUBLIC_FIELDS);
 }
 
-/** Devolve para a fila os pedidos cuja reserva venceu */
-export async function requeueExpired(tenantId: string) {
-  await db('lead_requests')
-    .where({ tenant_id: tenantId })
-    .whereIn('status', ['claimed', 'running'])
-    .where('claim_expires_at', '<', db.fn.now())
-    .update({
-      status: 'queued',
-      message: 'Reserva expirada; voltou para a fila.',
-      claimed_at: null,
-      claim_expires_at: null,
-      updated_at: new Date(),
-    });
+/** Zero linhas atualizadas: 404 se o pedido não existe neste workspace, senão o estado não permite */
+async function failTransition(tenantId: string, id: string, message: string, code: string): Promise<never> {
+  const exists = await db('lead_requests').where({ id, tenant_id: tenantId }).first('id');
+  if (!exists) throw httpError('Pedido não encontrado', 404);
+  throw httpError(message, 409, code);
 }
 
-export async function createLeadRequest(tenantId: string, userId: string, input: CreateLeadRequestInput) {
-  const id = await db.transaction(async (trx) => {
-    await trx.raw('SELECT pg_advisory_xact_lock(hashtext(?))', [`lead-requests:${tenantId}:${userId}`]);
+// ── Formulário da campanha ───────────────────────────────────────────────────
 
-    const tenant = await trx('tenants')
-      .where({ id: tenantId })
-      .first('lead_request_max_quantity', 'lead_request_daily_per_user');
-    const maxQuantity = Number(tenant?.lead_request_max_quantity ?? 0);
-    const dailyLimit = Number(tenant?.lead_request_daily_per_user ?? 0);
+/**
+ * Campos do formulário a partir do corpo ou da linha do pedido (quantity = limit; snake_case ou camelCase),
+ * só os presentes: a mescla "pedido + edição do admin" não pode ser sobrescrita por `undefined`.
+ */
+function formOf(v: Record<string, unknown>): Record<string, unknown> {
+  const form = {
+    niche: v.niche,
+    city: v.city,
+    service: v.service,
+    limit: v.limit ?? v.quantity,
+    keywords: v.keywords,
+    coordinates: v.coordinates,
+    enrich: v.enrich,
+    useJev: v.useJev ?? v.use_jev,
+    forceRefresh: v.forceRefresh ?? v.force_refresh,
+  };
+  return Object.fromEntries(Object.entries(form).filter(([, value]) => value !== undefined));
+}
 
-    if (dailyLimit <= 0) {
-      throw httpError('Pedidos de leads estão desativados neste workspace.', 422, 'requests_disabled');
+/** Pedido é sempre coleta real (`live`). */
+const liveForm = (...parts: Record<string, unknown>[]) => ({ ...Object.assign({}, ...parts.map(formOf)), source: 'live' });
+
+/** Regras e mensagens em pt-BR do domínio do LeadHunter. */
+function toConfig(form: Record<string, unknown>): CampaignConfig {
+  try {
+    return validateCampaign(form);
+  } catch (error) {
+    throw httpError(error instanceof Error && error.constructor === Error ? error.message : 'Campos inválidos.', 422, 'invalid_form');
+  }
+}
+
+/**
+ * Colunas do pedido a partir da configuração já validada (jsonb recebe texto JSON). O termo padrão
+ * ("nicho cidade", com vírgulas na cidade) não é gravado: vazio = padrão, regerado a cada validação.
+ */
+const columnsOf = (config: CampaignConfig) => ({
+  niche: config.niche,
+  city: config.city,
+  quantity: config.limit,
+  service: config.service,
+  keywords: JSON.stringify(config.keywords.length === 1 && config.keywords[0] === `${config.niche} ${config.city}` ? [] : config.keywords),
+  coordinates: JSON.stringify(config.coordinates),
+  enrich: config.enrich,
+  use_jev: config.useJev,
+  force_refresh: config.forceRefresh,
+});
+
+async function assertQuantityAllowed(tenantId: string, quantity: number) {
+  const tenant = await db('tenants').where({ id: tenantId }).first('lead_request_max_quantity');
+  const maxQuantity = Number(tenant?.lead_request_max_quantity ?? 0);
+  if (quantity > maxQuantity) {
+    throw httpError(`Máximo de ${maxQuantity} empresas por pedido neste workspace.`, 422, 'quota_quantity');
+  }
+}
+
+/**
+ * Roda `work` numa transação que grava o pedido e cria a campanha dele (a campanha usa outra conexão: o
+ * LeadHunter grava pelo `db`). Qualquer falha desfaz o pedido; se a campanha chegou a ser criada antes da
+ * falha (ex.: o commit), ela é cancelada para não gastar chamada paga sem pedido.
+ */
+async function withCampaign(
+  tenantId: string,
+  work: (trx: Knex.Transaction, attach: (campaignId: string) => void) => Promise<void>,
+): Promise<void> {
+  const created: { campaignId?: string } = {};
+  try {
+    await db.transaction((trx) => work(trx, (id) => (created.campaignId = id)));
+  } catch (error) {
+    if (created.campaignId) {
+      const orphan = created.campaignId;
+      await store.updateCampaign(tenantId, orphan, { cancelRequested: true }).catch((err) => {
+        console.error('[leadhunter] não foi possível cancelar a campanha órfã', orphan, err);
+      });
     }
-    if (input.quantity > maxQuantity) {
-      throw httpError(`Máximo de ${maxQuantity} empresas por pedido neste workspace.`, 422, 'quota_quantity');
-    }
+    throw error;
+  }
+}
 
-    const [{ count }] = await trx('lead_requests')
-      .where({ tenant_id: tenantId, requested_by: userId })
-      .whereNot({ status: 'cancelled' })
-      .whereRaw(`(created_at AT TIME ZONE 'America/Sao_Paulo')::date = ${TODAY}`)
-      .count('id as count');
-    if (Number(count) >= dailyLimit) {
-      throw httpError(`Limite de ${dailyLimit} pedidos por dia atingido. Tente amanhã.`, 422, 'quota_daily');
-    }
+// ── Admin ────────────────────────────────────────────────────────────────────
 
-    const [row] = await trx('lead_requests')
-      .insert({
-        tenant_id: tenantId,
-        requested_by: userId,
-        niche: input.niche,
-        city: input.city,
-        quantity: input.quantity,
-        notes: input.notes || null,
-      })
-      .returning('id');
-    return (row as { id: string }).id;
+/** Cria o pedido e já dispara a campanha (sem cota diária: a quantidade e os limites de chamada protegem). */
+export async function createLeadRequest(tenantId: string, adminId: string, input: CreateLeadRequestInput) {
+  const form = liveForm(input);
+  const config = toConfig(form);
+  await assertQuantityAllowed(tenantId, config.limit);
+  const id = randomUUID();
+  await withCampaign(tenantId, async (trx, attach) => {
+    await trx('lead_requests').insert({
+      id,
+      tenant_id: tenantId,
+      requested_by: adminId,
+      decided_by: adminId,
+      status: 'running',
+      notes: input.notes || null,
+      ...columnsOf(config),
+    });
+    const campaign = await createCampaignChecked(tenantId, adminId, form, { leadRequestId: id });
+    attach(campaign.id);
+    await trx('lead_requests').where({ id, tenant_id: tenantId }).update({ campaign_id: campaign.id });
   });
   return findLeadRequest(tenantId, id);
 }
 
+/**
+ * Executa um pedido na fila, com edições opcionais. Portão atômico `queued → running`; se a campanha for
+ * recusada (credenciais, estimativa acima do limite) a transação desfaz tudo e o pedido segue na fila.
+ */
+export async function executeLeadRequest(tenantId: string, adminId: string, id: string, edits: ExecuteLeadRequestInput) {
+  const current = await db('lead_requests').where({ id, tenant_id: tenantId }).first();
+  if (!current) throw httpError('Pedido não encontrado', 404);
+  if (current.status !== 'queued') throw httpError('Pedido não está na fila', 409, 'not_queued');
+
+  const form = liveForm(current, edits);
+  const config = toConfig(form);
+  await assertQuantityAllowed(tenantId, config.limit);
+  await withCampaign(tenantId, async (trx, attach) => {
+    const [claimed] = await trx('lead_requests')
+      .where({ id, tenant_id: tenantId, status: 'queued' })
+      .update({
+        status: 'running',
+        decided_by: adminId,
+        message: null,
+        ...(edits.notes === undefined ? {} : { notes: edits.notes || null }),
+        ...columnsOf(config),
+        updated_at: new Date(),
+      })
+      .returning('id');
+    if (!claimed) throw httpError('Pedido não está na fila', 409, 'not_queued');
+    const campaign = await createCampaignChecked(tenantId, adminId, form, { leadRequestId: id });
+    attach(campaign.id);
+    await trx('lead_requests').where({ id, tenant_id: tenantId }).update({ campaign_id: campaign.id });
+  });
+  return findLeadRequest(tenantId, id);
+}
+
+/** Recusa um pedido na fila: vira `cancelled` com o motivo e avisa quem pediu (se ainda for membro ativo). */
+export async function rejectLeadRequest(tenantId: string, adminId: string, id: string, message: string) {
+  const [request] = await db('lead_requests')
+    .where({ id, tenant_id: tenantId, status: 'queued' })
+    .update({ status: 'cancelled', message, decided_by: adminId, finished_at: new Date(), updated_at: new Date() })
+    .returning(['requested_by', 'niche', 'city']);
+  if (!request) return failTransition(tenantId, id, 'Só pedidos na fila podem ser recusados', 'not_queued');
+
+  // A recusa já está gravada: nenhuma falha do aviso pode virar erro na resposta
+  try {
+    if (request.requested_by && (await findActiveMemberById(tenantId, request.requested_by))) {
+      await createNotification({
+        tenantId,
+        userId: request.requested_by,
+        type: 'lead_request.rejected',
+        title: 'Seu pedido de leads foi recusado',
+        body: `${request.niche} · ${request.city} — ${message}`,
+        resourceType: 'lead_request',
+        resourceId: id,
+      });
+    }
+  } catch (err) {
+    console.error('Falha ao notificar recusa de pedido de leads', err);
+  }
+  return findLeadRequest(tenantId, id);
+}
+
+// ── Consulta e cancelamento ──────────────────────────────────────────────────
+
 export async function listLeadRequests(tenantId: string, viewer: Viewer, query: ListLeadRequestsQuery) {
-  await requeueExpired(tenantId);
   const q = baseQuery(tenantId);
   if (isPrivileged(viewer)) {
     if (query.userId) q.where('lr.requested_by', query.userId);
@@ -114,7 +229,6 @@ async function findVisible(tenantId: string, viewer: Viewer, id: string) {
 }
 
 export async function getLeadRequest(tenantId: string, viewer: Viewer, id: string) {
-  await requeueExpired(tenantId);
   const row = await findVisible(tenantId, viewer, id);
   const contactsQuery = db('contacts').where({ tenant_id: tenantId, lead_request_id: id });
   // Captador só vê os contatos que são dele (lead_assignments)
@@ -138,153 +252,4 @@ export async function cancelLeadRequest(tenantId: string, viewer: Viewer, id: st
     .update({ status: 'cancelled', finished_at: new Date(), updated_at: new Date() });
   if (!updated) throw httpError('Só pedidos na fila podem ser cancelados', 409, 'not_queued');
   return findLeadRequest(tenantId, id);
-}
-
-// ── Executor (Radar Local, chave de API) ─────────────────────────────────────
-
-export async function listQueue(tenantId: string) {
-  await requeueExpired(tenantId);
-  const rows = await baseQuery(tenantId)
-    .where('lr.status', 'queued')
-    .orderBy('lr.created_at', 'asc')
-    .limit(QUEUE_LIMIT)
-    .select('lr.id', 'lr.niche', 'lr.city', 'lr.quantity', 'lr.notes', 'u.full_name as requester_name', 'lr.created_at');
-  return rows.map((r) => ({
-    id: r.id,
-    niche: r.niche,
-    city: r.city,
-    quantity: r.quantity,
-    notes: r.notes,
-    requesterName: r.requester_name,
-    createdAt: r.created_at,
-  }));
-}
-
-/** Zero linhas atualizadas: 404 se o pedido não existe neste workspace, senão o estado não permite */
-async function failTransition(tenantId: string, id: string, message: string, code: string): Promise<never> {
-  const exists = await db('lead_requests').where({ id, tenant_id: tenantId }).first('id');
-  if (!exists) throw httpError('Pedido não encontrado', 404);
-  throw httpError(message, 409, code);
-}
-
-export async function claimLeadRequest(tenantId: string, id: string) {
-  await requeueExpired(tenantId);
-  const [claimed] = await db('lead_requests')
-    .where({ id, tenant_id: tenantId, status: 'queued' })
-    .update({
-      status: 'claimed',
-      message: null,
-      claimed_at: db.fn.now(),
-      claim_expires_at: claimExpiry(),
-      updated_at: new Date(),
-    })
-    .returning(['id', 'claim_expires_at']);
-  if (!claimed) return failTransition(tenantId, id, 'Pedido não está na fila', 'not_queued');
-
-  const row = await findLeadRequest(tenantId, id);
-  return {
-    id: row.id,
-    niche: row.niche,
-    city: row.city,
-    quantity: row.quantity,
-    notes: row.notes,
-    requesterName: row.requester_name,
-    claimExpiresAt: claimed.claim_expires_at,
-  };
-}
-
-export async function progressLeadRequest(tenantId: string, id: string, message?: string) {
-  const updates: Record<string, unknown> = {
-    status: 'running',
-    claim_expires_at: claimExpiry(),
-    updated_at: new Date(),
-  };
-  if (message !== undefined) updates.message = message;
-  const [row] = await db('lead_requests')
-    .where({ id, tenant_id: tenantId })
-    .whereIn('status', ['claimed', 'running'])
-    .update(updates)
-    .returning(['id', 'status', 'claim_expires_at']);
-  if (!row) return failTransition(tenantId, id, 'Pedido não está reservado', 'not_claimed');
-  return { id: row.id, status: row.status, claimExpiresAt: row.claim_expires_at };
-}
-
-const FINISHED_TITLES = {
-  done: 'Seu pedido de leads foi atendido',
-  partial: 'Seu pedido de leads foi atendido em parte',
-  failed: 'Não foi possível atender seu pedido de leads',
-} as const;
-
-export async function deliverLeadRequest(tenantId: string, id: string, input: ResultInput) {
-  // Tudo numa transação: qualquer erro desfaz a entrega e o pedido volta ao estado anterior
-  const out = await db.transaction(async (trx) => {
-    // Portão atômico: só uma entrega passa
-    const [request] = await trx('lead_requests')
-      .where({ id, tenant_id: tenantId })
-      .whereIn('status', ['claimed', 'running'])
-      .update({ status: input.status, claim_expires_at: null, updated_at: new Date() })
-      .returning(['id', 'niche', 'city', 'quantity', 'requested_by']);
-    if (!request) return failTransition(tenantId, id, 'Pedido não está reservado', 'not_claimed');
-
-    if (input.leads.length > request.quantity) {
-      throw httpError('Mais empresas do que o pedido', 422, 'too_many_leads');
-    }
-
-    // Quem pediu ainda é membro ativo? Senão os leads entram sem dono e sem notificação
-    const member = request.requested_by
-      ? await trx('user_tenants')
-          .where({ tenant_id: tenantId, user_id: request.requested_by, is_active: true })
-          .first('role')
-      : null;
-
-    const result = await importContactsBulk(tenantId, input.leads, {
-      ownerId: member ? request.requested_by : null,
-      source: 'leadhunter',
-      leadRequestId: id,
-      trx,
-    });
-
-    const finalStatus =
-      input.status === 'done' && result.items.some((item) => item.status === 'error') ? 'partial' : input.status;
-    await trx('lead_requests')
-      .where({ id, tenant_id: tenantId })
-      .update({
-        status: finalStatus,
-        message: input.message ?? null,
-        delivered_count: result.imported,
-        finished_at: new Date(),
-        updated_at: new Date(),
-      });
-
-    // Captador: os leads novos entram em "Meus leads" (e não sobram para a distribuição automática)
-    if (member?.role === 'captador') {
-      const assignments = result.items
-        .filter((item) => item.status === 'imported' && item.contactId)
-        .map((item) => ({ tenant_id: tenantId, contact_id: item.contactId, captador_id: request.requested_by }));
-      if (assignments.length) {
-        await trx('lead_assignments').insert(assignments).onConflict(['tenant_id', 'contact_id']).ignore();
-      }
-    }
-
-    return { request, member, finalStatus, result };
-  });
-
-  const { request, member, finalStatus, result } = out;
-  if (member) {
-    const existing = result.items.filter((item) => item.status === 'duplicate' && item.contactId).length;
-    // Depois do commit e sem derrubar a entrega: só registra a falha
-    await createNotification({
-      tenantId,
-      userId: request.requested_by,
-      type: 'lead_request.finished',
-      title: FINISHED_TITLES[finalStatus],
-      body:
-        `${request.niche} · ${request.city} — ${result.imported} empresa(s) nova(s)` +
-        (existing ? ` · ${existing} já existiam no CRM` : ''),
-      resourceType: 'lead_request',
-      resourceId: id,
-    }).catch((err) => console.error('Falha ao notificar pedido de leads', err));
-  }
-
-  return { status: finalStatus, deliveredCount: result.imported, ...result };
 }

@@ -27,7 +27,8 @@ import contractRoutes from './modules/contracts/contracts.routes';
 import captacaoRoutes from './modules/captacao/captacao.routes';
 import notesRoutes from './modules/notes/notes.routes';
 import leadhunterRoutes from './modules/leadhunter/leadhunter.routes';
-import { startWorker } from './modules/leadhunter/engine';
+import { onCampaignFinished, recover, startWorker } from './modules/leadhunter/engine';
+import { deliverFinishedCampaigns, deliverForCampaign } from './modules/leadhunter/delivery';
 import { tierRateLimiter } from './shared/middleware/rateLimiter';
 
 const app = express();
@@ -68,10 +69,21 @@ app.use('/api/v1/leadhunter', leadhunterRoutes);
 
 app.use(errorHandler);
 
-db.migrate.latest().then(() => {
+db.migrate.latest().then(async () => {
   console.log('[db] Migrations up to date');
-  // Worker do LeadHunter no próprio processo (supõe uma instância no Railway); nos testes não sobe
-  if (env.NODE_ENV !== 'test') startWorker();
+  // Worker do LeadHunter no próprio processo (supõe uma instância no Railway); nos testes não sobe.
+  // O hook entrega os pedidos de leads quando a campanha deles termina; as campanhas que o reinício
+  // interrompeu (sem hook) ou que terminaram sem a entrega concluir têm o pedido fechado aqui, antes de o worker começar a pegar campanhas.
+  if (env.NODE_ENV !== 'test') {
+    onCampaignFinished.handler = deliverForCampaign;
+    try {
+      await recover();
+      await deliverFinishedCampaigns();
+    } catch (err) {
+      console.error('[leadhunter] recuperação no boot falhou', err);
+    }
+    startWorker();
+  }
   app.listen(env.PORT, () => {
     console.log(`[server] Running on http://localhost:${env.PORT}`);
   });

@@ -2,23 +2,16 @@ import { Request, Response, NextFunction } from 'express';
 import * as LeadRequestsService from './lead-requests.service';
 import {
   createLeadRequestSchema,
+  executeLeadRequestSchema,
   listLeadRequestsQuerySchema,
-  queueQuerySchema,
-  progressSchema,
-  resultSchema,
+  rejectLeadRequestSchema,
   uuidParam,
 } from './lead-requests.schema';
 
-/** `:id` que não é UUID vira 404 (não 500) */
-function parseId(raw: string) {
-  const parsed = uuidParam.safeParse(raw);
-  if (!parsed.success) throw Object.assign(new Error('Pedido não encontrado'), { status: 404 });
-  return parsed.data;
-}
+/** `:id` que não é UUID vira 422 (ZodError) antes de tocar o banco */
+const parseId = (raw: string) => uuidParam.parse(raw);
 
 const viewerOf = (req: Request) => ({ id: req.user!.id, role: req.user!.role });
-
-// ── Usuário (JWT) ────────────────────────────────────────────────────────────
 
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
@@ -56,40 +49,21 @@ export async function cancel(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-// ── Executor (chave de API) ──────────────────────────────────────────────────
-
-export async function queue(req: Request, res: Response, next: NextFunction) {
-  try {
-    queueQuerySchema.parse(req.query);
-    res.json({ data: await LeadRequestsService.listQueue(req.apiKey!.tenantId) });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function claim(req: Request, res: Response, next: NextFunction) {
-  try {
-    res.json({ data: await LeadRequestsService.claimLeadRequest(req.apiKey!.tenantId, parseId(req.params.id)) });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function progress(req: Request, res: Response, next: NextFunction) {
+export async function execute(req: Request, res: Response, next: NextFunction) {
   try {
     const id = parseId(req.params.id);
-    const { message } = progressSchema.parse(req.body ?? {});
-    res.json({ data: await LeadRequestsService.progressLeadRequest(req.apiKey!.tenantId, id, message) });
+    const edits = executeLeadRequestSchema.parse(req.body ?? {});
+    res.json({ data: await LeadRequestsService.executeLeadRequest(req.user!.tenantId, req.user!.id, id, edits) });
   } catch (err) {
     next(err);
   }
 }
 
-export async function result(req: Request, res: Response, next: NextFunction) {
+export async function reject(req: Request, res: Response, next: NextFunction) {
   try {
     const id = parseId(req.params.id);
-    const input = resultSchema.parse(req.body);
-    res.json({ data: await LeadRequestsService.deliverLeadRequest(req.apiKey!.tenantId, id, input) });
+    const { message } = rejectLeadRequestSchema.parse(req.body ?? {});
+    res.json({ data: await LeadRequestsService.rejectLeadRequest(req.user!.tenantId, req.user!.id, id, message) });
   } catch (err) {
     next(err);
   }

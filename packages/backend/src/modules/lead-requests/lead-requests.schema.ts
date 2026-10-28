@@ -1,36 +1,45 @@
 import { z } from 'zod';
-import { leadHunterLeadSchema } from '../contacts/contacts.schema';
 
 export const LEAD_REQUEST_STATUSES = ['queued', 'claimed', 'running', 'done', 'partial', 'failed', 'cancelled'] as const;
 
 export const uuidParam = z.string().uuid();
 
-export const createLeadRequestSchema = z.object({
-  niche: z.string().trim().min(2).max(100),
-  city: z.string().trim().min(2).max(100),
-  quantity: z.number().int().min(1),
-  notes: z.string().trim().max(1000).optional(),
-});
+// Os campos do formulário da campanha do LeadHunter (sem `source`: pedido é sempre coleta real). Aqui fica só
+// o formato de transporte; as regras e mensagens em pt-BR são as de `validateCampaign`, aplicadas no serviço
+// (na criação e, na execução, sobre o resultado da mescla do pedido com a edição do admin).
+const listOfText = z.union([z.string(), z.array(z.string())]);
+const campaignFields = {
+  niche: z.string(),
+  city: z.string(),
+  service: z.string(),
+  limit: z.number(),
+  quantity: z.number(), // nome antigo de `limit`: sem ele a quantidade pedida viraria o padrão (10) em silêncio
+  keywords: listOfText,
+  coordinates: listOfText,
+  enrich: z.boolean(),
+  useJev: z.boolean(),
+  use_jev: z.boolean(),
+  forceRefresh: z.boolean(),
+  force_refresh: z.boolean(),
+};
+
+const notes = z.string().trim().max(1000).optional();
+
+export const createLeadRequestSchema = z
+  .object({ ...campaignFields, notes })
+  .partial()
+  .required({ niche: true, city: true });
+
+/** Edição do admin ao executar: os mesmos campos, todos opcionais; o resultado é validado após a mescla. */
+export const executeLeadRequestSchema = z.object({ ...campaignFields, notes }).partial();
+
+export const rejectLeadRequestSchema = z.object({ message: z.string().trim().min(1).max(500) });
 
 export const listLeadRequestsQuerySchema = z.object({
   userId: z.string().uuid().optional(),
   status: z.enum(LEAD_REQUEST_STATUSES).optional(),
 });
 
-export const queueQuerySchema = z.object({
-  status: z.literal('queued').optional(),
-});
-
-export const progressSchema = z.object({
-  message: z.string().max(300).optional(),
-});
-
-export const resultSchema = z.object({
-  status: z.enum(['done', 'partial', 'failed']),
-  message: z.string().max(500).optional(),
-  leads: z.array(leadHunterLeadSchema).max(500),
-});
-
 export type CreateLeadRequestInput = z.infer<typeof createLeadRequestSchema>;
+export type ExecuteLeadRequestInput = z.infer<typeof executeLeadRequestSchema>;
 export type ListLeadRequestsQuery = z.infer<typeof listLeadRequestsQuerySchema>;
-export type ResultInput = z.infer<typeof resultSchema>;

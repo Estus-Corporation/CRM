@@ -6,7 +6,6 @@ import { leadHunterLeadSchema, createContactSchema } from '../contacts/contacts.
 import { listActiveMembers, findActiveMemberByEmail } from '../users/users.service';
 import { listDeals } from '../deals/deals.service';
 import { getPaginationParams } from '../../shared/utils/paginate';
-import leadRequestsPublicRoutes from '../lead-requests/lead-requests.public.routes';
 
 const router = Router();
 
@@ -17,8 +16,6 @@ const leadsBulkSchema = z.object({
     .min(1)
     .max(500),
 });
-
-router.use('/lead-requests', leadRequestsPublicRoutes);
 
 // GET /public/users
 router.get(
