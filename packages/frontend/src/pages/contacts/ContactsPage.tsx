@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Search, Plus, Download, Trash2, Pencil, Users, User, Check } from 'lucide-react';
+import { Search, Plus, Download, Trash2, Pencil, Users, User, Check, Building2, Tag, Phone, Layers } from 'lucide-react';
 import { SelectDropdown } from '@/components/ui/SelectDropdown';
 import { cn } from '@/lib/utils';
 import { useContacts, useCreateContact, useUpdateContact, useDeleteContact } from '@/hooks/useContacts';
@@ -205,11 +205,19 @@ export function ContactsPage() {
       ) : (
         <DataList>
           <DataListHead grid={ROW_GRID}>
-            <span>Nome</span>
-            <span className="hidden md:block">Empresa</span>
-            <span className="hidden md:block">Nicho</span>
-            <span className="hidden lg:block">Telefone</span>
-            <span>Tipo</span>
+            {/* Rótulos com ícone (cabeçalho verde do espaço — ver .data-list-glass) */}
+            <span className="flex items-center gap-1.5">
+              <User size={13} strokeWidth={2.2} />
+              Nome
+              {/* Total da lista (todas as páginas) */}
+              <span className="ml-1 rounded-full bg-black/15 px-1.5 py-px text-[10px] font-bold tabular-nums tracking-normal">
+                {data?.meta?.total ?? contacts.length}
+              </span>
+            </span>
+            <span className="hidden items-center gap-1.5 md:flex"><Building2 size={13} strokeWidth={2.2} />Empresa</span>
+            <span className="hidden items-center gap-1.5 md:flex"><Tag size={13} strokeWidth={2.2} />Nicho</span>
+            <span className="hidden items-center gap-1.5 lg:flex"><Phone size={13} strokeWidth={2.2} />Telefone</span>
+            <span className="flex items-center gap-1.5"><Layers size={13} strokeWidth={2.2} />Tipo</span>
             <span className={cn(!editMode && 'max-sm:hidden')} />
           </DataListHead>
 

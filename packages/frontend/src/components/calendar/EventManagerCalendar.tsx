@@ -1121,9 +1121,10 @@ export function EventManagerCalendar({
   return (
     // Calendário + painel do evento lado a lado, cada um no seu card (o painel abre como as notas)
     <div className="flex min-h-0 flex-1">
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[22px] border border-fg/[0.07] bg-bg-surface shadow-[0_24px_48px_-28px_rgba(0,0,0,0.6)]">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[22px] border border-fg/[0.07] shadow-[0_24px_48px_-28px_rgba(0,0,0,0.6)]">
       {/* ── Toolbar ── */}
-      <div className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-fg/[0.06] px-5 py-4">
+      {/* Cabeçalho translúcido (vidro das abas, um pouco mais leve). Sem backdrop-blur de propósito: dentro da pasta, que já tem backdrop-filter, ele deixava o fundo sólido */}
+      <div className="flex flex-shrink-0 flex-wrap items-center gap-3 border-b border-fg/[0.1] bg-fg/[0.035] px-5 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
         {/* ‹ período › — setas soltas, o título fica entre elas */}
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <button
@@ -1204,7 +1205,8 @@ export function EventManagerCalendar({
       </div>
 
       {/* ── Main content (calendar + panel side-by-side) ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
+      {/* Só o corpo é sólido: o cabeçalho acima fica translúcido sobre o fundo da pasta */}
+      <div className="flex flex-1 min-h-0 overflow-hidden bg-bg-surface">
         {/* Calendar area */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {view === 'month' && (

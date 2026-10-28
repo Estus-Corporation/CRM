@@ -365,6 +365,28 @@ export async function listCaptadores(tenantId: string) {
     );
 }
 
+/**
+ * Ficha de um lead pro admin/gerente (página aberta pela aba Distribuir): dados do contato e, se já
+ * estiver com alguém, com quem. Só leads (não clientes) do workspace.
+ */
+export async function getLeadForManager(tenantId: string, contactId: string) {
+  const lead = await db('contacts as c')
+    .leftJoin('lead_assignments as a', function joinAssignment() {
+      this.on('a.contact_id', '=', 'c.id').andOn('a.tenant_id', '=', 'c.tenant_id');
+    })
+    .leftJoin('users as u', 'a.captador_id', 'u.id')
+    .where({ 'c.tenant_id': tenantId, 'c.id': contactId })
+    .whereNot('c.type', 'client')
+    .first(
+      'c.id', 'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.created_at',
+      'c.address', 'c.maps_url', 'c.instagram', 'c.website', 'c.google_reviews', 'c.lead_context',
+      db.raw('c.google_rating::float8 as google_rating'),
+      db.raw('a.id as assignment_id'), db.raw('u.full_name as captador_name'),
+    );
+  if (!lead) throw httpError('Lead not found', 404);
+  return lead;
+}
+
 export async function listAvailableContacts(tenantId: string, query: AvailableContactsQuery) {
   const { page, limit, offset } = getPaginationParams(query);
 
@@ -380,7 +402,10 @@ export async function listAvailableContacts(tenantId: string, query: AvailableCo
   const [{ count }] = await base.clone().count('c.id as count');
   const rows = await base
     .clone()
-    .select('c.id', 'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.niche', 'c.created_at')
+    .select(
+      'c.id', 'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.niche', 'c.created_at', 'c.google_reviews',
+      db.raw('c.google_rating::float8 as google_rating'),
+    )
     .orderBy('c.created_at', 'asc')
     .limit(limit)
     .offset(offset);
@@ -489,7 +514,13 @@ export async function topUpDailyLeads(tenantId: string, captadorId: string) {
       // Leads que o próprio captador cadastrou não gastam a cota da distribuição
       .where((q) => q.whereNull('assigned_by').orWhereNot('assigned_by', captadorId))
       .count('id as count');
-    const missing = quota - Number(count);
+    // Leads que o admin tirou dele hoje continuam contando na cota: tirar não abre vaga pra
+    // a distribuição automática encher de novo (antes o captador recebia outros no lugar na hora)
+    const [{ count: removedToday }] = await trx('lead_assignment_removals')
+      .where({ tenant_id: tenantId, captador_id: captadorId })
+      .whereRaw("(removed_at AT TIME ZONE 'America/Sao_Paulo')::date = (now() AT TIME ZONE 'America/Sao_Paulo')::date")
+      .count('id as count');
+    const missing = quota - Number(count) - Number(removedToday);
     if (missing <= 0) return 0;
 
     const contactIds: string[] = await availableContactsBase(tenantId)

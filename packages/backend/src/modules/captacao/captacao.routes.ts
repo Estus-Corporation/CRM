@@ -22,6 +22,7 @@ const manage = requireRole('admin', 'manager');
 router.get('/captadores', manage, CaptacaoController.listCaptadores);
 router.post('/captadores/:captadorId/pay-all', requireRole('admin'), CaptacaoController.payAllCommissions);
 router.get('/available-contacts', manage, CaptacaoController.listAvailableContacts);
+router.get('/leads/:id', manage, CaptacaoController.getLeadForManager);
 router.post('/leads', manage, CaptacaoController.createLead);
 router.get('/assignments', manage, CaptacaoController.listAssignments);
 router.post('/assignments', manage, CaptacaoController.assignLeads);

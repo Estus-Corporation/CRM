@@ -49,6 +49,11 @@ export interface CreateContactInput {
   niche?: string;
   tags?: string[];
   ownerId?: string;
+  address?: string;
+  mapsUrl?: string;
+  instagram?: string;
+  website?: string;
+  leadContext?: string;
 }
 
 export interface ContactsListParams {

@@ -124,6 +124,30 @@ export interface AvailableContact {
   company_name: string | null;
   niche: string | null;
   created_at: string;
+  google_rating: number | null;
+  google_reviews: number | null;
+}
+
+/** Ficha de um lead vista pelo admin/gerente (página aberta pela aba Distribuir) */
+export interface ManagerLead {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  email: string | null;
+  company_name: string | null;
+  job_title: string | null;
+  niche: string | null;
+  created_at: string;
+  address: string | null;
+  maps_url: string | null;
+  instagram: string | null;
+  website: string | null;
+  google_rating: number | null;
+  google_reviews: number | null;
+  lead_context: string | null;
+  /** Já atribuído: id da atribuição e nome do captador */
+  assignment_id: string | null;
+  captador_name: string | null;
 }
 
 export interface Assignment {
@@ -239,6 +263,11 @@ export const captacaoService = {
   // ── Admin / gerente ──
   async captadores(): Promise<Captador[]> {
     const { data } = await api.get<{ data: Captador[] }>('/captacao/captadores');
+    return data.data;
+  },
+
+  async managerLead(id: string): Promise<ManagerLead> {
+    const { data } = await api.get<{ data: ManagerLead }>(`/captacao/leads/${id}`);
     return data.data;
   },
 

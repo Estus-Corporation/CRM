@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -15,6 +15,7 @@ import {
   Mail,
   Map,
   MapPin,
+  Pencil,
   Phone,
   Send,
   Tag,
@@ -22,7 +23,8 @@ import {
   UserPlus,
   type LucideIcon,
 } from 'lucide-react';
-import { captacaoService } from '@/services/captacao.service';
+import { captacaoService, type ManagerLead } from '@/services/captacao.service';
+import { contactsService } from '@/services/contacts.service';
 import { useCaptadores } from '@/hooks/useCaptacao';
 import { useContactNiches } from '@/hooks/useContacts';
 import { Modal } from '@/components/ui/Modal';
@@ -54,8 +56,19 @@ const EMPTY: FormData = {
  * Cadastro rápido de lead, sem planilha. "Salvar e adicionar outro" mantém nicho e captador,
  * pra digitar uma lista inteira em sequência. Pode entregar direto a um captador.
  * `self`: o próprio captador cadastrando — o lead vai pros leads dele (sem "Entregar para").
+ * `editing`: admin editando um lead existente (mesmo formulário, sem "Entregar para" e sem "adicionar outro").
  */
-export function AddLeadModal({ open, onClose, self = false }: { open: boolean; onClose: () => void; self?: boolean }) {
+export function AddLeadModal({
+  open,
+  onClose,
+  self = false,
+  editing,
+}: {
+  open: boolean;
+  onClose: () => void;
+  self?: boolean;
+  editing?: ManagerLead;
+}) {
   const qc = useQueryClient();
   // Lista de captadores e nichos são rotas de admin/gerente: o captador não consulta
   const { data: captadores = [] } = useCaptadores({ enabled: !self });
@@ -73,6 +86,25 @@ export function AddLeadModal({ open, onClose, self = false }: { open: boolean; o
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: EMPTY });
 
+  // Editar: ao abrir, o formulário vem preenchido com os dados atuais do lead
+  useEffect(() => {
+    if (!open || !editing) return;
+    reset({
+      ...EMPTY,
+      fullName: editing.full_name,
+      phone: editing.phone ?? '',
+      email: editing.email ?? '',
+      companyName: editing.company_name ?? '',
+      jobTitle: editing.job_title ?? '',
+      niche: editing.niche ?? '',
+      address: editing.address ?? '',
+      mapsUrl: editing.maps_url ?? '',
+      instagram: editing.instagram ?? '',
+      website: editing.website ?? '',
+      leadContext: editing.lead_context ?? '',
+    });
+  }, [open, editing, reset]);
+
   const handleClose = () => {
     onClose();
     setTimeout(() => {
@@ -85,6 +117,27 @@ export function AddLeadModal({ open, onClose, self = false }: { open: boolean; o
     handleSubmit(async (data) => {
       setSaving(true);
       try {
+        if (editing) {
+          // Campo vazio = apagar o valor (o backend grava null)
+          await contactsService.update(editing.id, {
+            fullName: data.fullName,
+            phone: data.phone,
+            email: data.email,
+            companyName: data.companyName,
+            jobTitle: data.jobTitle,
+            niche: data.niche,
+            address: data.address,
+            mapsUrl: data.mapsUrl,
+            instagram: data.instagram,
+            website: data.website,
+            leadContext: data.leadContext,
+          });
+          qc.invalidateQueries({ queryKey: ['captacao'] });
+          qc.invalidateQueries({ queryKey: ['contacts'] });
+          toast.success('Lead atualizado');
+          handleClose();
+          return;
+        }
         const fields = {
           fullName: data.fullName,
           phone: data.phone || undefined,
@@ -134,7 +187,7 @@ export function AddLeadModal({ open, onClose, self = false }: { open: boolean; o
     })();
 
   return (
-    <Modal open={open} onClose={handleClose} className="max-w-2xl overflow-hidden p-0" title="Adicionar lead" hideHeader>
+    <Modal open={open} onClose={handleClose} className="max-w-2xl overflow-hidden p-0" title={editing ? 'Editar lead' : 'Adicionar lead'} hideHeader>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -145,12 +198,14 @@ export function AddLeadModal({ open, onClose, self = false }: { open: boolean; o
         {/* Cabeçalho: ícone no quadrado verde (mesmo dos KPIs) + título e descrição */}
         <div className="flex items-start gap-4 border-b border-fg/[0.06] px-6 pb-5 pt-6">
           <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[13px] border border-accent-green/20 bg-gradient-to-br from-accent-green/[0.22] to-accent-green/[0.06] text-accent-green shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            <UserPlus size={20} strokeWidth={1.9} />
+            {editing ? <Pencil size={19} strokeWidth={1.9} /> : <UserPlus size={20} strokeWidth={1.9} />}
           </span>
           <div className="min-w-0 pr-8">
-            <p className="text-[18px] font-semibold tracking-[-0.01em] text-text-primary">Adicionar lead</p>
+            <p className="text-[18px] font-semibold tracking-[-0.01em] text-text-primary">{editing ? 'Editar lead' : 'Adicionar lead'}</p>
             <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
-              {self
+              {editing
+                ? 'Corrija ou complete os dados — vale para todos que veem este lead.'
+                : self
                 ? 'Cadastre um lead que você encontrou — ele entra direto nos seus leads de hoje.'
                 : 'Cadastre um lead à mão — ele entra na fila de distribuição ou vai direto para um captador.'}
             </p>
@@ -215,7 +270,7 @@ export function AddLeadModal({ open, onClose, self = false }: { open: boolean; o
                 className="input-base min-h-[88px] w-full resize-y py-2.5 text-sm leading-relaxed"
               />
             </div>
-            {!self && (
+            {!self && !editing && (
               <Field icon={Send} id="lead-captador" label="Entregar para" className="sm:col-span-2">
                 <select id="lead-captador" {...register('captadorId')} className={fieldClass()}>
                   <option value="">Deixar na fila</option>
@@ -241,11 +296,13 @@ export function AddLeadModal({ open, onClose, self = false }: { open: boolean; o
           <Button type="button" variant="ghost" onClick={handleClose}>
             {added > 0 ? 'Fechar' : 'Cancelar'}
           </Button>
-          <Button type="button" variant="secondary" disabled={saving} onClick={() => save(true)}>
-            Salvar e adicionar outro
-          </Button>
+          {!editing && (
+            <Button type="button" variant="secondary" disabled={saving} onClick={() => save(true)}>
+              Salvar e adicionar outro
+            </Button>
+          )}
           <Button type="submit" disabled={saving} className="px-5">
-            {saving ? 'Salvando…' : 'Salvar lead'}
+            {saving ? 'Salvando…' : editing ? 'Salvar alterações' : 'Salvar lead'}
           </Button>
         </div>
       </form>

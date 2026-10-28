@@ -37,7 +37,7 @@ const MEETING_MODES = [
   { value: 'presencial', label: 'Presencial', icon: MapPin },
 ] as const;
 
-const PAIN_ICON: Record<LeadPain, typeof Globe> = {
+export const PAIN_ICON: Record<LeadPain, typeof Globe> = {
   no_site: Globe,
   no_instagram: Instagram,
   no_marketing: Megaphone,

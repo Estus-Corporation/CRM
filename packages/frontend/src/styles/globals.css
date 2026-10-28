@@ -454,6 +454,24 @@
   background: rgb(var(--bg-surface));
 }
 
+/* Teste (Contatos): corpo da lista translúcido, no vidro do cabeçalho do Calendário — o fundo da
+   pasta aparece entre as linhas; o cabeçalho verde da lista continua igual. Sem backdrop-filter:
+   dentro da pasta (que já tem um) ele deixava o fundo sólido. */
+.folder-surface .card.data-list-glass,
+.folder-surface .card:has(.data-table) {
+  /* vidro escuro: a superfície do card a 45% (o fundo aparece, mas sem clarear a lista) */
+  background: rgb(var(--bg-surface) / 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* o .card tem backdrop-filter próprio: aninhado na pasta ele escurece tudo — desligado aqui */
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* Cabeçalho verde: ícones um pouco mais apagados que os rótulos */
+.folder-surface .data-list-glass .data-list-head svg,
+.data-table thead th svg {
+  opacity: 0.7;
+}
+
 /* ── Tabelas no padrão da lista de Contatos (ver DataList) ──────────────────
    Cabeçalho verde do botão principal + faixa inferior mais escura; linhas com traço de 1,5px
    entrando em cascata. Fora de @layer de propósito: vence as classes antigas de borda/cor nas <tr>. */

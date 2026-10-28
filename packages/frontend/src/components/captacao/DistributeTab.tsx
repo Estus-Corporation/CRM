@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Shuffle, Send, Inbox } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Building2, Check, ChevronRight, Inbox, Search, Send, Shuffle, Star } from 'lucide-react';
 import { useAssignLeads, useAvailableContacts, useCaptadores } from '@/hooks/useCaptacao';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { NicheFilter } from '@/components/contacts/NicheFilter';
-import { DataList, DataListBody, DataListHead, DataListRow, DataListSkeleton, listSpring } from '@/components/ui/DataList';
+import { listSpring } from '@/components/ui/DataList';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
-
-const GRID =
-  'grid-cols-[28px_minmax(0,1fr)_minmax(0,0.8fr)] md:grid-cols-[28px_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.8fr)]';
 
 const PAGE_SIZE = 50;
 
@@ -25,6 +24,7 @@ interface Props {
 
 /** Fila de leads livres. A entrega diária é automática (cota por captador); aqui também dá pra atribuir à mão. */
 export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props) {
+  const navigate = useNavigate();
   const { data: captadores = [] } = useCaptadores();
   const activeCaptadores = captadores.filter((c) => c.is_active);
 
@@ -141,7 +141,11 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
 
       <div>
       {isLoading ? (
-        <DataListSkeleton grid={GRID} cells={3} />
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-[78px] w-full rounded-2xl" />
+          ))}
+        </div>
       ) : contacts.length === 0 ? (
         <motion.div className="card" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={listSpring}>
           <EmptyState
@@ -156,45 +160,106 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
           />
         </motion.div>
       ) : (
-        <DataList outlined={false}>
-          <DataListHead grid={GRID}>
-            <input
-              type="checkbox"
-              checked={allOnPageSelected}
-              onChange={toggleAll}
-              aria-label="Selecionar todos desta página"
-              className="h-4 w-4 accent-[rgb(var(--accent-green-dim))]"
-            />
-            <span>Lead</span>
-            <span>Telefone</span>
-            <span className="hidden md:block">Empresa</span>
-            <span className="hidden md:block">Nicho</span>
-          </DataListHead>
-          <DataListBody>
-            {contacts.map((c, i) => (
-              <DataListRow
-                key={c.id}
-                grid={GRID}
-                index={i}
-                onClick={() => toggle(c.id)}
-                className={cn(selected.has(c.id) && 'bg-accent-green/[0.06]')}
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.has(c.id)}
-                  onChange={() => toggle(c.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label={`Selecionar ${c.full_name}`}
-                  className="h-4 w-4 accent-[rgb(var(--accent-green))]"
-                />
-                <span className="truncate text-sm font-medium text-text-primary">{c.full_name}</span>
-                <span className="truncate text-sm text-text-secondary">{c.phone ?? '—'}</span>
-                <span className="hidden truncate text-sm text-text-secondary md:block">{c.company_name ?? '—'}</span>
-                <span className="hidden truncate text-sm text-text-muted md:block">{c.niche ?? '—'}</span>
-              </DataListRow>
-            ))}
-          </DataListBody>
-        </DataList>
+        // Mesmo card dos leads em "Meus leads": clicar abre a página do lead; o quadrado à esquerda seleciona
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="flex items-center gap-2 px-1 text-[13px] font-medium text-text-secondary transition-colors hover:text-text-primary"
+          >
+            <span
+              className={cn(
+                'flex h-4 w-4 items-center justify-center rounded-[5px] border transition-colors',
+                allOnPageSelected ? 'border-accent-green bg-accent-green text-[rgb(var(--on-accent))]' : 'border-fg/[0.25]',
+              )}
+            >
+              {allOnPageSelected && <Check size={11} strokeWidth={3} />}
+            </span>
+            {allOnPageSelected ? 'Desmarcar todos desta página' : 'Selecionar todos desta página'}
+          </button>
+
+          <ul className="space-y-3">
+            {contacts.map((c, i) => {
+              const isSelected = selected.has(c.id);
+              const company = c.company_name;
+              return (
+                <motion.li
+                  key={c.id}
+                  layout
+                  initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
+                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { ...listSpring, delay: Math.min(i * 0.03, 0.3) } }}
+                  transition={listSpring}
+                  onClick={() => navigate(`/captacao/lead/${c.id}`)}
+                  className={cn(
+                    'card card-interactive group flex cursor-pointer items-center gap-4 overflow-hidden p-4 transition-colors md:px-5',
+                    isSelected && '!border-accent-green/50 bg-accent-green/[0.05]',
+                  )}
+                >
+                  {/* Ícone do lead = botão de seleção: passar o mouse mostra o check; selecionado fica verde */}
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={isSelected}
+                    aria-label={`Selecionar ${c.full_name}`}
+                    title={isSelected ? 'Desmarcar' : 'Selecionar para atribuir'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggle(c.id);
+                    }}
+                    className={cn(
+                      'group/sel flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-colors',
+                      isSelected
+                        ? 'bg-accent-green text-[rgb(var(--on-accent))]'
+                        : 'bg-fg/[0.08] text-text-primary hover:bg-accent-green/20 hover:text-accent-green',
+                    )}
+                  >
+                    {isSelected ? (
+                      <Check size={20} strokeWidth={2.75} />
+                    ) : (
+                      <>
+                        <Building2 size={20} className="group-hover/sel:hidden" />
+                        <Check size={20} strokeWidth={2.75} className="hidden group-hover/sel:block" />
+                      </>
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                      <p className="truncate text-[15.5px] font-semibold text-text-primary">{c.full_name}</p>
+                      {c.google_rating != null && (
+                        <span className="flex items-center gap-1 text-xs text-text-secondary" title="Avaliação no Google">
+                          <Star size={12} className="fill-accent-amber text-accent-amber" />
+                          <strong className="font-semibold text-text-primary">{c.google_rating.toFixed(1)}</strong>
+                          {c.google_reviews != null && <span className="text-text-muted">({c.google_reviews})</span>}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-muted">
+                      {company && (
+                        <span className="flex min-w-0 max-w-full items-center gap-1">
+                          <Building2 size={12} className="flex-shrink-0" />
+                          <span className="truncate">{company}</span>
+                        </span>
+                      )}
+                      {c.niche && (
+                        <span className="max-w-full truncate whitespace-nowrap rounded-md bg-fg/[0.05] px-2 py-0.5 font-medium text-text-secondary">
+                          {c.niche}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* À direita: selo "Livre" e a seta (como em Meus leads) */}
+                  <div className="flex flex-shrink-0 items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-fg/[0.22] px-2.5 py-1 text-xs font-medium text-text-muted">
+                      <span className="h-1.5 w-1.5 rounded-full bg-text-muted" />
+                      Livre
+                    </span>
+                    <ChevronRight size={18} className="text-text-muted transition-transform group-hover:translate-x-0.5" />
+                  </div>
+                </motion.li>
+              );
+            })}
+          </ul>
+        </div>
       )}
       </div>
 

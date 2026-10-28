@@ -1,12 +1,13 @@
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { motion } from 'framer-motion';
+import { HeadLabel } from '@/components/ui/HeadLabel';
 import { useState, useRef } from 'react';
-import { Download, Upload, Trophy, Activity, BarChart3, FileDown, Lock, Briefcase, Percent, Timer, Wallet } from 'lucide-react';
-import { useKpis, useFunnel, useRevenue, useActivitiesReport, useLeaderboard } from '@/hooks/useReports';
+import { Download, Upload, Trophy, Activity, BarChart3, FileDown, Lock, Headset, CheckCircle2, Hash, Layers, Percent, Receipt, User, Wallet } from 'lucide-react';
+import { useActivitiesReport, useLeaderboard } from '@/hooks/useReports';
+import { useAuthStore } from '@/store/authStore';
+import { SALES_PERIODS, SalesReport } from '@/components/reports/SalesReport';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { CaptacaoReport } from '@/components/reports/CaptacaoReport';
 import { useQueryClient } from '@tanstack/react-query';
-import { KpiCard } from '@/components/dashboard/KpiCard';
-import { FunnelChart } from '@/components/dashboard/FunnelChart';
-import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -17,11 +18,7 @@ import { useUpgradeStore } from '@/store/upgradeStore';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
-type Tab = 'overview' | 'activities' | 'leaderboard' | 'export';
-
-function formatCurrency(v: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact' }).format(v);
-}
+type Tab = 'sales' | 'leaderboard' | 'captacao' | 'activities' | 'export';
 
 function formatCurrencyFull(v: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -36,15 +33,11 @@ const activityTypeLabel: Record<string, string> = {
   whatsapp: 'WhatsApp',
 };
 
-const periodOptions = [
-  { value: 'month' as const, label: 'Mensal' },
-  { value: 'week' as const, label: 'Semanal' },
-];
-
-const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-  { id: 'overview', label: 'Visão geral', icon: <BarChart3 size={14} /> },
+const allTabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
+  { id: 'sales', label: 'Vendas', icon: <BarChart3 size={14} /> },
+  { id: 'leaderboard', label: 'Vendedores', icon: <Trophy size={14} /> },
+  { id: 'captacao', label: 'Captação', icon: <Headset size={14} /> },
   { id: 'activities', label: 'Atividades', icon: <Activity size={14} /> },
-  { id: 'leaderboard', label: 'Ranking', icon: <Trophy size={14} /> },
   { id: 'export', label: 'Exportar', icon: <FileDown size={14} /> },
 ];
 
@@ -56,7 +49,7 @@ function isPlanAtLeast(plan: string, required: string) {
 }
 
 export function ReportsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('sales');
   const [period, setPeriod] = useState<'month' | 'week'>('month');
   const [downloading, setDownloading] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
@@ -65,10 +58,11 @@ export function ReportsPage() {
   const showUpgrade = useUpgradeStore((s) => s.showUpgrade);
   const plan = tenant?.plan ?? 'free';
   const hasStarterPlus = isPlanAtLeast(plan, 'starter');
+  // Relatório de captação só pra quem gerencia a captação
+  const role = useAuthStore((st) => st.user?.role);
+  const canSeeCaptacao = role === 'admin' || role === 'manager';
+  const tabs = allTabs.filter((t) => t.id !== 'captacao' || canSeeCaptacao);
 
-  const { data: kpis, isLoading: kpisLoading } = useKpis();
-  const { data: funnel, isLoading: funnelLoading } = useFunnel();
-  const { data: revenue, isLoading: revenueLoading } = useRevenue(period);
   const { data: activities, isLoading: activitiesLoading } = useActivitiesReport();
   const { data: leaderboard, isLoading: leaderboardLoading } = useLeaderboard();
 
@@ -116,9 +110,10 @@ export function ReportsPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Relatórios" subtitle="Desempenho do seu time" />
+      <PageHeader title="Relatórios" subtitle="Análises detalhadas: vendas por período, vendedores, captação e atividades" />
 
-      {/* Tabs */}
+      {/* Abas à esquerda; na aba Vendas, o Mensal/Semanal fica na extrema direita da mesma linha */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="flex h-10 w-fit items-stretch rounded-xl border border-fg/[0.12] bg-fg/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)]">
         {tabs.map((tab) => {
           const isGated = GATED_TABS.includes(tab.id) && !hasStarterPlus;
@@ -154,106 +149,16 @@ export function ReportsPage() {
         })}
       </div>
 
-      {/* Overview Tab */}
-      {activeTab === 'overview' && (
-        <div className="space-y-5">
-          {kpisLoading ? (
-            <div className="flex justify-center py-8"><Spinner /></div>
-          ) : (
-            // Mesmo padrão do Dashboard: ícone no quadrado verde, linha de tendência e variação vs mês anterior
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5 max-sm:[&>*:last-child]:col-span-2">
-              <KpiCard
-                label="Negócios em aberto"
-                icon={Briefcase}
-                sparkline={false}
-                trend={kpis?.trends?.openDeals}
-                value={kpis?.openDeals ?? '—'}
-                sub="No pipeline agora"
-              />
-              <KpiCard
-                label="Ganhos no mês"
-                icon={Trophy}
-                highlight
-                sparkline={false}
-                trend={kpis?.trends?.wonMtd}
-                value={kpis ? kpis.wonMtd : '—'}
-                sub={kpis && kpis.wonMtd > 0 ? `${kpis.wonMtd} ${kpis.wonMtd === 1 ? 'negócio fechado' : 'negócios fechados'}` : 'Nenhum ganho ainda'}
-              />
-              <KpiCard
-                label="Valor ganho no mês"
-                icon={Wallet}
-                value={kpis ? formatCurrency(kpis.wonMtdValue) : '—'}
-                sub="Receita dos ganhos do mês"
-              />
-              <KpiCard
-                label="Taxa de conversão"
-                icon={Percent}
-                sparkline={false}
-                trend={kpis?.trends?.conversionRate}
-                value={kpis ? `${kpis.conversionRate}%` : '—'}
-                sub="Ganhos sobre fechados"
-              />
-              <KpiCard
-                label="Ciclo médio"
-                icon={Timer}
-                sparkline={false}
-                trend={kpis?.trends?.avgCycleDays}
-                lowerIsBetter
-                value={kpis ? `${kpis.avgCycleDays}d` : '—'}
-                sub="Da criação ao fechamento"
-              />
-            </div>
-          )}
-
-          <div className="card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[15px] font-medium text-text-primary">Receita ao longo do tempo</p>
-              <SegmentedControl layoutId="reports-period-pill" options={periodOptions} value={period} onChange={setPeriod} />
-            </div>
-            {revenueLoading ? <div className="flex justify-center py-10"><Spinner /></div> : <RevenueChart data={revenue ?? []} period={period} />}
-          </div>
-
-          <div className="card p-4">
-            <p className="text-sm font-medium text-text-secondary mb-3">Funil do pipeline</p>
-            {funnelLoading ? <div className="flex justify-center py-10"><Spinner /></div> : <FunnelChart data={funnel ?? []} />}
-          </div>
-
-          {funnel && funnel.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="px-5 py-4 border-b border-bg-border">
-                <p className="text-sm font-medium text-text-primary">Detalhamento por etapa</p>
-              </div>
-              <table className="data-table w-full text-sm">
-                <thead>
-                  <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
-                    <th className="text-left px-5 py-3 font-medium">Etapa</th>
-                    <th className="text-right px-5 py-3 font-medium">Negócios</th>
-                    <th className="text-right px-5 py-3 font-medium">Valor total</th>
-                    <th className="text-right px-5 py-3 font-medium">Ticket médio</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {funnel.map((s) => (
-                    <tr key={s.stage_id} className="border-b border-bg-border last:border-0 hover:bg-bg-surface/50">
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || 'rgb(var(--accent-green))' }} />
-                          <span className="text-text-primary">{s.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-right text-text-secondary">{s.deal_count}</td>
-                      <td className="px-5 py-3 text-right text-text-secondary">{formatCurrency(s.total_value)}</td>
-                      <td className="px-5 py-3 text-right text-text-secondary">
-                        {s.deal_count > 0 ? formatCurrency(s.total_value / s.deal_count) : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+      {activeTab === 'sales' && (
+        <SegmentedControl layoutId="reports-period-pill" options={SALES_PERIODS} value={period} onChange={setPeriod} />
       )}
+      </div>
+
+      {/* Vendas: receita período a período e pipeline por etapa (o Dashboard mostra o resumo) */}
+      {activeTab === 'sales' && <SalesReport period={period} />}
+
+      {/* Captação: conversão de cada captador (admin/gerente) */}
+      {activeTab === 'captacao' && canSeeCaptacao && <CaptacaoReport />}
 
       {/* Activities Tab */}
       {activeTab === 'activities' && (
@@ -274,10 +179,10 @@ export function ReportsPage() {
                     <table className="data-table w-full text-sm">
                       <thead>
                         <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
-                          <th className="text-left px-5 py-3 font-medium">Tipo</th>
-                          <th className="text-right px-5 py-3 font-medium">Total</th>
-                          <th className="text-right px-5 py-3 font-medium">Concluídas</th>
-                          <th className="text-right px-5 py-3 font-medium">Taxa</th>
+                          <th className="text-left px-5 py-3 font-medium"><HeadLabel icon={Layers}>Tipo</HeadLabel></th>
+                          <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={Hash}>Total</HeadLabel></th>
+                          <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={CheckCircle2}>Concluídas</HeadLabel></th>
+                          <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={Percent}>Taxa</HeadLabel></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -309,10 +214,10 @@ export function ReportsPage() {
                     <table className="data-table w-full text-sm">
                       <thead>
                         <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
-                          <th className="text-left px-5 py-3 font-medium">Usuário</th>
-                          <th className="text-right px-5 py-3 font-medium">Total</th>
-                          <th className="text-right px-5 py-3 font-medium">Concluídas</th>
-                          <th className="text-right px-5 py-3 font-medium">Taxa</th>
+                          <th className="text-left px-5 py-3 font-medium"><HeadLabel icon={User}>Usuário</HeadLabel></th>
+                          <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={Hash}>Total</HeadLabel></th>
+                          <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={CheckCircle2}>Concluídas</HeadLabel></th>
+                          <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={Percent}>Taxa</HeadLabel></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -356,10 +261,10 @@ export function ReportsPage() {
                 <thead>
                   <tr className="border-b border-bg-border text-text-muted text-xs uppercase tracking-wide">
                     <th className="text-left px-5 py-3 font-medium w-12">#</th>
-                    <th className="text-left px-5 py-3 font-medium">Vendedor</th>
-                    <th className="text-right px-5 py-3 font-medium">Negócios ganhos</th>
-                    <th className="text-right px-5 py-3 font-medium">Valor total</th>
-                    <th className="text-right px-5 py-3 font-medium hidden md:table-cell">Ticket médio</th>
+                    <th className="text-left px-5 py-3 font-medium"><HeadLabel icon={User}>Vendedor</HeadLabel></th>
+                    <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={Trophy}>Negócios ganhos</HeadLabel></th>
+                    <th className="text-right px-5 py-3 font-medium"><HeadLabel icon={Wallet}>Valor total</HeadLabel></th>
+                    <th className="text-right px-5 py-3 font-medium hidden md:table-cell"><HeadLabel icon={Receipt}>Ticket médio</HeadLabel></th>
                   </tr>
                 </thead>
                 <tbody>

@@ -28,7 +28,7 @@ export function DataList({
     // layout + borderRadius no style: altura anima suave e o framer corrige a distorção dos cantos
     <motion.div
       layout
-      className={cn('card overflow-hidden', outlined ? 'data-list-card' : 'data-list-plain', className)}
+      className={cn('card data-list-glass overflow-hidden', outlined ? 'data-list-card' : 'data-list-plain', className)}
       style={{ borderRadius: 16 }}
       transition={listSpring}
     >
@@ -42,7 +42,8 @@ export function DataListHead({ grid, children }: { grid: string; children: React
     <motion.div
       layout="position"
       className={cn(
-        'grid items-center gap-4 border-b-[6px] border-accent-green-dim bg-accent-green px-4 py-3',
+        // data-list-head: gancho pra variações da lista (ex.: .data-list-glass em Contatos)
+        'data-list-head grid items-center gap-4 border-b-[6px] border-accent-green-dim bg-accent-green px-4 py-3',
         'text-[11px] font-semibold uppercase tracking-[0.06em] text-[rgb(var(--on-accent))]',
         grid,
       )}
