@@ -780,8 +780,8 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 
 ### Tasks (ondas paralelas; detalhes no plano)
 
-- [ ] **T1** Base: `vitest` no backend, env do LeadHunter, migração `20240037` (flag + tabelas `lh_*`), `requireLeadHunter`
-- [ ] **T2** Domínio (port de `radar/domain.py`): validação, pontuação, chaves de cache, identidade
+- [x] **T1** Base: `vitest` no backend, env do LeadHunter, migração `20240037` (flag + tabelas `lh_*`), `requireLeadHunter` — commit `5d45a03` (27/10/2026). Andamento e rulings em `docs/superpowers/progress/2026-10-27-m25-andamento.md`; continuar com `docs/superpowers/prompts/2026-10-27-continuar-m25.md`
+- [x] **T2** Domínio (port de `radar/domain.py`): validação, pontuação, chaves de cache, identidade — commit `fe78a77` (27/10/2026)
 - [ ] **T3** CSV: importação e exportação (22 colunas, proteção contra fórmula)
 - [ ] **T4** Provedores DataForSEO e Jev (reserva antes da chamada, sem repetição)
 - [ ] **T5** Store em Postgres (reserva com trava global no limite diário)

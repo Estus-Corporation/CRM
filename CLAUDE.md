@@ -283,7 +283,7 @@ See [plan.md](./plan.md) for current progress.
 | M7 — Billing & Premium Tiers | ✅ Done |
 | M8 — Polish, Search, Deployment | ✅ Done |
 
-## Next: **M25 — LeadHunter dentro do CRM** (planejado em 27/10/2026, nada implementado). Executar o plano [docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md](./docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md) (desenho: [docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md](./docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md)) com `superpowers:subagent-driven-development` em ondas paralelas, a partir da T1 — prompt pronto e instruções de onde rodar em [docs/superpowers/prompts/2026-10-27-executar-m25.md](./docs/superpowers/prompts/2026-10-27-executar-m25.md) (sessão aberta no CRM com `--add-dir ../LeadHunter`). A validação do M24 T2 em produção foi **cancelada** (o executor externo sai na F3 do M25). Demais itens no backlog de [plan.md](./plan.md) (Z-API, webhook Stripe prod, Google OAuth prod)
+## Next: **M25 — LeadHunter dentro do CRM** (T1 e T2 prontas em 27/10/2026; retomar pela onda 3 = T3/T4/T5 com [docs/superpowers/prompts/2026-10-27-continuar-m25.md](./docs/superpowers/prompts/2026-10-27-continuar-m25.md) e o checkpoint [docs/superpowers/progress/2026-10-27-m25-andamento.md](./docs/superpowers/progress/2026-10-27-m25-andamento.md)). Executar o plano [docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md](./docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md) (desenho: [docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md](./docs/superpowers/specs/2026-10-27-leadhunter-no-crm-design.md)) com `superpowers:subagent-driven-development` em ondas paralelas, a partir da T1 — prompt pronto e instruções de onde rodar em [docs/superpowers/prompts/2026-10-27-executar-m25.md](./docs/superpowers/prompts/2026-10-27-executar-m25.md) (sessão aberta no CRM com `--add-dir ../LeadHunter`). A validação do M24 T2 em produção foi **cancelada** (o executor externo sai na F3 do M25). Demais itens no backlog de [plan.md](./plan.md) (Z-API, webhook Stripe prod, Google OAuth prod)
 
 | Task | Descrição | Status |
 |---|---|---|
@@ -330,7 +330,9 @@ See [plan.md](./plan.md) for current progress.
 | M23 T2 | Página do lead do captador + agenda dos admins (reunião vira evento), calendário redesenhado, header/menu novos | ✅ Done |
 | M24 T1 | Envio de leads do LeadHunter pela API pública (leads/bulk, public/users), migration 20240035 | ✅ Done |
 | M24 T2 | Pedidos de leads do CRM atendidos pelo LeadHunter (lead_requests, cotas, tela Solicitações de leads), migration 20240036 | ✅ Done |
-| M25 T1–T15 | LeadHunter dentro do CRM (port do Radar Local, só admin executa, `/solicitacoes` com campos do LeadHunter, flag por workspace) — plano em `docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md` | 📝 Planejado |
+| M25 T1 | Base do LeadHunter: `vitest` no backend, flag `tenants.leadhunter_enabled`, tabelas `lh_*` (migration 20240037), `requireLeadHunter` | ✅ Done |
+| M25 T2 | Domínio do LeadHunter (`modules/leadhunter/domain.ts`, port de `radar/domain.py`; hashes conferidos contra o Python) | ✅ Done |
+| M25 T3–T15 | LeadHunter dentro do CRM (port do Radar Local, só admin executa, `/solicitacoes` com campos do LeadHunter, flag por workspace) — plano em `docs/superpowers/plans/2026-10-27-leadhunter-no-crm.md` | 🚧 Em andamento — ver `docs/superpowers/progress/2026-10-27-m25-andamento.md` |
 | M26 T1 | Dashboard (KPIs com tendência, receita 6 meses, funil em colunas), Pipeline (cabeçalho com ícone, total no rodapé, cards de vidro), traço nos títulos, login sem travar | ✅ Done |
 
 ## Key implementation notes (context for future sessions)
@@ -340,7 +342,8 @@ See [plan.md](./plan.md) for current progress.
 
 - **Produção (desde 2026-10-26)**: site **https://crm-estus.vercel.app** (Vercel, Root Directory `packages/frontend`, env `VITE_API_URL`); backend **https://crm-production-6316.up.railway.app** (Railway, projeto "refreshing-miracle", build pelo `railway.json` → `packages/backend/Dockerfile`; health em `/health`) + Postgres do Railway (`DATABASE_URL=${{Postgres.DATABASE_URL}}`). `FRONTEND_URL` no Railway tem que ser exatamente `https://crm-estus.vercel.app` (URL inválida derruba o servidor na validação do `env.ts`; não usar o link temporário `-xxxx-estus1.vercel.app`). Push na `main` redeploya os dois. Migrations rodam sozinhas no start. Banco de produção começou vazio.
 
-- **M25 📝 — LeadHunter dentro do CRM (planejado 27/10/2026)**:
+- **M25 🚧 — LeadHunter dentro do CRM (planejado 27/10/2026; T1 ✅ T2 ✅)**:
+  - **T1 pronta:** `npm run test --workspace=packages/backend` (vitest; banco só via `TEST_DATABASE_URL`, que o guarda `assertTestDatabaseUrl` só aceita em host local e banco `*_test`, sem query além de `sslmode`; migrar sempre com `migrateTestDb()`); migration `20240037` (flag + `lh_*`, roda sozinha no boot do Railway, flag desligada); chaves de provedor vazias chegam como `''` → testar por veracidade. **T2 pronta:** `modules/leadhunter/domain.ts` puro; `fieldSources` é `Record<string,{source,url,observedAt}>`; `LINE_BREAKS` usa `new RegExp` de propósito. Rulings, desvios do Python e menores adiados em `docs/superpowers/progress/2026-10-27-m25-andamento.md`.
   - **O que vem do Radar Local:** todas as funções (campanhas DataForSEO/Jev, pontuação, cache de buscas, importar/exportar CSV, ficha, locais pesquisados, empresas já encontradas, consumo), **menos prévias de site**. Vão para o módulo novo `modules/leadhunter` + seção "LeadHunter" no frontend.
   - **Acesso:**
     - `/api/v1/leadhunter/*` = `requireAuth` → `requireLeadHunter` (404 se `tenants.leadhunter_enabled` é falso) → `requireRole('admin')`;
