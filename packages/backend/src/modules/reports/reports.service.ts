@@ -105,7 +105,40 @@ export async function getKpis(tenantId: string) {
     .select(db.raw("AVG(EXTRACT(DAY FROM closed_at - created_at)) as avg_days"))
     .first();
 
+  // Histórico dos últimos 6 meses (mês atual por último) — alimenta as linhas de tendência dos KPIs
+  const { rows: trendRows } = await db.raw(
+    `
+    WITH months AS (
+      SELECT generate_series(date_trunc('month', now()) - interval '5 months', date_trunc('month', now()), interval '1 month') AS m
+    )
+    SELECT
+      months.m,
+      (SELECT count(*) FROM deals d WHERE d.tenant_id = :tenantId AND d.status = 'won'
+         AND d.closed_at >= months.m AND d.closed_at < months.m + interval '1 month') AS won,
+      (SELECT count(*) FROM deals d WHERE d.tenant_id = :tenantId AND d.status = 'lost'
+         AND d.closed_at >= months.m AND d.closed_at < months.m + interval '1 month') AS lost,
+      (SELECT count(*) FROM deals d WHERE d.tenant_id = :tenantId
+         AND d.created_at < months.m + interval '1 month'
+         AND (d.status = 'open' OR d.closed_at >= months.m + interval '1 month')) AS open,
+      (SELECT AVG(EXTRACT(DAY FROM d.closed_at - d.created_at)) FROM deals d WHERE d.tenant_id = :tenantId
+         AND d.status = 'won' AND d.closed_at >= months.m AND d.closed_at < months.m + interval '1 month') AS cycle
+    FROM months
+    ORDER BY months.m
+    `,
+    { tenantId },
+  );
+  const trends = {
+    wonMtd: trendRows.map((r: { won: string }) => Number(r.won)),
+    openDeals: trendRows.map((r: { open: string }) => Number(r.open)),
+    conversionRate: trendRows.map((r: { won: string; lost: string }) => {
+      const closed = Number(r.won) + Number(r.lost);
+      return closed > 0 ? Math.round((Number(r.won) / closed) * 100) : 0;
+    }),
+    avgCycleDays: trendRows.map((r: { cycle: string | null }) => Math.round(Number(r.cycle ?? 0))),
+  };
+
   return {
+    trends,
     openDeals: Number(openDeals),
     wonMtd: Number(wonMtd),
     wonMtdValue: Number(wonMtdValue ?? 0),

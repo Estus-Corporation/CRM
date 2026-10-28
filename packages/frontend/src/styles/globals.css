@@ -111,6 +111,11 @@
     line-height: 1.08;
     letter-spacing: -0.035em;
     color: rgb(var(--text-primary));
+    /* Traço de lápis embaixo (::after): largura do texto, não da linha inteira */
+    position: relative;
+    width: fit-content;
+    max-width: 100%;
+    padding-bottom: 14px;
   }
   /* Títulos de detalhe (um contato, um negócio): mesma fonte, um degrau abaixo */
   .page-title-sm {
@@ -564,4 +569,25 @@
 }
 .data-list-plain::before {
   display: none;
+}
+
+/* ── Traço sob os títulos das telas (.page-title) ────────────────────────────
+   Linha reta de 3px, pontas arredondadas, no verde da marca — acompanha o tema. Ao abrir a tela, o traço "se desenha" da esquerda pra direita
+   (clip-path revela). Recria a cada troca de tela. */
+.page-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4px;
+  height: 3px;
+  border-radius: 999px;
+  background-color: rgb(var(--accent-green));
+  clip-path: inset(0 100% 0 0 round 999px);
+  animation: pencilDraw 0.8s cubic-bezier(0.65, 0, 0.35, 1) 0.28s forwards;
+  pointer-events: none;
+}
+@keyframes pencilDraw {
+  from { clip-path: inset(0 100% 0 0 round 999px); }
+  to { clip-path: inset(0 0 0 0 round 999px); }
 }

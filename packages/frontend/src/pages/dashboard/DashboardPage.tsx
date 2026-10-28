@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Briefcase, Trophy, Percent, Timer } from 'lucide-react';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Briefcase, Trophy, Percent, Timer, TrendingUp, Filter, Zap } from 'lucide-react';
 import { useKpis, useFunnel, useRevenue } from '@/hooks/useReports';
 import { useActivities } from '@/hooks/useActivities';
 import { useContacts } from '@/hooks/useContacts';
@@ -10,6 +12,7 @@ import { KpiCard } from '@/components/dashboard/KpiCard';
 import { FunnelChart } from '@/components/dashboard/FunnelChart';
 import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
+import { CardAction, CardHeader } from '@/components/dashboard/CardHeader';
 import { Spinner } from '@/components/ui/Spinner';
 
 function formatCurrency(v: number) {
@@ -22,7 +25,15 @@ function formatCurrency(v: number) {
 
 const FREE_CONTACT_LIMIT = 300;
 
+const RANGE_OPTIONS = [
+  { value: 'today', label: 'Hoje' },
+  { value: '7d', label: '7 dias' },
+  { value: '30d', label: '30 dias' },
+  { value: 'custom', label: 'Personalizado' },
+];
+
 export function DashboardPage() {
+  const [range, setRange] = useState('today');
   const user = useAuthStore((s) => s.user);
   const { data: kpis, isLoading: kpisLoading } = useKpis();
   const { data: funnel } = useFunnel();
@@ -37,9 +48,13 @@ export function DashboardPage() {
   return (
     // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
     <div className="mobile-sections space-y-5 max-md:space-y-3">
-      <div className="pt-1">
-        <h1 className="page-title">Olá, {user?.full_name?.split(' ')[0]}</h1>
-        <p className="mt-1.5 text-[14px] text-text-secondary">Resumo do seu workspace hoje</p>
+      <div className="flex flex-wrap items-end justify-between gap-4 pt-1">
+        <div>
+          <h1 className="page-title">Olá, {user?.full_name?.split(' ')[0]}</h1>
+          <p className="mt-1.5 text-[14px] text-text-secondary">Resumo do seu workspace hoje</p>
+        </div>
+        {/* Período (por enquanto só visual — os dados ainda não filtram por ele) */}
+        <SegmentedControl layoutId="dashboard-range-pill" options={RANGE_OPTIONS} value={range} onChange={setRange} />
       </div>
 
       {isFree && contactCount > 0 && (
@@ -89,17 +104,19 @@ export function DashboardPage() {
             label="Ganhos no mês"
             icon={Trophy}
             highlight
+            trend={kpis?.trends?.wonMtd}
             value={kpis ? kpis.wonMtd : '—'}
             sub={kpis && kpis.wonMtdValue > 0 ? `${formatCurrency(kpis.wonMtdValue)} em receita` : 'Nenhum ganho ainda'}
           />
-          <KpiCard label="Negócios em aberto" icon={Briefcase} value={kpis?.openDeals ?? '—'} sub="No pipeline agora" />
+          <KpiCard label="Negócios em aberto" icon={Briefcase} trend={kpis?.trends?.openDeals} value={kpis?.openDeals ?? '—'} sub="No pipeline agora" />
           <KpiCard
             label="Taxa de conversão"
             icon={Percent}
+            trend={kpis?.trends?.conversionRate}
             value={kpis ? `${kpis.conversionRate}%` : '—'}
             sub="Ganhos sobre fechados"
           />
-          <KpiCard label="Ciclo médio" icon={Timer} value={kpis ? `${kpis.avgCycleDays}d` : '—'} sub="Da criação ao fechamento" />
+          <KpiCard label="Ciclo médio" icon={Timer} trend={kpis?.trends?.avgCycleDays} lowerIsBetter value={kpis ? `${kpis.avgCycleDays}d` : '—'} sub="Da criação ao fechamento" />
         </div>
       )}
 
@@ -107,15 +124,21 @@ export function DashboardPage() {
       <div className="mobile-split grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <div>
           <div className="card h-full p-5">
-            <p className="mb-4 text-[17px] font-semibold text-text-primary sm:text-[15px] sm:font-medium">
-              Receita ao longo do tempo
-            </p>
+            <CardHeader icon={TrendingUp} title="Receita ao longo do tempo" action={<CardAction>Últimos 6 meses</CardAction>} />
             <RevenueChart data={revenue ?? []} />
           </div>
         </div>
         <div>
-          <div className="card h-full p-5">
-            <p className="mb-4 text-[17px] font-semibold text-text-primary sm:text-[15px] sm:font-medium">Funil do pipeline</p>
+          <div className="card flex h-full flex-col p-5">
+            <CardHeader
+              icon={Filter}
+              title="Funil do pipeline"
+              action={
+                <Link to="/pipeline">
+                  <CardAction>Ver pipeline</CardAction>
+                </Link>
+              }
+            />
             <FunnelChart data={funnel ?? []} />
           </div>
         </div>
@@ -124,12 +147,15 @@ export function DashboardPage() {
       {/* div: no celular vira o bloco translúcido e o card fica dentro (ver .mobile-sections) */}
       <div>
         <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[17px] font-semibold text-text-primary sm:text-[15px] sm:font-medium">Atividades recentes</p>
-            <Link to="/calendar" className="text-xs font-medium text-accent-green hover:underline">
-              Ver todas
-            </Link>
-          </div>
+          <CardHeader
+            icon={Zap}
+            title="Atividades recentes"
+            action={
+              <Link to="/calendar">
+                <CardAction>Ver todas</CardAction>
+              </Link>
+            }
+          />
           <ActivityFeed activities={activitiesData?.data ?? []} />
         </div>
       </div>

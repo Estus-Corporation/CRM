@@ -376,6 +376,7 @@ export function PipelinePage() {
     // mobile-sections: no celular cabeçalho, etapas e kanban viram blocos translúcidos (ver globals.css)
     <div className="mobile-sections space-y-4 flex-1 flex flex-col max-md:space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+        <div>
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="page-title">Pipeline</h1>
           <div className="flex gap-1">
@@ -394,12 +395,14 @@ export function PipelinePage() {
             ))}
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setSettingsOpen(true)} aria-label="Configurações">
-            <Settings size={14} /> <span className="max-md:hidden">Configurações</span>
+          <p className="mt-1.5 text-sm text-text-secondary">Arraste os negócios entre as etapas para acompanhar cada venda.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="lg" onClick={() => setSettingsOpen(true)} aria-label="Configurações" className="px-5 text-[15px]">
+            <Settings size={18} /> <span className="max-md:hidden">Configurações</span>
           </Button>
-          <Button size="sm" onClick={() => openDealModal((isMobile ? mobileStage?.id : localStages[0]?.id) ?? '')}>
-            <Plus size={14} /> Novo negócio
+          <Button size="lg" onClick={() => openDealModal((isMobile ? mobileStage?.id : localStages[0]?.id) ?? '')} className="px-6 text-[15px]">
+            <Plus size={18} strokeWidth={2.25} /> Novo negócio
           </Button>
         </div>
       </div>
@@ -442,7 +445,8 @@ export function PipelinePage() {
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
         >
-          <div className="flex gap-4 overflow-x-auto pb-4 flex-1 max-md:overflow-visible max-md:[&>*]:!w-full">
+          {/* gap-7: a "cabeça" de cada etapa passa 6px pra fora, então o vão visível fica ~16px */}
+          <div className="flex gap-7 overflow-x-auto px-1.5 pb-4 flex-1 max-md:overflow-visible max-md:[&>*]:!w-full">
             <SortableContext items={visibleStages.map((s) => s.id)} strategy={horizontalListSortingStrategy}>
               {visibleStages.map((stage) => (
                 <KanbanColumn

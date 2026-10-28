@@ -34,10 +34,19 @@ export function LoginPage() {
       setAuth(result.user, result.accessToken, result.refreshToken);
       navigate('/dashboard');
     } catch (err: unknown) {
-      const msg =
-        (err as { response?: { data?: { error?: string } } }).response?.data?.error ??
-        'Falha no login';
-      setServerError(msg);
+      const e = err as { code?: string; response?: { status?: number; data?: { error?: string } } };
+      if (!e.response) {
+        // Sem resposta: servidor desligado, tempo esgotado ou bloqueado pelo navegador
+        setServerError(
+          e.code === 'ECONNABORTED'
+            ? 'O servidor demorou demais para responder. Tente de novo em instantes.'
+            : 'Não foi possível conectar ao servidor. Verifique se o backend está rodando.',
+        );
+      } else if (e.response.status === 401) {
+        setServerError('E-mail ou senha incorretos.');
+      } else {
+        setServerError(e.response.data?.error ?? 'Falha no login');
+      }
     }
   };
 
