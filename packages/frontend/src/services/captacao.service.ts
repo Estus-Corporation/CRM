@@ -3,6 +3,13 @@ import { api } from './api';
 export type CallStatus = 'pending' | 'no_answer' | 'callback' | 'meeting' | 'lost';
 /** Plano B (WhatsApp): situação da mensagem */
 export type WhatsappStatus = 'waiting' | 'replied' | 'no_reply';
+/** Pessoa de contato conseguida na ligação (ex.: o dono, passado pelo atendente) */
+export interface LeadPerson {
+  name: string;
+  title?: string;
+  phone?: string;
+  email?: string;
+}
 export type Outcome = 'won' | 'lost' | null;
 /** won: só os que fecharam negócio (Minhas comissões) */
 export type MyLeadsScope = 'today' | 'open' | 'all' | 'won';
@@ -46,6 +53,7 @@ export interface MyLead {
   whatsapp_at: string | null;
   whatsapp_count: number;
   whatsapp_status: WhatsappStatus | null;
+  lead_people: LeadPerson[];
 }
 
 export interface MeetingGuest {
@@ -66,6 +74,7 @@ export interface UpdateMyLeadInput {
   meetingAttendeeIds?: string[];
   meetingGuests?: MeetingGuest[];
   whatsappStatus?: WhatsappStatus | null;
+  leadPeople?: LeadPerson[];
 }
 
 export interface MySummary {
@@ -145,6 +154,7 @@ export interface ManagerLead {
   google_rating: number | null;
   google_reviews: number | null;
   lead_context: string | null;
+  lead_people: LeadPerson[];
   /** Já atribuído: id da atribuição e nome do captador */
   assignment_id: string | null;
   captador_name: string | null;

@@ -32,6 +32,7 @@ import {
 } from '@/lib/captacao';
 import { PAIN_ICON } from '@/components/captacao/LeadCard';
 import { AddLeadModal } from '@/components/captacao/AddLeadModal';
+import { LeadPeopleCard } from '@/components/captacao/LeadPeopleCard';
 import { GmailIcon, GoogleIcon, InstagramIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { QuickLink } from '@/components/ui/QuickLink';
 import { Button } from '@/components/ui/Button';
@@ -244,6 +245,11 @@ export function ManagerLeadPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Contatos que o captador conseguiu (só leitura aqui) */}
+        <div className="max-lg:order-3">
+          <LeadPeopleCard people={lead.lead_people ?? []} />
         </div>
 
         {/* Sobre o lead + Possíveis dores (cada um num bloco no celular) */}

@@ -78,7 +78,7 @@ const MY_LEAD_COLUMNS = [
   'a.meeting_duration', 'a.meeting_attendee_ids', 'a.meeting_guests',
   'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
   db.raw('a.commission_value::float8 as commission_value'),
-  'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.lead_context',
+  'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.lead_context', 'c.lead_people',
   // Dados de prospecção (LeadHunter / planilha)
   'c.address', 'c.maps_url', 'c.instagram', 'c.website', 'c.google_reviews',
   db.raw('c.google_rating::float8 as google_rating'),
@@ -174,7 +174,7 @@ async function syncMeetingEvent(tenantId: string, userId: string, assignmentId: 
 export async function updateMyLead(tenantId: string, userId: string, id: string, input: UpdateMyLeadInput) {
   const lead = await db('lead_assignments')
     .where({ id, tenant_id: tenantId, captador_id: userId })
-    .first('id', 'outcome', 'call_status');
+    .first('id', 'outcome', 'call_status', 'contact_id');
   if (!lead) throw httpError('Lead not found', 404);
   if (lead.outcome) throw httpError('Lead already closed by an admin', 409);
 
@@ -214,6 +214,18 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
   }
 
   await db('lead_assignments').where({ id, tenant_id: tenantId, captador_id: userId }).update(updates);
+  // Pessoas de contato ficam na empresa (o admin também vê); só a do lead deste captador
+  if (input.leadPeople !== undefined) {
+    const people = input.leadPeople.map((p) => ({
+      name: p.name,
+      ...(p.title ? { title: p.title } : {}),
+      ...(p.phone ? { phone: p.phone } : {}),
+      ...(p.email ? { email: p.email.toLowerCase() } : {}),
+    }));
+    await db('contacts')
+      .where({ id: lead.contact_id, tenant_id: tenantId })
+      .update({ lead_people: JSON.stringify(people), updated_at: new Date() });
+  }
   if (input.concluded !== undefined) await syncMeetingEvent(tenantId, userId, id);
 
   return db('lead_assignments as a')
@@ -379,7 +391,7 @@ export async function getLeadForManager(tenantId: string, contactId: string) {
     .whereNot('c.type', 'client')
     .first(
       'c.id', 'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.created_at',
-      'c.address', 'c.maps_url', 'c.instagram', 'c.website', 'c.google_reviews', 'c.lead_context',
+      'c.address', 'c.maps_url', 'c.instagram', 'c.website', 'c.google_reviews', 'c.lead_context', 'c.lead_people',
       db.raw('c.google_rating::float8 as google_rating'),
       db.raw('a.id as assignment_id'), db.raw('u.full_name as captador_name'),
     );

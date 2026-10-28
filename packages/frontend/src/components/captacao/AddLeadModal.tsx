@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { cn, withPhoneMask } from '@/lib/utils';
+import { capitalizeName, cn, JOB_TITLE_OPTIONS, lowerEmail, withPhoneMask, withTransform } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -21,6 +21,7 @@ import {
   Tag,
   User,
   UserPlus,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { captacaoService, type ManagerLead } from '@/services/captacao.service';
@@ -83,12 +84,23 @@ export function AddLeadModal({
     reset,
     getValues,
     setFocus,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: EMPTY });
 
+  // Cargo: lista pronta; "Outro" (ou um cargo que não está na lista) vira campo livre
+  const [customJob, setCustomJob] = useState(false);
+  const jobTitle = watch('jobTitle');
+
   // Editar: ao abrir, o formulário vem preenchido com os dados atuais do lead
   useEffect(() => {
-    if (!open || !editing) return;
+    if (!open) return;
+    if (!editing) {
+      setCustomJob(false);
+      return;
+    }
+    setCustomJob(!!editing.job_title && !JOB_TITLE_OPTIONS.includes(editing.job_title));
     reset({
       ...EMPTY,
       fullName: editing.full_name,
@@ -110,6 +122,7 @@ export function AddLeadModal({
     setTimeout(() => {
       reset(EMPTY);
       setAdded(0);
+      setCustomJob(false);
     }, 250);
   };
 
@@ -216,13 +229,13 @@ export function AddLeadModal({
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
           <Section icon={User} title="Contato">
             <Field icon={User} id="lead-name" label="Nome" required error={errors.fullName?.message} className="sm:col-span-2">
-              <input {...register('fullName')} id="lead-name" placeholder="Maria Souza" autoFocus className={fieldClass(!!errors.fullName)} />
+              <input {...withTransform(register('fullName'), capitalizeName)} id="lead-name" placeholder="Maria Souza" autoFocus className={fieldClass(!!errors.fullName)} />
             </Field>
             <Field icon={Phone} id="lead-phone" label="Telefone / WhatsApp">
               <input {...withPhoneMask(register('phone'))} id="lead-phone" placeholder="(16) 99999-0000" inputMode="tel" className={fieldClass()} />
             </Field>
             <Field icon={Mail} id="lead-email" label="E-mail" error={errors.email?.message}>
-              <input {...register('email')} id="lead-email" type="email" placeholder="maria@empresa.com" className={fieldClass(!!errors.email)} />
+              <input {...withTransform(register('email'), lowerEmail)} id="lead-email" type="email" inputMode="email" autoCapitalize="none" placeholder="maria@empresa.com" className={fieldClass(!!errors.email)} />
             </Field>
           </Section>
 
@@ -231,7 +244,42 @@ export function AddLeadModal({
               <input {...register('companyName')} id="lead-company" placeholder="Padaria Pão Bom" className={fieldClass()} />
             </Field>
             <Field icon={Briefcase} id="lead-job" label="Cargo">
-              <input {...register('jobTitle')} id="lead-job" placeholder="Sócia" className={fieldClass()} />
+              {customJob ? (
+                <>
+                  <input {...register('jobTitle')} id="lead-job" placeholder="Qual cargo?" autoFocus className={cn(fieldClass(), 'pr-9')} />
+                  <button
+                    type="button"
+                    title="Voltar pras opções"
+                    onClick={() => {
+                      setCustomJob(false);
+                      setValue('jobTitle', '');
+                    }}
+                    className="absolute right-2 top-1/2 z-[1] -translate-y-1/2 rounded-md p-1 text-text-muted hover:text-text-primary"
+                  >
+                    <X size={13} />
+                  </button>
+                </>
+              ) : (
+                <select
+                  id="lead-job"
+                  value={jobTitle}
+                  onChange={(e) => {
+                    if (e.target.value === '__other') {
+                      setCustomJob(true);
+                      setValue('jobTitle', '');
+                    } else setValue('jobTitle', e.target.value);
+                  }}
+                  className={cn(fieldClass(), !jobTitle && 'text-text-muted')}
+                >
+                  <option value="">Selecione o cargo</option>
+                  {JOB_TITLE_OPTIONS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                  <option value="__other">Outro…</option>
+                </select>
+              )}
             </Field>
             <Field icon={Tag} id="lead-niche" label="Nicho">
               <input {...register('niche')} id="lead-niche" placeholder="Ex.: Odontologia" list="lead-niche-options" className={fieldClass()} />

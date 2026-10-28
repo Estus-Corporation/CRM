@@ -20,6 +20,18 @@ export const updateMyLeadSchema = z.object({
     .optional(),
   // Plano B (WhatsApp): situação da mensagem; null = plano B não usado
   whatsappStatus: z.enum(['waiting', 'replied', 'no_reply']).nullable().optional(),
+  // Pessoas de contato conseguidas na ligação (lista inteira; salva na empresa)
+  leadPeople: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1).max(120),
+        title: z.string().trim().max(80).optional(),
+        phone: z.string().trim().max(50).optional(),
+        email: z.string().trim().email().max(255).optional().or(z.literal('')),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 
 export const myLeadsQuerySchema = z.object({
