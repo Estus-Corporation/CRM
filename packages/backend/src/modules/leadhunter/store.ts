@@ -340,15 +340,16 @@ export async function searchCoverage(tenantId: string, campaignId: string): Prom
 }
 
 /** Empresas da campanha com análise e observações, da maior pontuação para a menor. */
-export async function companies(tenantId: string, campaignId: string): Promise<Company[]> {
-  const rows = await db('lh_campaign_companies as cc')
+export async function companies(tenantId: string, campaignId: string, trx?: Knex.Transaction): Promise<Company[]> {
+  const q: Executor = trx ?? db;
+  const rows = await q('lh_campaign_companies as cc')
     .join('lh_companies as c', function join() {
       this.on('c.id', 'cc.company_id').andOn('c.tenant_id', 'cc.tenant_id');
     })
     .where({ 'cc.tenant_id': tenantId, 'cc.campaign_id': campaignId })
     .orderBy('cc.position')
     .select('c.*', 'cc.analysis');
-  const observations = await db('lh_observations')
+  const observations = await q('lh_observations')
     .where({ tenant_id: tenantId, campaign_id: campaignId })
     .orderBy('observed_at')
     .orderBy('query')
@@ -526,8 +527,8 @@ export async function exportRows(tenantId: string, ids?: string[]): Promise<Expo
   });
 }
 
-export async function setCrm(tenantId: string, companyId: string, crm: CrmResult): Promise<void> {
-  const updated = await db('lh_companies')
+export async function setCrm(tenantId: string, companyId: string, crm: CrmResult, trx?: Knex.Transaction): Promise<void> {
+  const updated = await (trx ?? db)('lh_companies')
     .where({ tenant_id: tenantId, id: companyId })
     .update({ crm: json(crm), updated_at: db.fn.now() });
   if (!updated) throw new Error(COMPANY_NOT_FOUND);

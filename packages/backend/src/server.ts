@@ -26,6 +26,8 @@ import notificationRoutes from './modules/notifications/notifications.routes';
 import contractRoutes from './modules/contracts/contracts.routes';
 import captacaoRoutes from './modules/captacao/captacao.routes';
 import notesRoutes from './modules/notes/notes.routes';
+import leadhunterRoutes from './modules/leadhunter/leadhunter.routes';
+import { startWorker } from './modules/leadhunter/engine';
 import { tierRateLimiter } from './shared/middleware/rateLimiter';
 
 const app = express();
@@ -62,11 +64,14 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/contacts/:contactId/contracts', contractRoutes);
 app.use('/api/v1/captacao', captacaoRoutes);
 app.use('/api/v1/notes', notesRoutes);
+app.use('/api/v1/leadhunter', leadhunterRoutes);
 
 app.use(errorHandler);
 
 db.migrate.latest().then(() => {
   console.log('[db] Migrations up to date');
+  // Worker do LeadHunter no próprio processo (supõe uma instância no Railway); nos testes não sobe
+  if (env.NODE_ENV !== 'test') startWorker();
   app.listen(env.PORT, () => {
     console.log(`[server] Running on http://localhost:${env.PORT}`);
   });
