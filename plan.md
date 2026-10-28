@@ -795,3 +795,17 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 - [ ] **T13** Pedidos de leads no frontend (campos do LeadHunter; `/solicitacoes` liberado ao captador no `AppShell`)
 - [ ] **T14** Importação do histórico do Radar Local (export Python só leitura + import TS só inserção)
 - [ ] **T15** Remoção de `/public/leads/bulk` e corte em produção (com autorização do usuário em cada passo)
+
+> **Mudança de regra (28/10/2026, M26 T2):** `/solicitacoes` e `/api/v1/lead-requests` passaram a ser **só admin** (pedido do usuário). T12/T13 do M25 devem seguir essa regra — os outros papéis não pedem mais leads — a menos que o usuário diga o contrário.
+
+## M26 — Visual do Dashboard/Pipeline e captação
+
+- [x] **T1** Dashboard (KPIs com tendência, receita 6 meses, funil em colunas), Pipeline redesenhado, traço nos títulos, login sem travar
+- [x] **T2** (28/10/2026) Captação e ajustes visuais — migration **20240039** (roda sozinha no boot do Railway; 20240038 fica reservada pro M25):
+  - captador cadastra os próprios leads (`POST /captacao/me/leads`, não gasta a cota diária, sem notificação pra si mesmo)
+  - lead tirado de um captador não volta sozinho pela distribuição automática (`lead_assignment_removals`)
+  - página do lead: card "Formulário" com Ligação / Mensagem (WhatsApp: `whatsapp_at`, `whatsapp_count`, `whatsapp_status` waiting/replied/no_reply — `POST /captacao/me/leads/:id/whatsapp`) / Agenda / Anotações; "Sobre o lead" só com a ficha (o `lead_context` não aparece mais), Possíveis dores em card próprio
+  - acompanhamento dos admins com selo do WhatsApp; notificação `leads.assigned` agrupada enquanto não lida (6h)
+  - Painel do captador e Meus leads no padrão do Dashboard; Relatórios com KPIs com ícone (sem sparkline)
+  - Sobre a empresa: ficha (empresa, segmento, telefone, Instagram, e-mail, WhatsApp, site), card "Sobre a empresa" removido, Serviços e preços reestruturado (`OfferFilePanel`), ícones `PdfFileIcon`/`DocxFileIcon`
+  - Solicitações de leads só pra admin; vidro em `SegmentedControl` (pílula 3px maior) e nos cards do kanban
