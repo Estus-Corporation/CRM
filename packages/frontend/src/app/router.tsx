@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from '@/components/layout/AppShell';
 import { ProtectedRoute } from './ProtectedRoute';
 import { LoginPage } from '@/pages/auth/LoginPage';
@@ -18,9 +18,9 @@ import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { CaptacaoPage } from '@/pages/captacao/CaptacaoPage';
 import { MyLeadsPage } from '@/pages/captacao/MyLeadsPage';
 import { MyLeadDetailPage } from '@/pages/captacao/MyLeadDetailPage';
+import { ManagerLeadPage } from '@/pages/captacao/ManagerLeadPage';
 import { MyCommissionsPage } from '@/pages/captacao/MyCommissionsPage';
 import { MyDashboardPage } from '@/pages/captacao/MyDashboardPage';
-import { LeadRequestsPage } from '@/pages/lead-requests/LeadRequestsPage';
 import { CompanyPage } from '@/pages/company/CompanyPage';
 import { AccountPage } from '@/pages/account/AccountPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -77,12 +77,14 @@ export const router = createBrowserRouter([
       { path: '/reports', element: <ReportsPage /> },
       { path: '/settings', element: <SettingsPage /> },
       { path: '/captacao', element: <CaptacaoPage /> },
+      { path: '/captacao/lead/:id', element: <ManagerLeadPage /> },
       { path: '/meu-painel', element: <MyDashboardPage /> },
       { path: '/meus-leads', element: <MyLeadsPage key="leads" /> },
       { path: '/meus-leads/reunioes', element: <MyLeadsPage key="meetings" view="meetings" /> },
       { path: '/meus-leads/lead/:id', element: <MyLeadDetailPage /> },
       { path: '/minhas-comissoes', element: <MyCommissionsPage /> },
-      { path: '/solicitacoes', element: <LeadRequestsPage /> },
+      // Solicitações viraram a opção "Automático" do Adicionar lead (Captação › Distribuir leads)
+      { path: '/solicitacoes', element: <Navigate to="/captacao?tab=distribute&novo=auto" replace /> },
       { path: '/empresa', element: <CompanyPage /> },
       { path: '/conta', element: <AccountPage /> },
     ],

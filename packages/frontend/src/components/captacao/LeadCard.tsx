@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Building2, ClipboardPen, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
+  Building2, ClipboardPen, Users, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
 } from 'lucide-react';
 import { useRecordWhatsapp, useUpdateMyLead } from '@/hooks/useCaptacao';
 import type { CallStatus, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
@@ -28,6 +28,7 @@ import {
 import { GmailIcon, InstagramIcon, GoogleIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { Button } from '@/components/ui/Button';
 import { AdminAgenda, type MeetingPick } from './AdminAgenda';
+import { LeadPeopleCard } from './LeadPeopleCard';
 import { QuickLink } from '@/components/ui/QuickLink';
 import { listSpring } from '@/components/ui/DataList';
 import { cn } from '@/lib/utils';
@@ -37,7 +38,7 @@ const MEETING_MODES = [
   { value: 'presencial', label: 'Presencial', icon: MapPin },
 ] as const;
 
-const PAIN_ICON: Record<LeadPain, typeof Globe> = {
+export const PAIN_ICON: Record<LeadPain, typeof Globe> = {
   no_site: Globe,
   no_instagram: Instagram,
   no_marketing: Megaphone,
@@ -123,6 +124,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   const [showAgenda, setShowAgenda] = useState(false);
   const [showPlanA, setShowPlanA] = useState(false);
   const [showPlanB, setShowPlanB] = useState(false);
+  const [showPeople, setShowPeople] = useState(false);
   const [waStatus, setWaStatus] = useState<WhatsappStatus | null>(lead.whatsapp_status);
   const locked = lead.outcome !== null;
   const concluded = !!lead.concluded_at && !locked;
@@ -677,6 +679,23 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                   </div>
             </PlanBlock>
 
+            {/* Contatos conseguidos na ligação: bloco do Formulário, salva na hora (ligado à empresa) */}
+            <p className="mb-2.5 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Contatos</p>
+            <PlanBlock
+              icon={<Users size={17} />}
+              title={`Contatos do lead${(lead.lead_people ?? []).length ? ` · ${(lead.lead_people ?? []).length}` : ''}`}
+              done={(lead.lead_people ?? []).length > 0}
+              open={showPeople}
+              onToggle={() => setShowPeople((v) => !v)}
+            >
+              <LeadPeopleCard
+                bare
+                people={lead.lead_people ?? []}
+                saving={update.isPending}
+                onSave={(next) => update.mutate({ id: lead.id, leadPeople: next })}
+              />
+            </PlanBlock>
+
             {/* Seção à parte: título à esquerda + espaço (mesmo padrão do Protocolo de contato) */}
             <p className="mb-2.5 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Anotações</p>
 
@@ -768,6 +787,18 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         )}
 
       </div>
+
+      {/* Lead concluído/fechado: o Formulário vira resumo, então os contatos aparecem num card (concluído
+          ainda edita; fechado pelo admin = só leitura) */}
+      {(concluded || locked) && (lead.lead_people ?? []).length > 0 && (
+        <div className="max-lg:order-3">
+          <LeadPeopleCard
+            people={lead.lead_people ?? []}
+            saving={update.isPending}
+            onSave={locked ? undefined : (next) => update.mutate({ id: lead.id, leadPeople: next })}
+          />
+        </div>
+      )}
 
       {/* Celular: "Concluir lead" é um botão próprio embaixo do Formulário (não dentro dele) */}
       {!locked && !concluded && (

@@ -105,6 +105,10 @@ export function useCaptadores({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({ queryKey: captacaoKeys.captadores, queryFn: captacaoService.captadores, enabled });
 }
 
+export function useManagerLead(id: string) {
+  return useQuery({ queryKey: ['captacao', 'lead', id], queryFn: () => captacaoService.managerLead(id), enabled: !!id });
+}
+
 export function useAvailableContacts(params: { search?: string; niche?: string; page?: number; limit?: number }) {
   return useQuery({
     queryKey: captacaoKeys.available(params),

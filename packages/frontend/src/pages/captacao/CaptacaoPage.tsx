@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, FileSpreadsheet, Plus, Settings, UserPlus } from 'lucide-react';
 import { useTenant, isCompanyProfileComplete } from '@/hooks/useTenant';
 import { useAuthStore } from '@/store/authStore';
@@ -16,6 +16,7 @@ import { TrackingTab } from '@/components/captacao/TrackingTab';
 import { AddMemberModal } from '@/components/team/AddMemberModal';
 import { AddLeadModal } from '@/components/captacao/AddLeadModal';
 import { ImportLeadsModal } from '@/components/captacao/ImportLeadsModal';
+import { AddLeadChooser, AutoLeadsModal } from '@/components/captacao/AddLeadChooser';
 
 type Tab = 'team' | 'distribute' | 'tracking';
 
@@ -24,6 +25,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: 'distribute', label: 'Distribuir leads' },
   { value: 'tracking', label: 'Acompanhamento' },
 ];
+
 
 /** Engrenagem da Captação: comissão e cota diária da distribuição automática */
 function SettingsModal({ open, onClose, current }: { open: boolean; onClose: () => void; current: CaptacaoSettings }) {
@@ -105,7 +107,14 @@ export function CaptacaoPage() {
   const commissionRate = settings?.commissionRate ?? 8;
   const leadsPerDay = settings?.leadsPerDay ?? 10;
 
-  const [tab, setTab] = useState<Tab>('team');
+  // ?tab=distribute abre direto na aba; ?novo=auto já abre a busca automática (o antigo /solicitacoes leva pra cá)
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') as Tab | null;
+  const tabs = TABS;
+  const [tab, setTab] = useState<Tab>(initialTab && tabs.some((t) => t.value === initialTab) ? initialTab : 'team');
+  // "Adicionar lead" pergunta antes: manual (formulário) ou automático (Radar)
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [autoOpen, setAutoOpen] = useState(isAdmin && searchParams.get('novo') === 'auto');
   const [trackingCaptador, setTrackingCaptador] = useState('');
   const [newOpen, setNewOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
@@ -139,7 +148,7 @@ export function CaptacaoPage() {
                   <FileSpreadsheet size={17} />
                   Importar planilha
                 </Button>
-                <Button size="lg" onClick={() => setAddLeadOpen(true)} className="px-6 text-[15px]">
+                <Button size="lg" onClick={() => setChooserOpen(true)} className="px-6 text-[15px]">
                   <Plus size={18} strokeWidth={2.25} />
                   Adicionar lead
                 </Button>
@@ -174,8 +183,8 @@ export function CaptacaoPage() {
 
       {/* Abas: segmentado no desktop, dropdown no celular (sem rolagem lateral) */}
       <div>
-        <SegmentedControl layoutId="captacao-tabs" options={TABS} value={tab} onChange={setTab} className="max-md:hidden" />
-        <SelectDropdown title="Seção" options={TABS} value={tab} onChange={setTab} className="w-full md:hidden" />
+        <SegmentedControl layoutId="captacao-tabs" options={tabs} value={tab} onChange={setTab} className="max-md:hidden" />
+        <SelectDropdown title="Seção" options={tabs} value={tab} onChange={setTab} className="w-full md:hidden" />
       </div>
 
       {tab === 'team' && (
@@ -191,7 +200,7 @@ export function CaptacaoPage() {
       {tab === 'distribute' && (
         <DistributeTab
           leadsPerDay={leadsPerDay}
-          onAddLead={() => setAddLeadOpen(true)}
+          onAddLead={() => setChooserOpen(true)}
           onOpenSettings={isAdmin ? () => setRateOpen(true) : undefined}
         />
       )}
@@ -207,6 +216,14 @@ export function CaptacaoPage() {
       <AddMemberModal open={newOpen} onClose={() => setNewOpen(false)} fixedRole="captador" />
       <SettingsModal open={rateOpen} onClose={() => setRateOpen(false)} current={{ commissionRate, leadsPerDay }} />
       <AddLeadModal open={addLeadOpen} onClose={() => setAddLeadOpen(false)} />
+      <AddLeadChooser
+        open={chooserOpen}
+        onClose={() => setChooserOpen(false)}
+        onManual={() => setAddLeadOpen(true)}
+        onAuto={() => setAutoOpen(true)}
+        canAuto={isAdmin}
+      />
+      {isAdmin && <AutoLeadsModal open={autoOpen} onClose={() => setAutoOpen(false)} />}
       <ImportLeadsModal open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );

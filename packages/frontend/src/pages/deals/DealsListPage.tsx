@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { HeadLabel } from '@/components/ui/HeadLabel';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Trophy, X, Circle, Briefcase, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Trophy, X, Circle, Briefcase, Search, ChevronLeft, ChevronRight, CalendarClock, CircleDot, User, UserCheck, Wallet } from 'lucide-react';
 import { useDeals } from '@/hooks/useDeals';
 import { usePipelines } from '@/hooks/usePipeline';
 import { Badge } from '@/components/ui/Badge';
@@ -121,13 +122,13 @@ export function DealsListPage() {
       ) : (
         <DataList>
           <DataListHead grid={GRID}>
-            <span>Negócio</span>
-            <span className="hidden md:block">Contato</span>
+            <span><HeadLabel icon={Briefcase}>Negócio</HeadLabel></span>
+            <span className="hidden md:block"><HeadLabel icon={User}>Contato</HeadLabel></span>
             {/* Alinhado à esquerda como as outras colunas — à direita ele encostava na coluna Status */}
-            <span className="hidden sm:block">Valor</span>
-            <span>Status</span>
-            <span className="hidden lg:block">Responsável</span>
-            <span className="hidden lg:block">Previsão</span>
+            <span className="hidden sm:block"><HeadLabel icon={Wallet}>Valor</HeadLabel></span>
+            <span><HeadLabel icon={CircleDot}>Status</HeadLabel></span>
+            <span className="hidden lg:block"><HeadLabel icon={UserCheck}>Responsável</HeadLabel></span>
+            <span className="hidden lg:block"><HeadLabel icon={CalendarClock}>Previsão</HeadLabel></span>
           </DataListHead>
 
           <DataListBody>

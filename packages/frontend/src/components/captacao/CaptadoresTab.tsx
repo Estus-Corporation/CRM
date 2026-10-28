@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion';
-import { HandCoins, ListChecks, Users } from 'lucide-react';
+import { HeadLabel } from '@/components/ui/HeadLabel';
+import { CalendarCheck, HandCoins, ListChecks, Trophy, Users, Wallet, Headset, Phone, Sun } from 'lucide-react';
+import { KpiCard } from '@/components/dashboard/KpiCard';
 import { useCaptadores, usePayAllCommissions } from '@/hooks/useCaptacao';
 import { formatBRL } from '@/lib/captacao';
 import { Avatar } from '@/components/ui/Avatar';
@@ -52,36 +54,35 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
   return (
     // mobile-split: no celular cada parte vira um bloco translúcido separado (ver globals.css)
     <div className="mobile-split space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <div className="card p-4">
-          <p className="text-xs font-medium text-text-secondary">Reuniões marcadas</p>
-          <p className="mt-2 text-3xl font-semibold tabular-nums text-text-primary">{totals.meetings}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs font-medium text-text-secondary">Negócios fechados</p>
-          <p className="mt-2 text-3xl font-semibold tabular-nums text-text-primary">{totals.won}</p>
-          <p className="mt-1 text-xs text-text-muted">{formatBRL(totals.wonValue)} em vendas</p>
-        </div>
-        <div className="card kpi-highlight p-4">
-          <p className="text-xs font-medium text-text-secondary">Comissões a pagar</p>
-          <p className="mt-2 text-3xl font-semibold tabular-nums text-accent-amber">{formatBRL(totals.pending)}</p>
-        </div>
-        <div className="card p-4">
-          <p className="text-xs font-medium text-text-secondary">Comissões pagas</p>
-          <p className="mt-2 text-3xl font-semibold tabular-nums text-text-primary">{formatBRL(totals.paid)}</p>
-        </div>
+      {/* Mesmos cards dos KPIs do Dashboard: ícone no quadrado verde, número grande e descrição */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <KpiCard
+          label="Reuniões marcadas"
+          icon={CalendarCheck}
+          value={totals.meetings}
+          sub={`${captadores.filter((c) => c.is_active).length} captador${captadores.filter((c) => c.is_active).length !== 1 ? 'es' : ''} ativo${captadores.filter((c) => c.is_active).length !== 1 ? 's' : ''}`}
+        />
+        <KpiCard label="Negócios fechados" icon={Trophy} value={totals.won} sub={`${formatBRL(totals.wonValue)} em vendas`} />
+        <KpiCard
+          label="Comissões a pagar"
+          icon={HandCoins}
+          highlight
+          value={formatBRL(totals.pending)}
+          sub={totals.pending > 0 ? 'Aguardando pagamento' : 'Nada pendente'}
+        />
+        <KpiCard label="Comissões pagas" icon={Wallet} value={formatBRL(totals.paid)} sub="Já repassado aos captadores" />
       </div>
 
       <div>
       <DataList outlined={false}>
         <DataListHead grid={GRID}>
-          <span>Captador</span>
-          <span className="hidden md:block">Hoje</span>
-          <span className="hidden lg:block">A ligar</span>
-          <span className="hidden md:block">Reuniões</span>
-          <span className="hidden md:block">Fechados</span>
-          <span className="hidden md:block">A pagar</span>
-          <span className="hidden lg:block">Pago</span>
+          <span><HeadLabel icon={Headset}>Captador</HeadLabel></span>
+          <span className="hidden md:block"><HeadLabel icon={Sun}>Hoje</HeadLabel></span>
+          <span className="hidden lg:block"><HeadLabel icon={Phone}>A ligar</HeadLabel></span>
+          <span className="hidden md:block"><HeadLabel icon={CalendarCheck}>Reuniões</HeadLabel></span>
+          <span className="hidden md:block"><HeadLabel icon={Trophy}>Fechados</HeadLabel></span>
+          <span className="hidden md:block"><HeadLabel icon={HandCoins}>A pagar</HeadLabel></span>
+          <span className="hidden lg:block"><HeadLabel icon={Wallet}>Pago</HeadLabel></span>
           <span />
         </DataListHead>
         <DataListBody>

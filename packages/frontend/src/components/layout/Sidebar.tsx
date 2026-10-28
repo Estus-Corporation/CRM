@@ -13,7 +13,6 @@ import {
   CalendarCheck,
   Wallet,
   Building2,
-  SearchCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -38,35 +37,37 @@ const ICON = { size: 20, strokeWidth: 1.75 };
 // end: só ativo na rota exata (sem isso, /meus-leads acenderia em /meus-leads/reunioes)
 type NavSection = { title: string; items: { to: string; icon: LucideIcon; label: string; end?: boolean }[] };
 
+const dashboard = { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' };
+const reports = { to: '/reports', icon: BarChart3, label: 'Relatórios' };
+const calendar = { to: '/calendar', icon: Calendar, label: 'Calendário' };
+const company = { to: '/empresa', icon: Building2, label: 'Sobre a empresa' };
+
+const sales: NavSection = {
+  title: 'Vendas',
+  items: [
+    { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
+    { to: '/deals', icon: Briefcase, label: 'Negócios' },
+    { to: '/contacts', icon: Users, label: 'Contatos' },
+  ],
+};
+
+// Nenhuma seção com um item só: o Calendário (de todos) fica na Visão geral
+// Vendedor: "Sobre a empresa" junto da visão geral (não tem a parte de Empresa/Captação)
 const sections: NavSection[] = [
-  {
-    title: 'Visão geral',
-    items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/reports', icon: BarChart3, label: 'Relatórios' },
-      { to: '/empresa', icon: Building2, label: 'Sobre a empresa' },
-    ],
-  },
-  {
-    title: 'Vendas',
-    items: [
-      { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
-      { to: '/deals', icon: Briefcase, label: 'Negócios' },
-      { to: '/contacts', icon: Users, label: 'Contatos' },
-    ],
-  },
-  {
-    title: 'Agenda',
-    items: [{ to: '/calendar', icon: Calendar, label: 'Calendário' }],
-  },
+  { title: 'Visão geral', items: [dashboard, reports, calendar, company] },
+  sales,
 ];
 
-// Admin/gerente: operação de captação (distribuir leads, acompanhar, comissões)
+// Admin/gerente: a operação da empresa (captação + perfil que a equipe consulta) numa seção só
 const managerSections: NavSection[] = [
-  ...sections,
+  { title: 'Visão geral', items: [dashboard, reports, calendar] },
+  sales,
   {
-    title: 'Captação',
-    items: [{ to: '/captacao', icon: Headset, label: 'Captação' }],
+    title: 'Empresa',
+    items: [
+      { to: '/captacao', icon: Headset, label: 'Captação' },
+      company,
+    ],
   },
 ];
 
@@ -77,8 +78,7 @@ const captadorSections: NavSection[] = [
     items: [
       // Painel = o dashboard de quem liga (semana/mês, gráficos)
       { to: '/meu-painel', icon: LayoutDashboard, label: 'Painel' },
-      // Quem acabou de entrar começa entendendo o que vai vender
-      { to: '/empresa', icon: Building2, label: 'Sobre a empresa' },
+      { to: '/minhas-comissoes', icon: Wallet, label: 'Minhas comissões' },
     ],
   },
   {
@@ -86,21 +86,15 @@ const captadorSections: NavSection[] = [
     items: [
       { to: '/meus-leads', icon: PhoneCall, label: 'Meus leads', end: true },
       { to: '/meus-leads/reunioes', icon: CalendarCheck, label: 'Reuniões' },
+      // O material de venda que ele consulta antes de ligar
+      company,
     ],
-  },
-  {
-    title: 'Ganhos',
-    items: [{ to: '/minhas-comissoes', icon: Wallet, label: 'Minhas comissões' }],
   },
 ];
 
-// Admin vê o menu do gerente (inclusive "Sobre a empresa", como a equipe enxerga o perfil)
-// + Solicitações de leads, que é só dos admins
-const adminSections: NavSection[] = managerSections.map((s) =>
-  s.title === 'Vendas'
-    ? { ...s, items: [...s.items, { to: '/solicitacoes', icon: SearchCheck, label: 'Solicitações de leads' }] }
-    : s,
-);
+// Admin vê o mesmo menu do gerente (inclusive "Sobre a empresa", como a equipe enxerga o perfil).
+// Solicitações de leads é uma aba da Captação (só admin).
+const adminSections: NavSection[] = managerSections;
 
 export function sectionsFor(role: string | undefined) {
   if (role === 'captador') return captadorSections;

@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { HeadLabel } from '@/components/ui/HeadLabel';
 import { motion } from 'framer-motion';
-import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle } from 'lucide-react';
+import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Flag, Headset, PhoneCall } from 'lucide-react';
 import {
   useAssignments,
   useCaptadores,
@@ -230,11 +231,11 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
       ) : (
         <DataList outlined={false}>
           <DataListHead grid={GRID}>
-            <span>Lead</span>
-            <span className="hidden md:block">Captador</span>
-            <span className="hidden md:block">Resultado da ligação</span>
-            <span className="hidden xl:block">Recebido</span>
-            <span className="text-right">Fechamento</span>
+            <span><HeadLabel icon={Building2}>Lead</HeadLabel></span>
+            <span className="hidden md:block"><HeadLabel icon={Headset}>Captador</HeadLabel></span>
+            <span className="hidden md:block"><HeadLabel icon={PhoneCall}>Resultado da ligação</HeadLabel></span>
+            <span className="hidden xl:block"><HeadLabel icon={CalendarDays}>Recebido</HeadLabel></span>
+            <span className="text-right"><HeadLabel icon={Flag}>Fechamento</HeadLabel></span>
           </DataListHead>
           <DataListBody>
             {rows.map((a, i) => (

@@ -25,3 +25,45 @@ export function withPhoneMask<T extends { onChange: (e: { target: { value: strin
     },
   };
 }
+
+/** Aplica uma transformação no valor digitado (mesmo formato do withPhoneMask) */
+export function withTransform<T extends { onChange: (e: { target: { value: string } }) => unknown }>(
+  field: T,
+  fn: (value: string) => string,
+): T {
+  return {
+    ...field,
+    onChange: (e: { target: { value: string } }) => {
+      e.target.value = fn(e.target.value);
+      return field.onChange(e);
+    },
+  };
+}
+
+export const lowerEmail = (v: string) => v.toLowerCase().replace(/\s/g, '');
+
+// Preposições que ficam minúsculas no meio do nome ("Maria da Silva")
+const NAME_LOWER = new Set(['de', 'da', 'do', 'dos', 'das', 'e']);
+
+/** Nome com a primeira letra de cada palavra maiúscula (mantém o resto como digitado) */
+export function capitalizeName(value: string): string {
+  return value.replace(/(^|\s)(\S)(\S*)/g, (_m, sp: string, first: string, rest: string, offset: number) => {
+    const word = (first + rest).toLowerCase();
+    if (offset > 0 && NAME_LOWER.has(word)) return sp + word;
+    return sp + first.toUpperCase() + rest;
+  });
+}
+
+/** Cargos prontos pra escolher (pessoa de contato / lead); "Outro" abre campo livre */
+export const JOB_TITLE_OPTIONS = [
+  'Dono(a)',
+  'Sócio(a)',
+  'Gerente',
+  'Diretor(a)',
+  'Atendente',
+  'Recepcionista',
+  'Secretário(a)',
+  'Comprador(a)',
+  'Marketing',
+  'Financeiro',
+];

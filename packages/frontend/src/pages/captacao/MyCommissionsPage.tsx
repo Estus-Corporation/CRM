@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, Clock, HandCoins, Trophy, Wallet } from 'lucide-react';
+import { HeadLabel } from '@/components/ui/HeadLabel';
+import { CheckCircle2, Clock, HandCoins, Trophy, Wallet, Building2, CalendarDays, CircleDot } from 'lucide-react';
 import { useMyLeads, useMySummary } from '@/hooks/useCaptacao';
 import { formatBRL } from '@/lib/captacao';
 import { PageHeader } from '@/components/ui/PageHeader';
@@ -66,10 +67,10 @@ export function MyCommissionsPage() {
         ) : (
           <DataList outlined={false}>
             <DataListHead grid={GRID}>
-              <span>Lead</span>
-              <span className="hidden md:block">Fechado em</span>
-              <span>Comissão</span>
-              <span>Status</span>
+              <span><HeadLabel icon={Building2}>Lead</HeadLabel></span>
+              <span className="hidden md:block"><HeadLabel icon={CalendarDays}>Fechado em</HeadLabel></span>
+              <span><HeadLabel icon={Wallet}>Comissão</HeadLabel></span>
+              <span><HeadLabel icon={CircleDot}>Status</HeadLabel></span>
             </DataListHead>
             <DataListBody>
               {leads.map((l, i) => (

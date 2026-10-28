@@ -93,6 +93,11 @@ export const listAvailableContacts = wrap(async (req, res) => {
   res.json(await CaptacaoService.listAvailableContacts(req.user!.tenantId, query));
 });
 
+export const getLeadForManager = wrap(async (req, res) => {
+  const data = await CaptacaoService.getLeadForManager(req.user!.tenantId, req.params.id);
+  res.json({ data });
+});
+
 export const assignLeads = wrap(async (req, res) => {
   const input = assignLeadsSchema.parse(req.body);
   const data = await CaptacaoService.assignLeads(req.user!.tenantId, req.user!.id, input);

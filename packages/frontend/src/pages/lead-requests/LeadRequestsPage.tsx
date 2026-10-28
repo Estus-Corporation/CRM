@@ -124,7 +124,11 @@ function UserFilter({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-export function LeadRequestsPage() {
+/**
+ * Solicitações de leads. Mora como aba da Captação (`embedded`): sem cabeçalho de página, com uma
+ * barra curta explicando a aba; o filtro por pessoa fica na própria barra.
+ */
+export function LeadRequestsPage({ embedded = false }: { embedded?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
   const isManagerial = role === 'admin' || role === 'manager';
@@ -133,13 +137,24 @@ export function LeadRequestsPage() {
   const requests = data ?? [];
 
   return (
-    // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
-    <div className="mobile-sections space-y-5 max-md:space-y-3">
-      <PageHeader
-        title="Solicitações de leads"
-        subtitle="Peça empresas por nicho e cidade; o Radar Local busca e entrega aqui"
-        actions={isManagerial ? <UserFilter value={userId} onChange={setUserId} /> : undefined}
-      />
+    // Página solta: mobile-sections; dentro da Captação (que já tem): mobile-split, cada filho = um bloco
+    <div className={cn(embedded ? 'mobile-split space-y-4' : 'mobile-sections space-y-5 max-md:space-y-3')}>
+      {embedded ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-fg/[0.03] px-4 py-3 text-sm text-text-secondary">
+          <SearchCheck size={15} className="flex-shrink-0 text-accent-green" />
+          <span className="min-w-0 flex-1">
+            <strong className="font-medium text-text-primary">Abasteça a fila da captação:</strong> peça empresas por nicho e cidade — o
+            Radar Local busca e os leads entram em Distribuir leads.
+          </span>
+          {isManagerial && <UserFilter value={userId} onChange={setUserId} />}
+        </div>
+      ) : (
+        <PageHeader
+          title="Solicitações de leads"
+          subtitle="Peça empresas por nicho e cidade; o Radar Local busca e entrega aqui"
+          actions={isManagerial ? <UserFilter value={userId} onChange={setUserId} /> : undefined}
+        />
+      )}
 
       <div>
         <LeadRequestForm />

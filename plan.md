@@ -809,3 +809,12 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
   - Painel do captador e Meus leads no padrão do Dashboard; Relatórios com KPIs com ícone (sem sparkline)
   - Sobre a empresa: ficha (empresa, segmento, telefone, Instagram, e-mail, WhatsApp, site), card "Sobre a empresa" removido, Serviços e preços reestruturado (`OfferFilePanel`), ícones `PdfFileIcon`/`DocxFileIcon`
   - Solicitações de leads só pra admin; vidro em `SegmentedControl` (pílula 3px maior) e nos cards do kanban
+- [x] **T3** (28/10/2026) Relatórios e captação, sem migration nova:
+  - Relatórios: abas **Vendas** (`components/reports/SalesReport.tsx`: KPIs do intervalo + receita por período + pipeline por etapa) e **Captação** (`CaptacaoReport.tsx`: funil e conversão por captador, só admin/gerente); "Ranking" virou "Vendedores"; seletor Mensal/Semanal na linha das abas
+  - Distribuir leads em cards; clique abre `/captacao/lead/:id` (`ManagerLeadPage`, `GET /captacao/leads/:id`) com atribuição e edição (`AddLeadModal` com `editing`)
+  - "Adicionar lead" → `AddLeadChooser` (Manual / Automático pelo Radar, só admin); Solicitações de leads saiu do menu e das abas (`/solicitacoes` → `/captacao?tab=distribute&novo=auto`)
+  - `topUpDailyLeads`: remoções do dia contam na cota
+  - menu lateral sem seções de um item só; listas/tabelas com vidro escuro (`.data-list-glass`) e ícones nos cabeçalhos (`HeadLabel`)
+- [x] **T4** (28/10/2026) Contatos do lead — migration **20240040** (`contacts.lead_people` jsonb `[{name,title?,phone?,email?}]`, roda sozinha no boot):
+  - bloco "Contatos do lead" no Formulário (`LeadPeopleCard bare`), salva na hora (`leadPeople` no `PATCH /captacao/me/leads/:id`); card próprio quando o lead está concluído/fechado e na página do lead do admin (leitura)
+  - nome capitalizado (`capitalizeName`), cargo com `JOB_TITLE_OPTIONS` + "Outro", e-mail minúsculo (`lowerEmail`, `withTransform`) no contato do lead e no Adicionar/Editar lead
