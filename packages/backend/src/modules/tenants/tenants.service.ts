@@ -48,6 +48,8 @@ const PUBLIC_COLUMNS = [
   'offer_file_name', 'offer_file_mime', 'offer_file_size',
   // Cotas dos pedidos de leads
   'lead_request_max_quantity', 'lead_request_daily_per_user',
+  // Flag do LeadHunter (ligada só por SQL, nunca editável por aqui)
+  'leadhunter_enabled',
 ];
 
 /** Membros ativos do workspace (foto, papel, desde quando) — o mais antigo primeiro */

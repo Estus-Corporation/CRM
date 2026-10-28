@@ -19,6 +19,14 @@ const schema = z.object({
   EMAIL_FROM: z.string().default('TitanFlow <onboarding@resend.dev>'),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
+  // LeadHunter (busca de leads): sem as chaves a campanha ao vivo não roda
+  DATAFORSEO_LOGIN: z.string().optional(),
+  DATAFORSEO_PASSWORD: z.string().optional(),
+  TYPESAFE_API_KEY: z.string().optional(),
+  TYPESAFE_MODEL: z.string().default('jev-1.13.0'),
+  LEADHUNTER_MAX_CALLS_PER_CAMPAIGN: z.coerce.number().int().min(0).default(80),
+  LEADHUNTER_MAX_CALLS_PER_DAY: z.coerce.number().int().min(0).default(200),
+  LEADHUNTER_SEARCH_CACHE_DAYS: z.coerce.number().int().min(0).default(30),
 });
 
 const parsed = schema.safeParse(process.env);

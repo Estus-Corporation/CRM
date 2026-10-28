@@ -32,6 +32,8 @@ export interface Tenant {
   /** Cotas dos pedidos de leads: máx. de empresas por pedido e pedidos por dia por usuário (0 = desativado) */
   lead_request_max_quantity: number;
   lead_request_daily_per_user: number;
+  /** LeadHunter liberado para o workspace (flag ligada só por SQL) */
+  leadhunter_enabled: boolean;
 }
 
 export interface TenantMember {
