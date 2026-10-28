@@ -32,6 +32,21 @@ function errorMessage(err: unknown, fallback: string) {
   return (err as { response?: { data?: { error?: string } } }).response?.data?.error ?? fallback;
 }
 
+/** Igual a `errorMessage`, mas lê o corpo de erro de downloads (`responseType: 'blob'`), que o axios entrega como Blob */
+async function downloadErrorMessage(err: unknown, fallback: string) {
+  const data = (err as { response?: { data?: unknown } }).response?.data;
+  if (data instanceof Blob) {
+    try {
+      const message = (JSON.parse(await data.text()) as { error?: unknown }).error;
+      if (typeof message === 'string') return message;
+    } catch {
+      // corpo que não é JSON: cai no texto padrão
+    }
+    return fallback;
+  }
+  return errorMessage(err, fallback);
+}
+
 /** Workspace com o LeadHunter liberado (flag ligada só por SQL). Enquanto o tenant carrega, é falso. */
 export function useLeadHunterEnabled(): boolean {
   return useTenant().data?.leadhunter_enabled === true;
@@ -174,10 +189,10 @@ export function useFoundCompanies(demo: boolean) {
   });
 }
 
-/** CSV de empresas já encontradas (`companyIds` ausente = todas); devolve o Blob para a tela baixar */
+/** CSV de empresas já encontradas (`mutate()` sem ids = todas); devolve o Blob para a tela baixar */
 export function useExportFound() {
   return useMutation({
-    mutationFn: leadhunterService.exportFound,
-    onError: (err) => toast.error(errorMessage(err, 'Não foi possível exportar')),
+    mutationFn: (companyIds: string[] | void) => leadhunterService.exportFound(companyIds || undefined),
+    onError: async (err) => toast.error(await downloadErrorMessage(err, 'Não foi possível exportar')),
   });
 }
