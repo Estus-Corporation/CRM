@@ -7,6 +7,8 @@ import { toast } from 'sonner';
 
 export const api = axios.create({
   baseURL: API_URL,
+  // Sem isso, um pedido que nunca responde deixa a tela carregando pra sempre (ex.: "Entrando…")
+  timeout: 20_000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -37,7 +39,9 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response?.status !== 401 || originalRequest._retry) {
+    // 401 do próprio login/cadastro é "senha errada", não sessão expirada — não tenta renovar
+    const isAuthEndpoint = /\/auth\/(login|register|refresh)$/.test(originalRequest?.url ?? '');
+    if (error.response?.status !== 401 || originalRequest._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
 

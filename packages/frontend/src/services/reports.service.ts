@@ -1,6 +1,8 @@
 import { api } from './api';
 
 export interface KpiData {
+  /** Últimos 6 meses, o atual por último */
+  trends?: { wonMtd: number[]; openDeals: number[]; conversionRate: number[]; avgCycleDays: number[] };
   openDeals: number;
   wonMtd: number;
   wonMtdValue: number;

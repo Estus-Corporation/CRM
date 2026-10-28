@@ -1,6 +1,6 @@
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Loader2, Plus } from 'lucide-react';
+import { ClipboardCheck, FileText, Flag, GripVertical, Handshake, Loader2, Plus, Trophy, Users, type LucideIcon } from 'lucide-react';
 import type { StageMeta, Deal } from '@/services/pipeline.service';
 import { useInfiniteStageDeals } from '@/hooks/usePipeline';
 import { KanbanCard } from './KanbanCard';
@@ -22,19 +22,34 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(value);
 }
 
+/** Ícone da etapa pelo nome (pipeline padrão); etapas personalizadas caem na bandeira */
+function stageIcon(name: string): LucideIcon {
+  const n = name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (n.includes('prospec') || n.includes('lead')) return Users;
+  if (n.includes('qualif')) return ClipboardCheck;
+  if (n.includes('propost')) return FileText;
+  if (n.includes('negoci')) return Handshake;
+  if (n.includes('fecha') || n.includes('ganh')) return Trophy;
+  return Flag;
+}
+
 /** Cabeçalho da coluna — também usado na cópia que segue o mouse ao reordenar etapas */
 export function StageHeader({ stage, dragHandle }: { stage: StageMeta; dragHandle?: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-fg/[0.06] bg-bg-surface px-3.5 pb-3 pt-3.5">
+    // "Cabeça" mais larga que a coluna: passa 6px de cada lado de propósito; o corpo segue na largura normal
+    <div className="relative z-[1] -mx-4 -mt-2.5 rounded-[20px] border border-fg/[0.08] bg-bg-surface px-5 pb-3 pt-4 shadow-[0_10px_24px_-14px_rgba(0,0,0,0.6)]">
+      {/* Nome grande + contagem; o valor total fica no rodapé da coluna */}
       <div className="flex items-center gap-2">
         {dragHandle}
-        <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ background: stage.color, boxShadow: `0 0 0 3px ${stage.color}26` }} />
-        <p className="min-w-0 flex-1 truncate text-[14px] font-semibold text-text-primary">{stage.name}</p>
-        <span className="flex-shrink-0 rounded-full bg-fg/[0.07] px-2 py-0.5 text-[11px] font-semibold tabular-nums text-text-secondary">
+        {(() => {
+          const Icon = stageIcon(stage.name);
+          return <Icon size={21} strokeWidth={2.3} className="flex-shrink-0 text-text-primary" />;
+        })()}
+        <p className="ml-1 min-w-0 flex-1 truncate text-[17px] font-bold tracking-[-0.01em] text-text-primary">{stage.name}</p>
+        <span className="flex h-7 min-w-7 flex-shrink-0 items-center justify-center rounded-full bg-fg/[0.1] px-2 text-[13px] font-bold tabular-nums text-text-primary">
           {stage.dealCount}
         </span>
       </div>
-      <p className="mt-1 pl-[18px] text-xs tabular-nums text-text-muted">{formatCurrency(stage.totalValue)}</p>
       <div className="mt-2.5 h-[2px] rounded-full" style={{ background: `linear-gradient(90deg, ${stage.color}, ${stage.color}00)` }} />
     </div>
   );
@@ -128,6 +143,12 @@ export function KanbanColumn({
         >
           <Plus size={13} /> Novo negócio
         </button>
+      </div>
+
+      {/* Rodapé fixo na base da coluna: total em jogo na etapa */}
+      <div className="sticky bottom-0 -mx-2.5 -mb-2.5 mt-auto flex items-center justify-between rounded-b-[23px] border-t border-fg/[0.06] bg-bg-surface/80 px-4 py-3 backdrop-blur-md">
+        <span className="text-[12px] font-medium text-text-muted">Total em jogo</span>
+        <span className="text-[15px] font-semibold tabular-nums text-text-primary">{formatCurrency(stage.totalValue)}</span>
       </div>
     </div>
   );
