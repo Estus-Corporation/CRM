@@ -798,6 +798,15 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 
 > **Mudança de regra (28/10/2026, M26 T2):** `/solicitacoes` e `/api/v1/lead-requests` passaram a ser **só admin** (pedido do usuário). T12/T13 do M25 devem seguir essa regra — os outros papéis não pedem mais leads — a menos que o usuário diga o contrário.
 
+## M27 — Dados do LeadHunter no contato
+
+- [x] **T1** (28/10/2026) Sem migration nova:
+  - `GET /contacts/:id` devolve `address, maps_url, website, instagram, google_rating (number), google_reviews, lead_score, lead_context, external_id`
+  - `GET /contacts/:id/leadhunter` (`requireAuth`, sem flag/papel): ficha lida de `lh_companies` por `external_id` (módulo `leadhunter/contactView.ts`, `store.companyByIdentity`), só campos permitidos — nunca notas, etapa, `crm`, procedência nem custos
+  - painel "Dados de prospecção" em `ContactDetailPage` (`components/contacts/LeadHunterInfo.tsx`, `useContactLeadHunter`)
+  - **Instagram**: antes só ia ao CRM se o admin confirmasse (`confirmed`), e em pedido entregue automático ninguém confirma → nunca chegava. Agora sem confirmação vai o melhor candidato (`candidate`), com "Instagram não confirmado: conferir o perfil" no `lead_context` e no painel. `rejected`/`not_found` continuam sem enviar
+  - testes de integração novos (`contactView.int.test.ts`) escritos mas **não executados** (sem `TEST_DATABASE_URL`)
+
 ## M26 — Visual do Dashboard/Pipeline e captação
 
 - [x] **T1** Dashboard (KPIs com tendência, receita 6 meses, funil em colunas), Pipeline redesenhado, traço nos títulos, login sem travar
