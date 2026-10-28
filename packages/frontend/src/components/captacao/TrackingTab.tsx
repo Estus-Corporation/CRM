@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { HeadLabel } from '@/components/ui/HeadLabel';
 import { motion } from 'framer-motion';
-import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Flag, Headset, PhoneCall } from 'lucide-react';
+import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Flag, Headset, Hourglass, PhoneCall } from 'lucide-react';
 import {
   useAssignments,
   useCaptadores,
@@ -245,6 +245,16 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
                   <p className="truncate text-xs text-text-muted">
                     {[a.phone, a.company_name].filter(Boolean).join(' · ') || '—'}
                   </p>
+                  {/* Captador marcou "Em aguardo" (some ao concluir ou quando o admin fecha) */}
+                  {a.on_hold_at && !a.concluded_at && !a.outcome && (
+                    <span
+                      className="mt-1 inline-flex items-center gap-1 rounded-full bg-accent-amber/15 px-2 py-0.5 text-[11px] font-medium text-accent-amber"
+                      title={`Em aguardo desde ${new Date(a.on_hold_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                    >
+                      <Hourglass size={11} />
+                      Em aguardo · {new Date(a.on_hold_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
                 </div>
                 <span className="hidden truncate text-sm text-text-secondary md:block">{a.captador_name ?? '(removido)'}</span>
                 <div className="hidden min-w-0 md:block">

@@ -178,6 +178,9 @@ export interface Assignment {
   commission_rate: number | null;
   commission_value: number | null;
   commission_paid_at: string | null;
+  concluded_at: string | null;
+  /** Captador marcou "Em aguardo" */
+  on_hold_at: string | null;
   /** Plano B: o captador abriu o WhatsApp do lead */
   whatsapp_at: string | null;
   whatsapp_count: number;

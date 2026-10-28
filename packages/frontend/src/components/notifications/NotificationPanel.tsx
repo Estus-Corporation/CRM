@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { dropdownMotion } from '@/lib/motion';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Bell, Check, CheckCheck, Trophy, TrendingDown, ArrowRightLeft, PhoneCall, UserCheck, UserX, Users, X, type LucideIcon } from 'lucide-react';
+import { Bell, Check, CheckCheck, Hourglass, Trophy, TrendingDown, ArrowRightLeft, PhoneCall, UserCheck, UserX, Users, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { Notification } from '@/services/notifications.service';
@@ -18,6 +18,7 @@ const TYPE_ICON: Record<string, LucideIcon> = {
   'deal.stage_changed': ArrowRightLeft,
   'leads.assigned': PhoneCall,
   'leads.won': Trophy,
+  'leads.on_hold': Hourglass,
   'workspace.added': Users,
   'workspace.invite_accepted': UserCheck,
   'workspace.invite_declined': UserX,
@@ -87,6 +88,7 @@ function NotificationItem({ n, onRead }: { n: Notification; onRead: (id: string)
           (n.type === 'leads.assigned' || n.type === 'workspace.added' || n.type === 'workspace.invite_accepted') &&
             'bg-accent-green/15 text-accent-green',
           n.type === 'workspace.invite_declined' && 'bg-fg/[0.08] text-text-muted',
+          n.type === 'leads.on_hold' && 'bg-accent-amber/15 text-accent-amber',
           n.type === 'deal.lost' && 'bg-status-lost/20 text-status-lost',
           n.type === 'deal.stage_changed' && 'bg-status-open/20 text-status-open',
           !TYPE_ICON[n.type] && 'bg-bg-border text-text-muted',

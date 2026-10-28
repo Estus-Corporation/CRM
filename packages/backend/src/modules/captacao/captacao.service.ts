@@ -171,10 +171,36 @@ async function syncMeetingEvent(tenantId: string, userId: string, assignmentId: 
   }
 }
 
+/** Captador colocou um lead em aguardo: notificação pra cada admin ativo do espaço */
+async function notifyOnHold(tenantId: string, captadorId: string, contactId: string) {
+  const [captador, contact, admins] = await Promise.all([
+    db('users').where({ id: captadorId }).first('full_name'),
+    db('contacts').where({ id: contactId, tenant_id: tenantId }).first('full_name', 'company_name'),
+    db('user_tenants as ut')
+      .join('users as u', 'ut.user_id', 'u.id')
+      .where({ 'ut.tenant_id': tenantId, 'ut.role': 'admin', 'ut.is_active': true, 'u.is_active': true })
+      .pluck('u.id'),
+  ]);
+  const leadName = contact?.company_name || contact?.full_name || 'um lead';
+  await Promise.all(
+    (admins as string[]).map((adminId) =>
+      createNotification({
+        tenantId,
+        userId: adminId,
+        type: 'leads.on_hold',
+        title: `${captador?.full_name ?? 'Captador'} colocou ${leadName} em aguardo`,
+        body: 'Veja em Captação › Acompanhamento.',
+        resourceType: 'contact',
+        resourceId: contactId,
+      }),
+    ),
+  );
+}
+
 export async function updateMyLead(tenantId: string, userId: string, id: string, input: UpdateMyLeadInput) {
   const lead = await db('lead_assignments')
     .where({ id, tenant_id: tenantId, captador_id: userId })
-    .first('id', 'outcome', 'call_status', 'contact_id');
+    .first('id', 'outcome', 'call_status', 'contact_id', 'on_hold_at');
   if (!lead) throw httpError('Lead not found', 404);
   if (lead.outcome) throw httpError('Lead already closed by an admin', 409);
 
@@ -230,6 +256,8 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
       .update({ lead_people: JSON.stringify(people), updated_at: new Date() });
   }
   if (input.concluded !== undefined) await syncMeetingEvent(tenantId, userId, id);
+  // Acabou de entrar em aguardo → avisa os admins
+  if (input.onHold === true && input.concluded !== true && !lead.on_hold_at) await notifyOnHold(tenantId, userId, lead.contact_id);
 
   return db('lead_assignments as a')
     .join('contacts as c', 'a.contact_id', 'c.id')
@@ -585,7 +613,7 @@ export async function listAssignments(tenantId: string, query: AssignmentsQuery)
     .clone()
     .select(
       'a.id', 'a.contact_id', 'a.captador_id', 'a.assigned_for', 'a.call_status', 'a.call_notes',
-      'a.call_updated_at', 'a.outcome', 'a.closed_at', 'a.commission_paid_at',
+      'a.call_updated_at', 'a.outcome', 'a.closed_at', 'a.commission_paid_at', 'a.concluded_at', 'a.on_hold_at',
       'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
       db.raw('a.deal_value::float8 as deal_value'),
       db.raw('a.commission_rate::float8 as commission_rate'),
