@@ -13,12 +13,16 @@ import {
   CalendarCheck,
   Wallet,
   Building2,
+  Radar,
+  MapPin,
+  Plug,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { useTenant } from '@/hooks/useTenant';
+import { useLeadHunterEnabled } from '@/hooks/useLeadHunter';
 import { CompanyLogo } from '@/components/company/CompanyLogo';
 import { motion } from 'framer-motion';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
@@ -96,9 +100,20 @@ const captadorSections: NavSection[] = [
 // Solicitações de leads é uma aba da Captação (só admin).
 const adminSections: NavSection[] = managerSections;
 
-export function sectionsFor(role: string | undefined) {
+// LeadHunter: só admin, e só em workspace com a flag ligada
+const leadhunterSection: NavSection = {
+  title: 'LeadHunter',
+  items: [
+    { to: '/leadhunter', icon: Radar, label: 'Campanhas', end: true },
+    { to: '/leadhunter/locais', icon: MapPin, label: 'Locais pesquisados' },
+    { to: '/leadhunter/integracoes', icon: Plug, label: 'Integrações' },
+  ],
+};
+const adminSectionsWithLeadHunter: NavSection[] = [...adminSections, leadhunterSection];
+
+export function sectionsFor(role: string | undefined, leadhunterEnabled = false) {
   if (role === 'captador') return captadorSections;
-  if (role === 'admin') return adminSections;
+  if (role === 'admin') return leadhunterEnabled ? adminSectionsWithLeadHunter : adminSections;
   if (role === 'manager') return managerSections;
   return sections;
 }
@@ -189,6 +204,7 @@ function SidebarWorkspace() {
 
 function SidebarContent({ onNavigate, onToggle }: { onNavigate?: () => void; onToggle?: () => void }) {
   const role = useAuthStore((s) => s.user?.role);
+  const leadhunterEnabled = useLeadHunterEnabled();
 
   return (
     <>
@@ -196,7 +212,7 @@ function SidebarContent({ onNavigate, onToggle }: { onNavigate?: () => void; onT
       <SidebarHeader onToggle={onToggle} onNavigate={onNavigate} />
 
       <nav className="flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3 py-4">
-        {sectionsFor(role).map((section) => (
+        {sectionsFor(role, leadhunterEnabled).map((section) => (
           <SidebarSection key={section.title} title={section.title}>
             {section.items.map(({ to, icon: Icon, label, end }) => (
               <SidebarLink key={to} to={to} end={end} label={label} icon={<Icon {...ICON} />} onNavigate={onNavigate} />

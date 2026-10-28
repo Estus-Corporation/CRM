@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useTenant } from '@/hooks/useTenant';
+import { useLeadHunterEnabled } from '@/hooks/useLeadHunter';
 import { CompanyLogo } from '@/components/company/CompanyLogo';
 import { sectionsFor } from './Sidebar';
 import { cn } from '@/lib/utils';
@@ -27,7 +28,8 @@ const SHORT: Record<string, string> = {
 export function MobileTabBar() {
   const role = useAuthStore((s) => s.user?.role);
   const { data: tenant } = useTenant();
-  const items = sectionsFor(role).flatMap((s) => s.items);
+  const leadhunterEnabled = useLeadHunterEnabled();
+  const items = sectionsFor(role, leadhunterEnabled).flatMap((s) => s.items);
   const tabs = (TABS[role ?? 'seller'] ?? TABS.seller)
     .map((to) => items.find((i) => i.to === to))
     .filter((i): i is (typeof items)[number] => !!i);

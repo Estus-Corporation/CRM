@@ -11,19 +11,22 @@ import { UpgradeModal } from '@/components/billing/UpgradeModal';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SilkShader } from '@/components/ui/SilkShader';
 import { useTenant } from '@/hooks/useTenant';
+import { useLeadHunterEnabled } from '@/hooks/useLeadHunter';
 import { applyTheme, useTheme } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 
 const CAPTADOR_PATHS = ['/meu-painel', '/conta', '/empresa', '/meus-leads', '/meus-leads/reunioes','/minhas-comissoes'];
 
 /** Para onde cada papel pode ir; fora disso redireciona (o backend também bloqueia) */
-function roleRedirect(role: string | undefined, pathname: string) {
+function roleRedirect(role: string | undefined, pathname: string, leadhunterEnabled: boolean) {
   // Captador cai no painel dele (o "dashboard" de quem liga)
   if (role === 'captador') {
     return CAPTADOR_PATHS.includes(pathname) || pathname.startsWith('/meus-leads/lead/') ? null : '/meu-painel';
   }
   if (pathname.startsWith('/captacao') && role !== 'admin' && role !== 'manager') return '/dashboard';
-  if (pathname.startsWith('/solicitacoes') && role !== 'admin') return '/dashboard';
+  if (pathname.startsWith('/solicitacoes') && (role !== 'admin' || !leadhunterEnabled)) return '/dashboard';
+  // LeadHunter: só admin e só com a flag do workspace ligada
+  if (pathname.startsWith('/leadhunter') && (role !== 'admin' || !leadhunterEnabled)) return '/dashboard';
   return null;
 }
 
@@ -31,9 +34,12 @@ export function AppShell() {
   const role = useAuthStore((s) => s.user?.role);
   const { pathname } = useLocation();
   const outlet = useOutlet();
-  const redirectTo = roleRedirect(role, pathname);
+  const { isPending: tenantPending } = useTenant();
+  const leadhunterEnabled = useLeadHunterEnabled();
+  // A flag só é conhecida depois do GET /tenant: nas telas que dependem dela, espera em vez de decidir às cegas
+  const waitingFlag = tenantPending && (pathname.startsWith('/leadhunter') || pathname.startsWith('/solicitacoes'));
+  const redirectTo = waitingFlag ? null : roleRedirect(role, pathname, leadhunterEnabled);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  useTenant();
   const theme = useTheme();
 
   // Tema vale só dentro do app: landing e telas de login seguem sempre escuras
@@ -69,7 +75,7 @@ export function AppShell() {
               <ErrorBoundary>
                 {redirectTo ? (
                   <Navigate to={redirectTo} replace />
-                ) : (
+                ) : waitingFlag ? null : (
                   // Troca de tela animada; useOutlet congela a tela antiga enquanto ela sai
                   <AnimatePresence mode="wait" initial={false}>
                     <motion.div key={pathname} {...pageMotion} className="flex min-h-full flex-col">
