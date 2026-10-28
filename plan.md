@@ -831,3 +831,4 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
   - botão ao lado de "Concluir lead" (no celular, os dois lado a lado embaixo do Formulário); salva resultado, anotação e agenda completa sem concluir; clicar de novo tira do aguardo
   - `onHold` no `PATCH /captacao/me/leads/:id`; concluir limpa `on_hold_at`; selo âmbar "Em aguardo" na lista e na página
 - [x] **T6** (28/10/2026) Admins veem o aguardo: selo "Em aguardo · data" no Acompanhamento (`listAssignments` devolve `on_hold_at`/`concluded_at`) e notificação `leads.on_hold` pra cada admin ativo quando o lead entra em aguardo
+- [x] **T7** (28/10/2026) Coluna **Status** no Acompanhamento (`StatusChip`: Pendente / Em aguardo / Concluído / Encerrado); resultado `callback` ("Em aguardo") saiu de `CALL_STATUS_ORDER` (opções da ligação e filtros) — o valor segue no banco/tipos só pra leads antigos; aviso no `LeadCard` quando a resposta não traz `on_hold_at` (servidor desatualizado)
