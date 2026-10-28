@@ -25,6 +25,8 @@ export interface MyLead {
   closed_at: string | null;
   /** Captador clicou em "Concluir lead" (null = ainda a fazer / reaberto pelo Editar) */
   concluded_at: string | null;
+  /** Captador marcou "Em aguardo" (esperando o lead; não concluído) */
+  on_hold_at: string | null;
   commission_value: number | null;
   commission_paid_at: string | null;
   full_name: string;
@@ -67,6 +69,7 @@ export interface UpdateMyLeadInput {
   callStatus?: CallStatus;
   callNotes?: string | null;
   concluded?: boolean;
+  onHold?: boolean;
   meetingAt?: string | null;
   meetingMode?: MeetingMode | null;
   meetingLocation?: string | null;

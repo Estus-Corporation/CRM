@@ -73,7 +73,7 @@ async function notifyAssigned(tenantId: string, captadorId: string, count: numbe
 
 const MY_LEAD_COLUMNS = [
   'a.id', 'a.call_status', 'a.call_notes', 'a.call_updated_at', 'a.assigned_for', 'a.outcome',
-  'a.closed_at', 'a.commission_paid_at', 'a.concluded_at',
+  'a.closed_at', 'a.commission_paid_at', 'a.concluded_at', 'a.on_hold_at',
   'a.meeting_at', 'a.meeting_mode', 'a.meeting_location',
   'a.meeting_duration', 'a.meeting_attendee_ids', 'a.meeting_guests',
   'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
@@ -209,9 +209,12 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
       });
     }
     updates.concluded_at = new Date();
+    updates.on_hold_at = null;
   } else if (input.concluded === false) {
     updates.concluded_at = null;
   }
+  // "Em aguardo" não conclui: só marca que o captador espera o lead
+  if (input.onHold !== undefined && input.concluded !== true) updates.on_hold_at = input.onHold ? new Date() : null;
 
   await db('lead_assignments').where({ id, tenant_id: tenantId, captador_id: userId }).update(updates);
   // Pessoas de contato ficam na empresa (o admin também vê); só a do lead deste captador

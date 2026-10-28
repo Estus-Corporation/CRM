@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Building2, ClipboardPen, Users, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
+  Building2, ClipboardPen, Users, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Hourglass, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
 } from 'lucide-react';
 import { useRecordWhatsapp, useUpdateMyLead } from '@/hooks/useCaptacao';
 import type { CallStatus, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
@@ -181,6 +181,34 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     );
   };
 
+  // Em aguardo: salva o que já tem (resultado, anotação, agenda completa) sem concluir; clicar de novo tira
+  const holdMutation = useUpdateMyLead();
+  const onHold = !!lead.on_hold_at;
+  const toggleHold = () => {
+    if (onHold) {
+      holdMutation.mutate({ id: lead.id, onHold: false }, { onSuccess: () => toast.success('Saiu do aguardo') });
+      return;
+    }
+    holdMutation.mutate(
+      {
+        id: lead.id,
+        onHold: true,
+        callStatus: status,
+        callNotes: notes,
+        ...(isMeeting &&
+          !meetingMissing && {
+            meetingAt: new Date(meetingAt).toISOString(),
+            meetingMode,
+            meetingLocation: meetingLocation.trim() || null,
+            meetingDuration,
+            meetingAttendeeIds,
+            meetingGuests,
+          }),
+      },
+      { onSuccess: () => toast.success(`${lead.full_name} em aguardo`) },
+    );
+  };
+
   const reopen = () => update.mutate({ id: lead.id, concluded: false });
 
   // Montou a reunião na agenda → o resultado vira "Reunião marcada"
@@ -219,6 +247,8 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     ? lead.outcome === 'won'
       ? { label: 'Fechou negócio', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' }
       : { label: 'Não fechou', className: 'bg-fg/[0.08] text-text-secondary', dot: 'bg-text-muted' }
+    : lead.on_hold_at && !lead.concluded_at
+      ? { label: 'Em aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' }
     : lead.call_status === 'pending'
       ? { label: 'Pendente', className: 'border border-dashed border-fg/[0.2] text-text-muted', dot: 'bg-text-muted' }
       : CALL_STATUS[lead.call_status];
@@ -716,6 +746,10 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                   {status === 'pending' ? 'Escolha o resultado para concluir.' : 'Defina dia, horário e formato da reunião na Agenda.'}
                 </span>
               )}
+              <Button variant="secondary" onClick={toggleHold} disabled={holdMutation.isPending} className={cn('max-sm:hidden', onHold && 'text-accent-amber')}>
+                <Hourglass size={15} />
+                {holdMutation.isPending ? 'Salvando…' : onHold ? 'Tirar do aguardo' : 'Em aguardo'}
+              </Button>
               <Button onClick={conclude} disabled={concludeMutation.isPending || status === 'pending' || meetingMissing} className="max-sm:hidden">
                 <CheckCircle2 size={15} />
                 {concludeMutation.isPending ? 'Salvando…' : 'Concluir lead'}
@@ -802,7 +836,11 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
 
       {/* Celular: "Concluir lead" é um botão próprio embaixo do Formulário (não dentro dele) */}
       {!locked && !concluded && (
-        <div className="max-lg:order-4 sm:hidden">
+        <div className="grid grid-cols-2 gap-2 max-lg:order-4 sm:hidden">
+          <Button size="lg" variant="secondary" onClick={toggleHold} disabled={holdMutation.isPending} className={cn('w-full', onHold && 'text-accent-amber')}>
+            <Hourglass size={17} />
+            {holdMutation.isPending ? 'Salvando…' : onHold ? 'Tirar do aguardo' : 'Em aguardo'}
+          </Button>
           <Button
             size="lg"
             onClick={conclude}
