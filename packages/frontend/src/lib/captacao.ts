@@ -18,7 +18,9 @@ export const CALL_STATUS: Record<CallStatus, { label: string; short: string; cla
   lost: { label: 'Perdido', short: 'Perdido', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
 };
 
-export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'callback', 'meeting', 'lost'];
+// Sem 'callback': o "Em aguardo" agora é o botão ao lado de "Concluir lead" (on_hold_at). O valor segue
+// existindo só pra leads antigos que já têm esse resultado.
+export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'meeting', 'lost'];
 
 export function formatBRL(value: number | null | undefined) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0);

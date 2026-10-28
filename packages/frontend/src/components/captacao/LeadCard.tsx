@@ -205,7 +205,13 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
             meetingGuests,
           }),
       },
-      { onSuccess: () => toast.success(`${lead.full_name} em aguardo`) },
+      {
+        onSuccess: (saved) => {
+          // Servidor sem a versão nova ignora o "Em aguardo" sem erro — avisa em vez de fingir que salvou
+          if (!saved.on_hold_at) toast.error('Não foi possível marcar em aguardo: o servidor está desatualizado')
+          else toast.success(`${lead.full_name} em aguardo`);
+        },
+      },
     );
   };
 
@@ -487,7 +493,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                 {/* 2. Resultado da ligação: um bloco por opção (clicar de novo desmarca) */}
                 <div>
                   <p className="mb-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-muted">Resultado</p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="grid grid-cols-3 gap-2">
                     {CALL_STATUS_ORDER.filter((s) => s !== 'pending').map((s) => {
                       const active = status === s;
                       const Icon = CALL_STATUS_ICON[s];
