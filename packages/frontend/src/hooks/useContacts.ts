@@ -19,11 +19,12 @@ export function useContacts(params?: ContactsListParams) {
 }
 
 /** Nichos já usados no workspace (filtro + sugestões do formulário). Invalida junto com contactsKeys.all. */
-export function useContactNiches() {
+export function useContactNiches({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: contactsKeys.niches(),
     queryFn: () => contactsService.listNiches(),
     staleTime: 60_000,
+    enabled,
   });
 }
 

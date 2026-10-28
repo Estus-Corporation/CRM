@@ -1,7 +1,7 @@
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { motion } from 'framer-motion';
 import { useState, useRef } from 'react';
-import { Download, Upload, Trophy, Activity, BarChart3, FileDown, Lock } from 'lucide-react';
+import { Download, Upload, Trophy, Activity, BarChart3, FileDown, Lock, Briefcase, Percent, Timer, Wallet } from 'lucide-react';
 import { useKpis, useFunnel, useRevenue, useActivitiesReport, useLeaderboard } from '@/hooks/useReports';
 import { useQueryClient } from '@tanstack/react-query';
 import { KpiCard } from '@/components/dashboard/KpiCard';
@@ -119,7 +119,7 @@ export function ReportsPage() {
       <PageHeader title="Relatórios" subtitle="Desempenho do seu time" />
 
       {/* Tabs */}
-      <div className="flex h-10 w-fit items-stretch overflow-hidden rounded-xl border border-fg/[0.1] bg-field shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
+      <div className="flex h-10 w-fit items-stretch rounded-xl border border-fg/[0.12] bg-fg/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)]">
         {tabs.map((tab) => {
           const isGated = GATED_TABS.includes(tab.id) && !hasStarterPlus;
           return (
@@ -140,11 +140,11 @@ export function ReportsPage() {
               {activeTab === tab.id && (
                 <motion.span
                   layoutId="reports-tab-pill"
-                  className="absolute inset-0 rounded-[11px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
+                  className="absolute -inset-[3px] z-[1] rounded-[13px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
                   transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.15 }}
                 />
               )}
-              <span className="relative flex items-center gap-1.5">
+              <span className="relative z-[2] flex items-center gap-1.5">
                 {tab.icon}
                 {tab.label}
                 {isGated && <Lock size={11} className="ml-0.5 text-text-muted" />}
@@ -160,16 +160,48 @@ export function ReportsPage() {
           {kpisLoading ? (
             <div className="flex justify-center py-8"><Spinner /></div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              <KpiCard label="Negócios em aberto" value={kpis?.openDeals ?? '—'} />
+            // Mesmo padrão do Dashboard: ícone no quadrado verde, linha de tendência e variação vs mês anterior
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-5 max-sm:[&>*:last-child]:col-span-2">
+              <KpiCard
+                label="Negócios em aberto"
+                icon={Briefcase}
+                sparkline={false}
+                trend={kpis?.trends?.openDeals}
+                value={kpis?.openDeals ?? '—'}
+                sub="No pipeline agora"
+              />
               <KpiCard
                 label="Ganhos no mês"
+                icon={Trophy}
+                highlight
+                sparkline={false}
+                trend={kpis?.trends?.wonMtd}
                 value={kpis ? kpis.wonMtd : '—'}
-                sub={kpis && kpis.wonMtdValue > 0 ? formatCurrency(kpis.wonMtdValue) : undefined}
+                sub={kpis && kpis.wonMtd > 0 ? `${kpis.wonMtd} ${kpis.wonMtd === 1 ? 'negócio fechado' : 'negócios fechados'}` : 'Nenhum ganho ainda'}
               />
-              <KpiCard label="Valor ganho no mês" value={kpis ? formatCurrency(kpis.wonMtdValue) : '—'} />
-              <KpiCard label="Taxa de conversão" value={kpis ? `${kpis.conversionRate}%` : '—'} />
-              <KpiCard label="Ciclo médio (dias)" value={kpis?.avgCycleDays ?? '—'} />
+              <KpiCard
+                label="Valor ganho no mês"
+                icon={Wallet}
+                value={kpis ? formatCurrency(kpis.wonMtdValue) : '—'}
+                sub="Receita dos ganhos do mês"
+              />
+              <KpiCard
+                label="Taxa de conversão"
+                icon={Percent}
+                sparkline={false}
+                trend={kpis?.trends?.conversionRate}
+                value={kpis ? `${kpis.conversionRate}%` : '—'}
+                sub="Ganhos sobre fechados"
+              />
+              <KpiCard
+                label="Ciclo médio"
+                icon={Timer}
+                sparkline={false}
+                trend={kpis?.trends?.avgCycleDays}
+                lowerIsBetter
+                value={kpis ? `${kpis.avgCycleDays}d` : '—'}
+                sub="Da criação ao fechamento"
+              />
             </div>
           )}
 

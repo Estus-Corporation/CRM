@@ -53,7 +53,6 @@ const sections: NavSection[] = [
       { to: '/pipeline', icon: Kanban, label: 'Pipeline' },
       { to: '/deals', icon: Briefcase, label: 'Negócios' },
       { to: '/contacts', icon: Users, label: 'Contatos' },
-      { to: '/solicitacoes', icon: SearchCheck, label: 'Solicitações de leads' },
     ],
   },
   {
@@ -87,7 +86,6 @@ const captadorSections: NavSection[] = [
     items: [
       { to: '/meus-leads', icon: PhoneCall, label: 'Meus leads', end: true },
       { to: '/meus-leads/reunioes', icon: CalendarCheck, label: 'Reuniões' },
-      { to: '/solicitacoes', icon: SearchCheck, label: 'Solicitações de leads' },
     ],
   },
   {
@@ -96,8 +94,13 @@ const captadorSections: NavSection[] = [
   },
 ];
 
-// Admin vê o mesmo menu do gerente (inclusive "Sobre a empresa", como a equipe enxerga o perfil)
-const adminSections: NavSection[] = managerSections;
+// Admin vê o menu do gerente (inclusive "Sobre a empresa", como a equipe enxerga o perfil)
+// + Solicitações de leads, que é só dos admins
+const adminSections: NavSection[] = managerSections.map((s) =>
+  s.title === 'Vendas'
+    ? { ...s, items: [...s.items, { to: '/solicitacoes', icon: SearchCheck, label: 'Solicitações de leads' }] }
+    : s,
+);
 
 export function sectionsFor(role: string | undefined) {
   if (role === 'captador') return captadorSections;

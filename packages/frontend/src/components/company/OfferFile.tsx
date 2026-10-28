@@ -5,6 +5,7 @@ import { openOfferFile, useDeleteOfferFile, useOfferFileBlob, useUploadOfferFile
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { DocumentPreview } from './DocumentPreview';
+import { DocxFileIcon, PdfFileIcon } from '@/components/ui/BrandIcons';
 
 const ACCEPT = '.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -106,6 +107,66 @@ export function OfferFileCard({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Serviços e preços na página "Sobre a empresa": a prévia ocupa o espaço que sobrar (o card acompanha
+ * a altura da Ficha ao lado) e o arquivo fica numa barra embaixo — nome, tipo/tamanho/páginas e o botão.
+ */
+export function OfferFilePanel({ tenant, title }: { tenant: Tenant; title: ReactNode }) {
+  const pdf = tenant.offer_file_mime === 'application/pdf';
+  const { data: blob } = useOfferFileBlob(tenant);
+  const [pages, setPages] = useState<number | null>(null);
+  const open = () => openOfferFile(tenant, blob);
+
+  return (
+    <section className="card flex h-full flex-col p-4 md:p-5">
+      {title}
+
+      {/* Prévia: folha centralizada, cortada embaixo com esmaecido; clicar abre */}
+      <button
+        type="button"
+        onClick={open}
+        title={pdf ? 'Abrir PDF' : 'Baixar documento'}
+        className="group relative mt-4 min-h-[150px] flex-1 overflow-hidden rounded-xl border border-fg/[0.06] bg-gradient-to-br from-accent-green/[0.10] via-fg/[0.03] to-transparent"
+      >
+        {/* absolute: a folha não aumenta o card — ele segue a altura da Ficha e a folha é cortada */}
+        <span className="absolute inset-x-0 top-4 flex justify-center">
+          <DocumentPreview
+            blob={blob}
+            kind={pdf ? 'pdf' : 'docx'}
+            onPages={setPages}
+            className="w-[46%] max-w-[240px] transition-transform duration-300 group-hover:-translate-y-1 group-hover:rotate-[-1deg]"
+          />
+        </span>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg-surface to-transparent" />
+        <span className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <span className="flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-xs font-medium text-white backdrop-blur">
+            {pdf ? <ExternalLink size={13} /> : <Download size={13} />}
+            {pdf ? 'Abrir' : 'Baixar'}
+          </span>
+        </span>
+      </button>
+
+      {/* Barra do arquivo */}
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        {pdf ? <PdfFileIcon size={40} className="flex-shrink-0" /> : <DocxFileIcon size={40} className="flex-shrink-0" />}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14.5px] font-semibold text-text-primary" title={tenant.offer_file_name ?? ''}>
+            {prettyName(tenant.offer_file_name ?? '')}
+          </p>
+          <p className="truncate text-xs text-text-muted">
+            {formatSize(tenant.offer_file_size)}
+            {pages ? ` · ${pages} ${pages === 1 ? 'página' : 'páginas'}` : ''} · planos, preços e condições
+          </p>
+        </div>
+        <Button type="button" size="sm" onClick={open} className="max-sm:w-full">
+          {pdf ? <ExternalLink size={14} /> : <Download size={14} />}
+          {pdf ? 'Abrir' : 'Baixar'}
+        </Button>
+      </div>
+    </section>
   );
 }
 

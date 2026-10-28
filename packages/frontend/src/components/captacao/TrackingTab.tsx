@@ -10,12 +10,13 @@ import {
 } from '@/hooks/useCaptacao';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { Assignment, CallStatus } from '@/services/captacao.service';
-import { CALL_STATUS, CALL_STATUS_ORDER, formatBRL, formatDay } from '@/lib/captacao';
+import { CALL_STATUS, CALL_STATUS_ORDER, formatBRL, formatDay, WHATSAPP_STATUS } from '@/lib/captacao';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { DataList, DataListBody, DataListHead, DataListRow, DataListSkeleton, listSpring } from '@/components/ui/DataList';
 import { CloseLeadModal } from './CloseLeadModal';
+import { WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { cn } from '@/lib/utils';
 
 const GRID =
@@ -255,6 +256,23 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
                     <span className={cn('h-1.5 w-1.5 rounded-full', CALL_STATUS[a.call_status].dot)} />
                     {CALL_STATUS[a.call_status].label}
                   </span>
+                  {/* Plano B: o captador partiu pra mensagem no WhatsApp */}
+                  {(a.whatsapp_at || a.whatsapp_status) && (
+                    <span
+                      className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-[#25D366]/10 px-2 py-0.5 text-[11px] font-medium text-[#25D366]"
+                      title={
+                        a.whatsapp_at
+                          ? `WhatsApp aberto ${a.whatsapp_count}x — último em ${new Date(a.whatsapp_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
+                          : 'Mensagem no WhatsApp'
+                      }
+                    >
+                      <WhatsAppIcon size={11} />
+                      {a.whatsapp_status ? WHATSAPP_STATUS[a.whatsapp_status].label : 'WhatsApp'}
+                      {a.whatsapp_at &&
+                        ` · ${new Date(a.whatsapp_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
+                      {a.whatsapp_count > 1 && ` · ${a.whatsapp_count}x`}
+                    </span>
+                  )}
                   {a.call_notes && (
                     <p className="mt-1 line-clamp-2 text-xs text-text-muted" title={a.call_notes}>
                       {a.call_notes}

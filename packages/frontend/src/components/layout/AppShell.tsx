@@ -23,6 +23,7 @@ function roleRedirect(role: string | undefined, pathname: string) {
     return CAPTADOR_PATHS.includes(pathname) || pathname.startsWith('/meus-leads/lead/') ? null : '/meu-painel';
   }
   if (pathname.startsWith('/captacao') && role !== 'admin' && role !== 'manager') return '/dashboard';
+  if (pathname.startsWith('/solicitacoes') && role !== 'admin') return '/dashboard';
   return null;
 }
 

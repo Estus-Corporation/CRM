@@ -6,16 +6,19 @@ export function QuickLink({
   href,
   label,
   className,
+  onClick,
   children,
 }: {
   href: string;
   label: string;
   className?: string;
+  onClick?: () => void;
   children: ReactNode;
 }) {
   return (
     <a
       href={href}
+      onClick={onClick}
       target="_blank"
       rel="noopener noreferrer"
       title={label}

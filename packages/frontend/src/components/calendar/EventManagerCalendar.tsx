@@ -1166,7 +1166,7 @@ export function EventManagerCalendar({
         </div>
 
         {/* View switcher */}
-        <div className="flex h-10 items-stretch overflow-hidden rounded-xl border border-fg/[0.1] bg-field shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
+        <div className="flex h-10 items-stretch rounded-xl border border-fg/[0.12] bg-fg/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)]">
           {viewButtons.map(({ key, label, icon }) => (
             <button
               key={key}
@@ -1179,11 +1179,11 @@ export function EventManagerCalendar({
               {view === key && (
                 <motion.span
                   layoutId="calendar-view-pill"
-                  className="absolute inset-0 rounded-[11px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
+                  className="absolute -inset-[3px] z-[1] rounded-[13px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
                   transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.15 }}
                 />
               )}
-              <span className="relative flex items-center gap-1.5">
+              <span className="relative z-[2] flex items-center gap-1.5">
                 {icon}
                 <span className="hidden sm:inline">{label}</span>
               </span>

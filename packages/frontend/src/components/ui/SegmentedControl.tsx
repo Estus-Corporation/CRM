@@ -15,8 +15,9 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
   return (
     <div
       className={cn(
-        // Sem padding interno: a pílula ativa ocupa a altura toda do controle
-        'flex h-10 items-stretch overflow-hidden rounded-xl border border-fg/[0.1] bg-field shadow-[0_1px_2px_rgb(0_0_0/0.04)]',
+        // Sem padding interno: a pílula ativa passa 3px pra fora do controle (por isso sem overflow-hidden).
+        // Vidro igual ao dos cards do Pipeline; w-fit para não esticar dentro de um bloco
+        'flex h-10 w-fit items-stretch rounded-xl border border-fg/[0.12] bg-fg/[0.05] shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)]',
         className,
       )}
     >
@@ -35,11 +36,11 @@ export function SegmentedControl<T extends string>({ options, value, onChange, l
             {active && (
               <motion.span
                 layoutId={layoutId}
-                className="absolute inset-0 rounded-[11px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
+                className="absolute -inset-[3px] z-[1] rounded-[13px] bg-accent-green shadow-[0_4px_14px_-6px_rgb(var(--accent-green)/0.6)]"
                 transition={{ type: 'spring', visualDuration: 0.35, bounce: 0.15 }}
               />
             )}
-            <span className="relative">{o.label}</span>
+            <span className="relative z-[2]">{o.label}</span>
           </button>
         );
       })}

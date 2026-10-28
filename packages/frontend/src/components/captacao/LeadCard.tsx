@@ -1,15 +1,14 @@
-import { forwardRef, useEffect, useState } from 'react';
+import { forwardRef, useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Building2, CalendarClock, CalendarDays, ClipboardList, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
+  Building2, ClipboardPen, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
 } from 'lucide-react';
-import { useUpdateMyLead } from '@/hooks/useCaptacao';
-import type { CallStatus, MeetingGuest, MeetingMode, MyLead } from '@/services/captacao.service';
-import { SelectDropdown } from '@/components/ui/SelectDropdown';
+import { useRecordWhatsapp, useUpdateMyLead } from '@/hooks/useCaptacao';
+import type { CallStatus, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
 import {
   CALL_STATUS,
   CALL_STATUS_ORDER,
@@ -22,6 +21,8 @@ import {
   type LeadPain,
   websiteLabel,
   websiteUrl,
+  WHATSAPP_STATUS,
+  WHATSAPP_STATUS_ORDER,
   whatsappUrl,
 } from '@/lib/captacao';
 import { GmailIcon, InstagramIcon, GoogleIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
@@ -43,6 +44,21 @@ const PAIN_ICON: Record<LeadPain, typeof Globe> = {
   no_google: MapPinOff,
   few_reviews: MessageSquare,
   low_rating: StarHalf,
+};
+
+// Plano A: ícone de cada resultado da ligação
+const CALL_STATUS_ICON: Record<Exclude<CallStatus, 'pending'>, typeof Clock> = {
+  no_answer: PhoneMissed,
+  callback: PhoneForwarded,
+  meeting: CalendarCheck,
+  lost: XCircle,
+};
+
+// Plano B: ícone de cada situação da mensagem
+const WA_STATUS_ICON: Record<WhatsappStatus, typeof Clock> = {
+  waiting: Clock,
+  replied: CheckCheck,
+  no_reply: XCircle,
 };
 
 /** ISO do banco → "YYYY-MM-DDTHH:mm" no fuso local (formato do DateTimePicker) */
@@ -77,6 +93,21 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   const update = useUpdateMyLead();
   // Concluir tem estado próprio: o salvamento da anotação (no blur, ao clicar no botão) não pode travá-lo
   const concludeMutation = useUpdateMyLead();
+  // Plano B: abrir o WhatsApp fica registrado (os admins veem quando o captador partiu pra mensagem)
+  const recordWhatsapp = useRecordWhatsapp();
+  const openWhatsapp = () => {
+    recordWhatsapp.mutate(lead.id);
+    setWaStatus((cur) => cur ?? 'waiting');
+  };
+  // Situação da mensagem salva na hora (clicar de novo na mesma desmarca)
+  const chooseWaStatus = (ws: WhatsappStatus) => {
+    const next = waStatus === ws ? null : ws;
+    setWaStatus(next);
+    update.mutate({ id: lead.id, whatsappStatus: next });
+  };
+  const whatsappSent = lead.whatsapp_at
+    ? `${format(new Date(lead.whatsapp_at), "d 'de' MMM 'às' HH:mm", { locale: ptBR })}${lead.whatsapp_count > 1 ? ` · ${lead.whatsapp_count}x` : ''}`
+    : null;
   const [notes, setNotes] = useState(lead.call_notes ?? '');
   // Resultado e agenda da reunião ficam só na tela até "Concluir lead" — um único envio ao servidor
   const [status, setStatus] = useState<CallStatus>(lead.call_status);
@@ -88,7 +119,11 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   const [meetingDuration, setMeetingDuration] = useState(lead.meeting_duration ?? 60);
   const [meetingAttendeeIds, setMeetingAttendeeIds] = useState<string[]>(lead.meeting_attendee_ids ?? []);
   const [meetingGuests, setMeetingGuests] = useState<MeetingGuest[]>(lead.meeting_guests ?? []);
-  const [showAgenda, setShowAgenda] = useState(!!lead.meeting_at);
+  // Plano A, Plano B e Agenda começam fechados: o captador abre o que for usar
+  const [showAgenda, setShowAgenda] = useState(false);
+  const [showPlanA, setShowPlanA] = useState(false);
+  const [showPlanB, setShowPlanB] = useState(false);
+  const [waStatus, setWaStatus] = useState<WhatsappStatus | null>(lead.whatsapp_status);
   const locked = lead.outcome !== null;
   const concluded = !!lead.concluded_at && !locked;
   const isMeeting = status === 'meeting';
@@ -97,9 +132,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   // Mantém rascunho e resultado em sincronia quando o servidor devolve outro valor
   useEffect(() => setNotes(lead.call_notes ?? ''), [lead.call_notes]);
   useEffect(() => setStatus(lead.call_status), [lead.call_status]);
-  useEffect(() => {
-    if (status === 'meeting') setShowAgenda(true);
-  }, [status]);
+  useEffect(() => setWaStatus(lead.whatsapp_status), [lead.whatsapp_status]);
   useEffect(() => {
     setMeetingAt(toLocalInput(lead.meeting_at));
     setMeetingMode(lead.meeting_mode);
@@ -161,8 +194,11 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     setStatus('meeting');
   };
   // Outro resultado → a reunião preenchida sai na hora
-  const chooseStatus = (s: CallStatus) => {
+  // Clicar de novo no resultado já marcado desmarca (volta a "a ligar")
+  const chooseStatus = (picked: CallStatus) => {
+    const s = picked === status ? 'pending' : picked;
     setStatus(s);
+    if (s === 'meeting') setShowAgenda(true);
     if (s !== 'meeting') {
       setMeetingAt('');
       setMeetingMode(null);
@@ -176,12 +212,6 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
 
   const company = [lead.job_title, lead.company_name].filter(Boolean).join(' · ');
   const pains = leadPains(lead);
-  const about =
-    lead.lead_context?.trim() ||
-    (lead.niche
-      ? `${lead.company_name || lead.full_name} atua no ramo de ${lead.niche.toLowerCase()}.`
-      : null);
-
   // Em que pé está o lead (lista e cabeçalho da página)
   const state = locked
     ? lead.outcome === 'won'
@@ -199,6 +229,14 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
       )}
     >
       <span className={cn('rounded-full', detail ? 'h-2 w-2' : 'h-1.5 w-1.5', state.dot)} />
+      {state.label}
+    </span>
+  );
+
+  // Versão compacta do status: na lista (celular) e no cabeçalho da página no celular
+  const stateChip = (
+    <span className={cn('inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', state.className)}>
+      <span className={cn('h-1.5 w-1.5 rounded-full', state.dot)} />
       {state.label}
     </span>
   );
@@ -230,7 +268,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
             <span className="max-w-full truncate whitespace-nowrap rounded-md bg-fg/[0.05] px-2 py-0.5 font-medium text-text-secondary">{lead.niche}</span>
           )}
           {/* Lista no celular: o status vai pra cá (à direita não cabe junto do nome) */}
-          {!detail && <span className="sm:hidden">{stateBadge}</span>}
+          <span className="sm:hidden">{stateChip}</span>
         </div>
       </div>
     </>
@@ -267,7 +305,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         </QuickLink>
       )}
       {lead.phone && (
-        <QuickLink href={whatsappUrl(lead.phone)} label="Abrir no WhatsApp" className="text-[#25D366]">
+        <QuickLink href={whatsappUrl(lead.phone)} label="Abrir no WhatsApp" className="text-[#25D366]" onClick={openWhatsapp}>
           <WhatsAppIcon size={20} />
         </QuickLink>
       )}
@@ -308,19 +346,26 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
       <div className="max-lg:order-1 lg:col-span-2">
         <div className="card flex flex-wrap items-center gap-4 p-5 md:p-6">
           {identity}
-          <div className="flex flex-wrap items-center gap-2 max-sm:w-full">
+          {/* Celular: os atalhos vão pro bloco logo abaixo; o status fica no selo pequeno do cabeçalho */}
+          <div className="flex flex-wrap items-center gap-2 max-sm:hidden">
             {quickLinks}
             <span className="mx-1 h-6 w-px bg-fg/[0.1] max-sm:hidden" />
-            {stateBadge}
+            <span className="max-sm:hidden">{stateBadge}</span>
           </div>
         </div>
+      </div>
+
+      {/* Celular: atalhos (ligar, WhatsApp, Google…) num bloco próprio logo abaixo do cabeçalho */}
+      <div className="max-lg:order-1 sm:hidden">
+        {/* Ícones dividem a largura toda (sem sobra nas laterais) */}
+        <div className="card grid auto-cols-fr grid-flow-col gap-2 p-2 [&>a]:!w-full">{quickLinks}</div>
       </div>
 
       <div className="max-lg:order-3">
         <div className="card overflow-hidden">
           <div className="flex items-center gap-2 border-b border-fg/[0.06] px-4 py-3.5 md:px-5">
-            <PhoneCall size={16} className="text-accent-green" />
-            <h2 className="text-sm font-semibold text-text-primary">Ligação</h2>
+            <ClipboardPen size={16} className="text-accent-green" />
+            <h2 className="text-sm font-semibold text-text-primary">Formulário</h2>
           </div>
       {/* Resultado */}
       <div className="p-4 md:p-5">
@@ -353,6 +398,13 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                 {lead.meeting_location && <span className="font-normal text-text-muted">· {lead.meeting_location}</span>}
               </span>
             )}
+            {(whatsappSent || lead.whatsapp_status) && (
+              <span className="flex items-center gap-1 text-xs font-medium text-[#25D366]" title="Mensagem no WhatsApp">
+                <WhatsAppIcon size={13} />
+                {lead.whatsapp_status ? WHATSAPP_STATUS[lead.whatsapp_status].label : 'WhatsApp'}
+                {whatsappSent && <span className="font-normal text-text-muted">· {whatsappSent}</span>}
+              </span>
+            )}
             <p className="min-w-0 flex-1 truncate text-sm text-text-secondary" title={lead.call_notes ?? undefined}>
               {lead.call_notes || <span className="text-text-muted">Sem anotações</span>}
             </p>
@@ -366,42 +418,154 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
           </div>
         ) : (
           <>
-            {/* Agenda: botão que abre o bloco da reunião (confere a agenda dos admins e marca o horário) */}
-            <button
-              type="button"
-              onClick={() => setShowAgenda((v) => !v)}
-              aria-expanded={showAgenda}
-              className={cn(
-                'flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors',
-                // Mesmo fundo dos cards de "Possíveis dores", aberto ou fechado
-                'border-fg/[0.06] bg-fg/[0.025] hover:border-fg/[0.14]',
-              )}
-            >
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-fg/[0.06] text-text-primary">
-                <CalendarClock size={17} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-text-primary">Agenda</span>
-                <span className="block truncate text-xs text-text-muted">
-                  {meetingAt
-                    ? `Reunião ${format(new Date(meetingAt), "EEE, d 'de' MMM 'às' HH:mm", { locale: ptBR })}${meetingMode ? ` · ${meetingMode === 'online' ? 'Online' : 'Presencial'}` : ''}`
-                    : 'Data e hora da reunião'}
-                </span>
-              </span>
-              <ChevronDown size={17} className={cn('flex-shrink-0 text-text-muted transition-transform duration-300', showAgenda && 'rotate-180')} />
-            </button>
+            {/* Protocolo de contato: Plano A (ligar) e, se não der certo, Plano B (WhatsApp) */}
+            <p className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Protocolo de contato</p>
 
-            <AnimatePresence initial={false}>
-              {showAgenda && (
-                <motion.div
-                  key="meeting"
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ type: 'spring', visualDuration: 0.32, bounce: 0.1 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-3 rounded-2xl border border-fg/[0.06] bg-fg/[0.025] p-4">
+            {/* Plano A: a ligação — o que aconteceu ao ligar */}
+            <PlanBlock
+              icon={<PhoneCall size={17} />}
+              title="Ligação"
+              done={status !== 'pending'}
+              open={showPlanA}
+              onToggle={() => setShowPlanA((v) => !v)}
+            >
+              <div className="space-y-4 p-4">
+                {/* 1. Ligar */}
+                {lead.phone ? (
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent-green/20 bg-accent-green/[0.05] p-3">
+                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent-green/15 text-accent-green">
+                      <Phone size={18} fill="currentColor" strokeWidth={1} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold text-text-primary">Ligar para o lead</span>
+                      <span className="block truncate text-xs tabular-nums text-text-muted">{lead.phone}</span>
+                    </span>
+                    <a
+                      href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}
+                      className="flex h-10 flex-shrink-0 items-center gap-2 rounded-xl bg-accent-green px-4 text-[13px] font-semibold text-[rgb(var(--on-accent))] shadow-[0_6px_16px_-8px_rgb(var(--accent-green))] transition-[filter] hover:brightness-110 max-sm:w-full max-sm:justify-center"
+                    >
+                      <Phone size={15} fill="currentColor" strokeWidth={1} />
+                      Ligar
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-muted">Este lead não tem telefone cadastrado.</p>
+                )}
+
+                {/* 2. Resultado da ligação: um bloco por opção (clicar de novo desmarca) */}
+                <div>
+                  <p className="mb-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-muted">Resultado</p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {CALL_STATUS_ORDER.filter((s) => s !== 'pending').map((s) => {
+                      const active = status === s;
+                      const Icon = CALL_STATUS_ICON[s];
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => chooseStatus(s)}
+                          aria-pressed={active}
+                          className={cn(
+                            'flex min-w-0 flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors',
+                            active
+                              ? cn(CALL_STATUS[s].className, 'border-transparent')
+                              : 'border-fg/[0.08] text-text-secondary hover:border-fg/[0.16] hover:text-text-primary',
+                          )}
+                        >
+                          <Icon size={17} strokeWidth={2} />
+                          <span className="text-[12.5px] font-semibold leading-tight">{CALL_STATUS[s].label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </PlanBlock>
+
+            {/* Plano B: não deu certo na ligação → mensagem no WhatsApp (fica registrado pros admins) */}
+            <PlanBlock
+              className="mt-3"
+              icon={<WhatsAppIcon size={17} />}
+              iconClassName="text-[#25D366]"
+              title="Mensagem"
+              done={!!waStatus}
+              open={showPlanB}
+              onToggle={() => setShowPlanB((v) => !v)}
+            >
+              <div className="p-4">
+                {lead.phone ? (
+                  <div className="space-y-4">
+                    {/* 1. Mensagem: abrir a conversa (registra quando e quantas vezes) */}
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#25D366]/20 bg-[#25D366]/[0.05] p-3">
+                      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#25D366]/15 text-[#25D366]">
+                        <WhatsAppIcon size={20} />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-text-primary">
+                          {whatsappSent ? 'Mensagem enviada' : 'Mandar mensagem'}
+                        </span>
+                        <span className="block truncate text-xs text-text-muted">
+                          {whatsappSent ?? 'Abrir a conversa já marca como enviada'}
+                        </span>
+                      </span>
+                      <a
+                        href={whatsappUrl(lead.phone)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={openWhatsapp}
+                        className="flex h-10 flex-shrink-0 items-center gap-2 rounded-xl bg-[#25D366] px-4 text-[13px] font-semibold text-[#062b14] shadow-[0_6px_16px_-8px_#25D366] transition-[filter] hover:brightness-110 max-sm:w-full max-sm:justify-center"
+                      >
+                        <WhatsAppIcon size={16} />
+                        {whatsappSent ? 'Abrir de novo' : 'Abrir WhatsApp'}
+                      </a>
+                    </div>
+
+                    {/* 2. Situação da mensagem: três opções lado a lado (clicar de novo desmarca) */}
+                    <div>
+                      <p className="mb-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-muted">Situação</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {WHATSAPP_STATUS_ORDER.map((ws) => {
+                          const active = waStatus === ws;
+                          const Icon = WA_STATUS_ICON[ws];
+                          return (
+                            <button
+                              key={ws}
+                              type="button"
+                              onClick={() => chooseWaStatus(ws)}
+                              aria-pressed={active}
+                              className={cn(
+                                'flex min-w-0 flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors',
+                                active
+                                  ? cn(WHATSAPP_STATUS[ws].className, 'border-transparent')
+                                  : 'border-fg/[0.08] text-text-secondary hover:border-fg/[0.16] hover:text-text-primary',
+                              )}
+                            >
+                              <Icon size={17} strokeWidth={2} />
+                              <span className="text-[12.5px] font-semibold leading-tight">{WHATSAPP_STATUS[ws].label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-text-muted">Este lead não tem telefone cadastrado.</p>
+                )}
+              </div>
+            </PlanBlock>
+
+            {/* Seção à parte: título à esquerda + espaço (mesmo padrão do Protocolo de contato) */}
+            <p className="mb-2.5 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Reunião</p>
+
+            {/* Agenda: confere a agenda dos admins e marca o horário da reunião */}
+            <PlanBlock
+              icon={<CalendarClock size={17} />}
+              title="Agenda"
+              done={!!meetingAt && !!meetingMode}
+              open={showAgenda}
+              onToggle={() => setShowAgenda((v) => !v)}
+            >
+                  <div className="p-4">
 
                     <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
                       {(() => {
@@ -511,49 +675,20 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                       </div>
                     )}
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            </PlanBlock>
 
-            <p className="mb-2.5 mt-5 text-[13px] font-medium text-text-secondary">O que aconteceu na ligação?</p>
-            <SelectDropdown
-              title="Resultado"
-              placeholder="Selecionar resultado"
-              options={CALL_STATUS_ORDER.filter((s) => s !== 'pending').map((s) => ({ value: s, label: CALL_STATUS[s].label }))}
-              value={status}
-              onChange={chooseStatus}
-              className="sm:hidden"
-            />
-            <div className="flex flex-wrap gap-2 max-sm:hidden">
-              {CALL_STATUS_ORDER.filter((s) => s !== 'pending').map((s) => {
-                const active = status === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => chooseStatus(s)}
-                    className={cn(
-                      'flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-[13px] font-medium transition-colors',
-                      active
-                        ? cn(CALL_STATUS[s].className, 'border-transparent font-semibold')
-                        : 'border-fg/[0.08] text-text-secondary hover:border-fg/[0.16] hover:text-text-primary',
-                    )}
-                  >
-                    <span className={cn('h-1.5 w-1.5 rounded-full', CALL_STATUS[s].dot)} />
-                    {CALL_STATUS[s].label}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Seção à parte: título à esquerda + espaço (mesmo padrão do Protocolo de contato) */}
+            <p className="mb-2.5 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Anotações</p>
 
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               onBlur={saveNotes}
-              rows={2}
+              rows={3}
               maxLength={2000}
-              placeholder="Anotações (com quem falou, objeções, melhor horário para retornar…)"
-              className="input-base mt-3 min-h-[64px] resize-y border-fg/[0.06] bg-fg/[0.025] py-2 text-sm"
+              aria-label="Anotações"
+              placeholder="Com quem falou, objeções, melhor horário para retornar…"
+              className="input-base min-h-[84px] resize-y border-fg/[0.12] bg-fg/[0.05] py-2.5 text-sm leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
             />
 
             <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
@@ -562,7 +697,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                   {status === 'pending' ? 'Escolha o resultado para concluir.' : 'Defina dia, horário e formato da reunião na Agenda.'}
                 </span>
               )}
-              <Button onClick={conclude} disabled={concludeMutation.isPending || status === 'pending' || meetingMissing}>
+              <Button onClick={conclude} disabled={concludeMutation.isPending || status === 'pending' || meetingMissing} className="max-sm:hidden">
                 <CheckCircle2 size={15} />
                 {concludeMutation.isPending ? 'Salvando…' : 'Concluir lead'}
               </Button>
@@ -579,12 +714,9 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         <div>
           <div className="card p-4 md:p-5">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-accent-green text-[rgb(var(--on-accent))]">
-                <ClipboardList size={15} strokeWidth={2.25} />
-              </span>
+              <ClipboardList size={18} strokeWidth={2} className="flex-shrink-0 text-accent-green" />
               <h2 className="text-[15px] font-semibold text-text-primary">Sobre o lead</h2>
             </div>
-            {about && <p className="mt-3 whitespace-pre-line break-words text-sm leading-relaxed text-text-secondary">{about}</p>}
 
             {facts.length > 0 && (
               <dl className="mt-4 divide-y divide-fg/[0.06] overflow-hidden rounded-xl border border-fg/[0.06]">
@@ -606,32 +738,51 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               </dl>
             )}
 
-            {/* Possíveis dores: argumentos de venda pra ligação */}
-            {pains.length > 0 && (
-              <div className="mt-4">
-                <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <p className="text-[13px] font-semibold text-text-primary">Possíveis dores</p>
-                  <p className="text-[11px] text-text-muted">use como argumento na ligação</p>
-                </div>
-                <ul className="divide-y divide-fg/[0.06] overflow-hidden rounded-xl border border-fg/[0.06] bg-fg/[0.025]">
-                  {pains.map((pn) => {
-                    const Icon = PAIN_ICON[pn];
-                    return (
-                      <li key={pn} className="flex items-center gap-3 px-3.5 py-2.5">
-                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-fg/[0.05] text-accent-amber">
-                          <Icon size={14} />
-                        </span>
-                        <span className="text-[13px] font-medium text-text-primary">{LEAD_PAIN_LABEL[pn]}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
           </div>
         </div>
 
+        {/* Possíveis dores: bloco próprio */}
+        {pains.length > 0 && (
+        <div>
+          <div className="card p-4 md:p-5">
+            <div className="flex items-center gap-2.5">
+              <Lightbulb size={18} strokeWidth={2} className="flex-shrink-0 text-accent-amber" />
+              <h2 className="text-[15px] font-semibold text-text-primary">Possíveis dores</h2>
+              <span className="ml-auto text-[11px] text-text-muted">use como argumento na ligação</span>
+            </div>
+            <ul className="mt-4 divide-y divide-fg/[0.06] overflow-hidden rounded-xl border border-fg/[0.06]">
+              {pains.map((pn) => {
+                const Icon = PAIN_ICON[pn];
+                return (
+                  <li key={pn} className="flex items-center gap-3 px-3.5 py-2.5">
+                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-fg/[0.05] text-accent-amber">
+                      <Icon size={14} />
+                    </span>
+                    <span className="text-[13px] font-medium text-text-primary">{LEAD_PAIN_LABEL[pn]}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          </div>
+        )}
+
       </div>
+
+      {/* Celular: "Concluir lead" é um botão próprio embaixo do Formulário (não dentro dele) */}
+      {!locked && !concluded && (
+        <div className="max-lg:order-4 sm:hidden">
+          <Button
+            size="lg"
+            onClick={conclude}
+            disabled={concludeMutation.isPending || status === 'pending' || meetingMissing}
+            className="w-full"
+          >
+            <CheckCircle2 size={17} />
+            {concludeMutation.isPending ? 'Salvando…' : 'Concluir lead'}
+          </Button>
+        </div>
+      )}
 
       <AdminAgenda open={agendaOpen} onClose={() => setAgendaOpen(false)} onPick={pickMeeting}
         initial={meetingAt ? { at: meetingAt, duration: meetingDuration, attendeeIds: meetingAttendeeIds, guests: meetingGuests } : undefined}
@@ -641,3 +792,64 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     </div>
   );
 });
+
+/**
+ * Parte da ligação (Plano A, Plano B, Agenda): cabeçalho clicável e o conteúdo num bloco só —
+ * o que abre embaixo fica preso ao cabeçalho, no mesmo fundo do card ("Sobre o lead").
+ */
+function PlanBlock({
+  icon,
+  iconClassName,
+  title,
+  done,
+  open,
+  onToggle,
+  className,
+  children,
+}: {
+  icon: ReactNode;
+  iconClassName?: string;
+  title: string;
+  /** Já tem algo preenchido: ganha o check verde */
+  done?: boolean;
+  open: boolean;
+  onToggle: () => void;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn('overflow-hidden rounded-2xl border border-fg/[0.12] transition-colors hover:border-fg/[0.18]', className)}>
+      {/* Cabeçalho no vidro da barra "Progresso de hoje"; o conteúdo embaixo fica no fundo do card */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 bg-fg/[0.05] p-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)] transition-colors hover:bg-fg/[0.07]"
+      >
+        <span className={cn('relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-fg/[0.06] text-text-primary', iconClassName)}>
+          {icon}
+          {done && (
+            <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-[rgb(var(--on-accent))] ring-2 ring-bg-surface">
+              <Check size={10} strokeWidth={3} />
+            </span>
+          )}
+        </span>
+        <span className="min-w-0 flex-1 text-sm font-semibold text-text-primary">{title}</span>
+        <ChevronDown size={17} className={cn('flex-shrink-0 text-text-muted transition-transform duration-300', open && 'rotate-180')} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', visualDuration: 0.32, bounce: 0.1 }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-fg/[0.06]">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

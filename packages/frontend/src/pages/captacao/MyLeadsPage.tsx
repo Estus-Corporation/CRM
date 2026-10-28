@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Phone, PhoneCall, CalendarCheck, Wallet, CheckCircle2 } from 'lucide-react';
+import { PhoneCall, CalendarCheck, Wallet, CheckCircle2, Plus } from 'lucide-react';
+import { KpiCard } from '@/components/dashboard/KpiCard';
+import { AddLeadModal } from '@/components/captacao/AddLeadModal';
+import { Button } from '@/components/ui/Button';
 import { SelectDropdown } from '@/components/ui/SelectDropdown';
 import { useMyLeads, useMySummary } from '@/hooks/useCaptacao';
 import type { CallStatus } from '@/services/captacao.service';
@@ -22,19 +25,6 @@ const STATUS_OPTIONS: { value: CallStatus | ''; label: string }[] = [
   { value: '', label: 'Todos os status' },
   ...CALL_STATUS_ORDER.map((st) => ({ value: st, label: CALL_STATUS[st].label })),
 ];
-
-function StatCard({ icon: Icon, label, value, hint }: { icon: typeof Phone; label: string; value: string; hint?: string }) {
-  return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 text-xs font-medium text-text-secondary">
-        <Icon size={14} />
-        {label}
-      </div>
-      <p className="mt-2 truncate text-2xl font-semibold tabular-nums text-text-primary sm:text-3xl">{value}</p>
-      {hint && <p className="mt-1 text-xs text-text-muted">{hint}</p>}
-    </div>
-  );
-}
 
 type View = 'leads' | 'meetings';
 
@@ -63,6 +53,7 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
   const config = VIEWS[view];
   const [scope, setScope] = useState<Scope>('today');
   const [status, setStatus] = useState<CallStatus | ''>('');
+  const [addOpen, setAddOpen] = useState(false);
   // Reuniões: todos os leads com status "meeting" (o histórico completo é o filtro "Todos" de Meus leads)
   const effectiveScope = view === 'leads' ? scope : 'all';
   const effectiveStatus = view === 'meetings' ? 'meeting' : status || undefined;
@@ -73,46 +64,60 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
   return (
     // mobile-sections: no celular 3 blocos separados — cabeçalho, resumo e a lista (ver globals.css)
     <div className="mobile-sections space-y-5 max-md:space-y-3">
-      <PageHeader title={config.title} subtitle={config.subtitle} />
+      <PageHeader
+        title={config.title}
+        subtitle={config.subtitle}
+        actions={
+          view === 'leads' && (
+            // O captador também cadastra os leads que encontra por conta própria
+            <Button size="lg" onClick={() => setAddOpen(true)} className="px-6 text-[15px] max-sm:w-full">
+              <Plus size={18} strokeWidth={2.25} />
+              Adicionar lead
+            </Button>
+          )
+        }
+      />
+      <AddLeadModal open={addOpen} onClose={() => setAddOpen(false)} self />
 
       {view === 'leads' && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-sm:[&>*:last-child]:col-span-2">
-          <StatCard
+        // Mesmo card de KPI do Dashboard (ícone no quadrado verde, hover com elevação)
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
+          <KpiCard
             icon={PhoneCall}
+            highlight
             label="Leads de hoje"
-            value={String(summary?.today_total ?? 0)}
-            hint={`${Math.max((summary?.today_total ?? 0) - (summary?.today_concluded ?? 0), 0)} a concluir`}
+            value={summary?.today_total ?? 0}
+            sub={`${Math.max((summary?.today_total ?? 0) - (summary?.today_concluded ?? 0), 0)} a concluir`}
           />
-          <StatCard icon={CalendarCheck} label="Reuniões" value={String(summary?.meetings ?? 0)} hint={wonHint(summary?.won)} />
-          <StatCard
+          <KpiCard icon={CalendarCheck} label="Reuniões" value={summary?.meetings ?? 0} sub={wonHint(summary?.won)} />
+          <KpiCard
             icon={Wallet}
             label="Comissão a receber"
             value={formatBRL(summary?.commission_pending)}
-            hint={`${formatBRL(summary?.commission_paid)} já recebido`}
+            sub={`${formatBRL(summary?.commission_paid)} já recebido`}
           />
         </div>
       )}
 
       {/* Progresso, filtros e lista: um bloco só no celular */}
       <div className="space-y-5 max-md:space-y-3">
-        {/* Progresso do dia: quantos leads de hoje já foram concluídos */}
+        {/* Progresso do dia: vidro translúcido (igual aos cards do Pipeline) — texto + 0/3, barra, check na ponta */}
         {view === 'leads' && (summary?.today_total ?? 0) > 0 && (
-          <div className="card flex items-center gap-4 px-5 py-3.5">
-            <CheckCircle2 size={18} className="flex-shrink-0 text-accent-green" />
-            <div className="min-w-0 flex-1">
-              <div className="mb-1.5 flex items-baseline justify-between text-sm">
-                <span className="font-medium text-text-primary">Progresso de hoje</span>
-                <span className="tabular-nums text-text-secondary">
-                  <strong className="text-text-primary">{summary!.today_concluded}</strong> de {summary!.today_total} concluídos
-                </span>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-fg/[0.07]">
-                <div
-                  className="h-full rounded-full bg-accent-green transition-[width] duration-500"
-                  style={{ width: `${Math.round((summary!.today_concluded / summary!.today_total) * 100)}%` }}
-                />
-              </div>
+          <div className="flex items-center gap-4 rounded-xl border border-fg/[0.12] bg-fg/[0.05] px-5 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)] max-sm:gap-3">
+            <p className="flex-shrink-0 text-sm">
+              <span className="font-medium text-text-primary">Progresso de hoje</span>
+              {/* Selo em volta do contador pra separar do texto */}
+              <span className="ml-2.5 rounded-md border border-fg/[0.1] bg-fg/[0.05] px-2 py-0.5 text-[13px] tabular-nums text-text-secondary">
+                {summary!.today_concluded}/{summary!.today_total}
+              </span>
+            </p>
+            <div className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-fg/[0.07]">
+              <div
+                className="h-full rounded-full bg-accent-green transition-[width] duration-500"
+                style={{ width: `${Math.round((summary!.today_concluded / summary!.today_total) * 100)}%` }}
+              />
             </div>
+            <CheckCircle2 size={18} className="flex-shrink-0 text-accent-green" />
           </div>
         )}
 

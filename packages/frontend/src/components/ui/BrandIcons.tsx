@@ -58,3 +58,25 @@ export function InstagramIcon({ size = 18, className }: { size?: number; classNa
     </svg>
   );
 }
+
+/** Arquivo de documento no formato dos ícones de arquivo: folha com canto dobrado + faixa colorida com a sigla */
+function FileTypeIcon({ size, className, label, color }: { size: number; className?: string; label: string; color: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" className={className} aria-hidden>
+      <path d="M8 2h12l8 8v18a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" fill="#F4F4F5" />
+      <path d="M20 2v6a2 2 0 0 0 2 2h6Z" fill="#D4D4D8" />
+      <rect x="2" y="15" width="22" height="10" rx="2" fill={color} />
+      <text x="13" y="22.6" textAnchor="middle" fontSize="7.2" fontWeight="800" fontFamily="Arial, Helvetica, sans-serif" fill="#fff">
+        {label}
+      </text>
+    </svg>
+  );
+}
+
+export function PdfFileIcon({ size = 18, className }: { size?: number; className?: string }) {
+  return <FileTypeIcon size={size} className={className} label="PDF" color="#E5252A" />;
+}
+
+export function DocxFileIcon({ size = 18, className }: { size?: number; className?: string }) {
+  return <FileTypeIcon size={size} className={className} label="DOC" color="#2B579A" />;
+}

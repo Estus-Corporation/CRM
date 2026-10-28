@@ -18,6 +18,8 @@ export const updateMyLeadSchema = z.object({
     .array(z.object({ name: z.string().trim().min(1).max(120), title: z.string().trim().max(80).optional() }))
     .max(20)
     .optional(),
+  // Plano B (WhatsApp): situação da mensagem; null = plano B não usado
+  whatsappStatus: z.enum(['waiting', 'replied', 'no_reply']).nullable().optional(),
 });
 
 export const myLeadsQuerySchema = z.object({

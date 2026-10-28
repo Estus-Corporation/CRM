@@ -27,6 +27,19 @@ export const listMyLeads = wrap(async (req, res) => {
   res.json({ data });
 });
 
+// Lead cadastrado pelo próprio captador: sempre atribuído a ele (o captadorId do corpo é ignorado)
+export const createMyLead = wrap(async (req, res) => {
+  const input = createLeadSchema.parse(req.body);
+  try {
+    const data = await CaptacaoService.createLead(req.user!.tenantId, req.user!.id, { ...input, captadorId: req.user!.id });
+    res.status(201).json({ data });
+  } catch (err) {
+    // Duplicado: não devolve o nome do contato existente (o captador não enxerga os contatos do workspace)
+    if ((err as { code?: string }).code === 'duplicate_lead') delete (err as { existing?: string }).existing;
+    throw err;
+  }
+});
+
 // Horários ocupados dos admins (padrão: hoje + 14 dias)
 export const getAdminBusy = wrap(async (req, res) => {
   const from = req.query.from ? new Date(String(req.query.from)) : new Date(new Date().setHours(0, 0, 0, 0));
@@ -48,6 +61,12 @@ export const getMyLead = wrap(async (req, res) => {
 export const updateMyLead = wrap(async (req, res) => {
   const input = updateMyLeadSchema.parse(req.body);
   const data = await CaptacaoService.updateMyLead(req.user!.tenantId, req.user!.id, req.params.id, input);
+  res.json({ data });
+});
+
+// Plano B: o captador abriu o WhatsApp do lead (fica registrado pros admins)
+export const recordWhatsapp = wrap(async (req, res) => {
+  const data = await CaptacaoService.recordWhatsapp(req.user!.tenantId, req.user!.id, req.params.id);
   res.json({ data });
 });
 
@@ -103,7 +122,7 @@ export const payAllCommissions = wrap(async (req, res) => {
 });
 
 export const unassign = wrap(async (req, res) => {
-  await CaptacaoService.unassign(req.user!.tenantId, req.params.id);
+  await CaptacaoService.unassign(req.user!.tenantId, req.user!.id, req.params.id);
   res.status(204).send();
 });
 

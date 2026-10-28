@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { requireAuth } from '../../shared/middleware/requireAuth';
+import { requireRole } from '../../shared/middleware/requireRole';
 import * as LeadRequestsController from './lead-requests.controller';
 
-// Pedidos de leads feitos pelos usuários do workspace (JWT)
+// Pedidos de leads (JWT) — só admin
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth, requireRole('admin'));
 
 router.get('/', LeadRequestsController.list);
 router.post('/', LeadRequestsController.create);

@@ -4,6 +4,10 @@ import { cn } from '@/lib/utils';
 
 interface FunnelChartProps {
   data: FunnelStage[];
+  /** O que cada coluna conta (padrão: negócios); o painel do captador conta leads */
+  unit?: { one: string; many: string };
+  /** Mostra o valor em R$ no title da coluna (o captador não tem valor por etapa) */
+  showValue?: boolean;
 }
 
 const BAR_MAX = 120; // px — altura da coluna mais cheia
@@ -17,7 +21,7 @@ const compact = (v: number) =>
  * nome e % do total embaixo. A etapa com mais negócios ganha o verde; as outras ficam em
  * blocos neutros — o olho vai direto pra onde está o volume.
  */
-export function FunnelChart({ data }: FunnelChartProps) {
+export function FunnelChart({ data, unit = { one: 'negócio', many: 'negócios' }, showValue = true }: FunnelChartProps) {
   if (!data.length) {
     return (
       <div className="flex h-[230px] flex-col items-center justify-center gap-1 text-center">
@@ -43,7 +47,7 @@ export function FunnelChart({ data }: FunnelChartProps) {
           <div
             key={s.stage_id}
             className="group flex min-w-0 max-w-[96px] flex-1 flex-col items-center"
-            title={`${s.name}: ${count} ${count === 1 ? 'negócio' : 'negócios'} · ${compact(Number(s.total_value))}`}
+            title={`${s.name}: ${count} ${count === 1 ? unit.one : unit.many}${showValue ? ` · ${compact(Number(s.total_value))}` : ''}`}
           >
             <motion.span
               className="mb-2 text-[22px] font-semibold leading-none text-text-primary"

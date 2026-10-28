@@ -46,8 +46,10 @@ export function DealCardView({
   return (
     <div
       className={cn(
-        // Vidro translúcido: o fundo aparece desfocado
-        'group relative overflow-hidden rounded-xl border border-fg/[0.1] bg-fg/[0.035] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)] backdrop-blur-xl transition-[border-color,box-shadow] duration-200',
+        // Vidro translúcido: o fundo (shader) aparece através do card. Sem backdrop-blur de propósito —
+        // dentro da .folder-surface (que já tem backdrop-filter) o blur deixava o card cinza sólido
+        'group relative overflow-hidden rounded-xl border border-fg/[0.12] bg-fg/[0.05] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)] transition-[border-color,box-shadow] duration-200',
+        overlay && 'bg-bg-surface/90 backdrop-blur-xl',
         overlay
           ? 'rotate-[2deg] scale-[1.03] cursor-grabbing border-accent-green/40 shadow-[0_28px_56px_-16px_rgba(0,0,0,0.75)]'
           : 'hover:border-fg/[0.14] hover:shadow-[0_14px_28px_-14px_rgba(0,0,0,0.6)]',

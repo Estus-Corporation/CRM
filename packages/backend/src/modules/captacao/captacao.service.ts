@@ -40,13 +40,31 @@ async function getActiveCaptador(tenantId: string, captadorId: string) {
   return captador;
 }
 
+const assignedTitle = (count: number) => (count === 1 ? 'Você recebeu 1 lead novo' : `Você recebeu ${count} leads novos`);
+
+/**
+ * Avisa o captador dos leads recebidos. Leads que chegam em sequência (ex.: admin cadastrando um a um
+ * já entregues) somam na notificação ainda não lida das últimas horas — uma só com o total, não uma por lead.
+ */
 async function notifyAssigned(tenantId: string, captadorId: string, count: number) {
   if (count === 0) return;
+  const pending = await db('notifications')
+    .where({ tenant_id: tenantId, user_id: captadorId, type: 'leads.assigned', read: false })
+    .where('created_at', '>', db.raw("now() - interval '6 hours'"))
+    .orderBy('created_at', 'desc')
+    .first('id', 'title');
+  if (pending) {
+    const previous = Number(/(\d+) leads? nov/.exec(pending.title)?.[1] ?? 0);
+    await db('notifications')
+      .where({ id: pending.id })
+      .update({ title: assignedTitle(previous + count), created_at: db.fn.now() });
+    return;
+  }
   await createNotification({
     tenantId,
     userId: captadorId,
     type: 'leads.assigned',
-    title: count === 1 ? 'Você recebeu 1 lead novo' : `Você recebeu ${count} leads novos`,
+    title: assignedTitle(count),
     body: 'Confira em Meus leads e registre o resultado de cada ligação.',
   });
 }
@@ -58,6 +76,7 @@ const MY_LEAD_COLUMNS = [
   'a.closed_at', 'a.commission_paid_at', 'a.concluded_at',
   'a.meeting_at', 'a.meeting_mode', 'a.meeting_location',
   'a.meeting_duration', 'a.meeting_attendee_ids', 'a.meeting_guests',
+  'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
   db.raw('a.commission_value::float8 as commission_value'),
   'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.lead_context',
   // Dados de prospecção (LeadHunter / planilha)
@@ -169,6 +188,7 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
   if (input.meetingDuration !== undefined) updates.meeting_duration = input.meetingDuration;
   if (input.meetingAttendeeIds !== undefined) updates.meeting_attendee_ids = JSON.stringify(input.meetingAttendeeIds);
   if (input.meetingGuests !== undefined) updates.meeting_guests = JSON.stringify(input.meetingGuests);
+  if (input.whatsappStatus !== undefined) updates.whatsapp_status = input.whatsappStatus;
 
   // "Concluir lead" exige um resultado escolhido; "Editar" reabre
   if (input.concluded === true) {
@@ -437,7 +457,8 @@ export async function createLead(tenantId: string, adminId: string, input: Creat
       captador_id: input.captadorId,
       assigned_by: adminId,
     });
-    await notifyAssigned(tenantId, input.captadorId, 1);
+    // Captador que cadastrou o próprio lead não precisa ser avisado
+    if (input.captadorId !== adminId) await notifyAssigned(tenantId, input.captadorId, 1);
   }
 
   return { id: contact.id, full_name: contact.full_name, assigned: !!input.captadorId };
@@ -465,12 +486,20 @@ export async function topUpDailyLeads(tenantId: string, captadorId: string) {
     const [{ count }] = await trx('lead_assignments')
       .where({ tenant_id: tenantId, captador_id: captadorId })
       .where('assigned_for', TODAY)
+      // Leads que o próprio captador cadastrou não gastam a cota da distribuição
+      .where((q) => q.whereNull('assigned_by').orWhereNot('assigned_by', captadorId))
       .count('id as count');
     const missing = quota - Number(count);
     if (missing <= 0) return 0;
 
     const contactIds: string[] = await availableContactsBase(tenantId)
       .transacting(trx)
+      // Lead que um admin tirou deste captador não volta pra ele sozinho
+      .whereNotExists(
+        trx('lead_assignment_removals as r')
+          .whereRaw('r.contact_id = c.id')
+          .andWhere({ 'r.tenant_id': tenantId, 'r.captador_id': captadorId }),
+      )
       .orderBy('c.created_at', 'asc')
       .limit(missing)
       .pluck('c.id');
@@ -511,6 +540,7 @@ export async function listAssignments(tenantId: string, query: AssignmentsQuery)
     .select(
       'a.id', 'a.contact_id', 'a.captador_id', 'a.assigned_for', 'a.call_status', 'a.call_notes',
       'a.call_updated_at', 'a.outcome', 'a.closed_at', 'a.commission_paid_at',
+      'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
       db.raw('a.deal_value::float8 as deal_value'),
       db.raw('a.commission_rate::float8 as commission_rate'),
       db.raw('a.commission_value::float8 as commission_value'),
@@ -602,11 +632,37 @@ export async function payAllCommissions(tenantId: string, captadorId: string) {
   return { paid: updated };
 }
 
-export async function unassign(tenantId: string, id: string) {
-  const assignment = await db('lead_assignments').where({ id, tenant_id: tenantId }).first('outcome');
+export async function unassign(tenantId: string, adminId: string, id: string) {
+  const assignment = await db('lead_assignments').where({ id, tenant_id: tenantId }).first('outcome', 'contact_id', 'captador_id');
   if (!assignment) throw httpError('Assignment not found', 404);
   if (assignment.outcome) throw httpError('Closed leads cannot be unassigned', 409);
-  await db('lead_assignments').where({ id, tenant_id: tenantId }).delete();
+  await db.transaction(async (trx) => {
+    await trx('lead_assignments').where({ id, tenant_id: tenantId }).delete();
+    // Guarda a remoção: a distribuição automática não devolve este lead pro mesmo captador
+    await trx('lead_assignment_removals')
+      .insert({ tenant_id: tenantId, contact_id: assignment.contact_id, captador_id: assignment.captador_id, removed_by: adminId })
+      .onConflict(['tenant_id', 'contact_id', 'captador_id'])
+      .merge({ removed_by: adminId, removed_at: new Date() });
+  });
+}
+
+/** Captador abriu o WhatsApp do lead (plano B depois da ligação): registra quando e quantas vezes */
+export async function recordWhatsapp(tenantId: string, userId: string, id: string) {
+  const updated = await db('lead_assignments')
+    .where({ id, tenant_id: tenantId, captador_id: userId })
+    .update({
+      whatsapp_at: new Date(),
+      whatsapp_count: db.raw('whatsapp_count + 1'),
+      // Abriu a conversa = mensagem enviada, aguardando resposta (se ainda não tinha situação)
+      whatsapp_status: db.raw("coalesce(whatsapp_status, 'waiting')"),
+      updated_at: new Date(),
+    });
+  if (!updated) throw httpError('Lead not found', 404);
+  return db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .where({ 'a.id': id, 'a.tenant_id': tenantId })
+    .select(MY_LEAD_COLUMNS)
+    .first();
 }
 
 export async function getSettings(tenantId: string) {

@@ -85,10 +85,24 @@ export function useUpdateMyLead() {
   });
 }
 
+/** Plano B: registra a abertura do WhatsApp e já aplica no cache (o link abre na hora, sem esperar) */
+export function useRecordWhatsapp() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => captacaoService.recordWhatsapp(id),
+    onSuccess: (lead) => {
+      qc.setQueriesData<MyLead[]>({ queryKey: ['captacao', 'me', 'leads'] }, (old) =>
+        old?.map((l) => (l.id === lead.id ? { ...l, ...lead } : l)),
+      );
+      qc.setQueryData<MyLead>(captacaoKeys.myLead(lead.id), (old) => (old ? { ...old, ...lead } : lead));
+    },
+  });
+}
+
 // ── Admin / gerente ─────────────────────────────────────────────────────────
 
-export function useCaptadores() {
-  return useQuery({ queryKey: captacaoKeys.captadores, queryFn: captacaoService.captadores });
+export function useCaptadores({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: captacaoKeys.captadores, queryFn: captacaoService.captadores, enabled });
 }
 
 export function useAvailableContacts(params: { search?: string; niche?: string; page?: number; limit?: number }) {

@@ -1,6 +1,8 @@
 import { api } from './api';
 
 export type CallStatus = 'pending' | 'no_answer' | 'callback' | 'meeting' | 'lost';
+/** Plano B (WhatsApp): situação da mensagem */
+export type WhatsappStatus = 'waiting' | 'replied' | 'no_reply';
 export type Outcome = 'won' | 'lost' | null;
 /** won: só os que fecharam negócio (Minhas comissões) */
 export type MyLeadsScope = 'today' | 'open' | 'all' | 'won';
@@ -40,6 +42,10 @@ export interface MyLead {
   meeting_duration: number | null;
   meeting_attendee_ids: string[];
   meeting_guests: MeetingGuest[];
+  /** Plano B: última vez que abriu o WhatsApp do lead e quantas vezes */
+  whatsapp_at: string | null;
+  whatsapp_count: number;
+  whatsapp_status: WhatsappStatus | null;
 }
 
 export interface MeetingGuest {
@@ -59,6 +65,7 @@ export interface UpdateMyLeadInput {
   meetingDuration?: number | null;
   meetingAttendeeIds?: string[];
   meetingGuests?: MeetingGuest[];
+  whatsappStatus?: WhatsappStatus | null;
 }
 
 export interface MySummary {
@@ -134,6 +141,10 @@ export interface Assignment {
   commission_rate: number | null;
   commission_value: number | null;
   commission_paid_at: string | null;
+  /** Plano B: o captador abriu o WhatsApp do lead */
+  whatsapp_at: string | null;
+  whatsapp_count: number;
+  whatsapp_status: WhatsappStatus | null;
   full_name: string;
   phone: string | null;
   company_name: string | null;
@@ -203,6 +214,12 @@ export const captacaoService = {
     return data.data;
   },
 
+  /** Registra que o captador abriu o WhatsApp do lead (plano B) */
+  async recordWhatsapp(id: string): Promise<MyLead> {
+    const { data } = await api.post<{ data: MyLead }>(`/captacao/me/leads/${id}/whatsapp`);
+    return data.data;
+  },
+
   async updateMyLead(id: string, input: UpdateMyLeadInput): Promise<MyLead> {
     const { data } = await api.patch<{ data: MyLead }>(`/captacao/me/leads/${id}`, input);
     return data.data;
@@ -233,6 +250,12 @@ export const captacaoService = {
   /** Lead digitado à mão; com captadorId já sai atribuído. 409 duplicate_lead se já existir */
   async createLead(input: NewLeadInput): Promise<{ id: string; full_name: string; assigned: boolean }> {
     const { data } = await api.post('/captacao/leads', input);
+    return data.data;
+  },
+
+  /** Lead cadastrado pelo próprio captador — já entra nos leads dele. 409 duplicate_lead se já existir */
+  async createMyLead(input: Omit<NewLeadInput, 'captadorId'>): Promise<{ id: string; full_name: string; assigned: boolean }> {
+    const { data } = await api.post('/captacao/me/leads', input);
     return data.data;
   },
 

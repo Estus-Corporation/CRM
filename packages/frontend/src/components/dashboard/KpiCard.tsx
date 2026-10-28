@@ -13,6 +13,12 @@ interface KpiCardProps {
   trend?: number[];
   /** true quando subir é ruim (ex.: ciclo de venda) — inverte a cor da variação */
   lowerIsBetter?: boolean;
+  /** Variação já calculada (%) — substitui a do `trend`; null = sem base ("novo") */
+  change?: number | null;
+  /** Texto do title da etiqueta de variação */
+  changeLabel?: string;
+  /** false = só a etiqueta de variação, sem a linha de tendência (Relatórios) */
+  sparkline?: boolean;
 }
 
 /** Variação do último ponto vs o anterior, em %. null = sem base (mês anterior zerado). */
@@ -28,8 +34,8 @@ function variation(trend?: number[]) {
  * Card de indicador: ícone num quadrado arredondado à esquerda, e ao lado rótulo, valor e descrição.
  * Celular (2 colunas estreitas): o ícone sobe e o texto usa a largura toda.
  */
-export function KpiCard({ label, value, sub, icon: Icon, highlight, trend, lowerIsBetter }: KpiCardProps) {
-  const delta = variation(trend);
+export function KpiCard({ label, value, sub, icon: Icon, highlight, trend, lowerIsBetter, change, changeLabel, sparkline = true }: KpiCardProps) {
+  const delta = change !== undefined ? change : variation(trend);
   const up = (delta ?? 0) >= 0;
   const good = lowerIsBetter ? !up || delta === 0 : up;
   return (
@@ -38,7 +44,7 @@ export function KpiCard({ label, value, sub, icon: Icon, highlight, trend, lower
       {delta !== undefined && (
         <span
           className="absolute right-3 top-3 flex items-center gap-0.5 rounded-md border border-fg/[0.08] bg-fg/[0.04] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-text-primary"
-          title="Variação em relação ao mês anterior"
+          title={changeLabel ?? 'Variação em relação ao mês anterior'}
         >
           {up ? (
             <ArrowUpRight size={12} strokeWidth={2.4} className={good ? 'text-accent-green' : 'text-status-lost'} />
@@ -66,7 +72,7 @@ export function KpiCard({ label, value, sub, icon: Icon, highlight, trend, lower
           <p className="truncate text-[24px] font-semibold leading-none tracking-[-0.02em] text-text-primary sm:text-[28px]">
             {value}
           </p>
-          {trend && (
+          {trend && sparkline && (
             <div className="pointer-events-none -mb-1 flex-shrink-0 max-sm:hidden">
               <Sparkline data={trend} width={76} height={28} />
             </div>
