@@ -36,6 +36,16 @@ export function useContact(id: string) {
   });
 }
 
+/** Dados do LeadHunter do contato (só busca quando `enabled`); em erro `data` fica undefined = sem dados */
+export function useContactLeadHunter(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [...contactsKeys.detail(id), 'leadhunter'] as const,
+    queryFn: () => contactsService.getLeadHunter(id),
+    enabled: !!id && enabled,
+    staleTime: 60_000,
+  });
+}
+
 export function useCreateContact() {
   const qc = useQueryClient();
   return useMutation({
