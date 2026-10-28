@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const CALL_STATUSES = ['pending', 'no_answer', 'callback', 'meeting', 'lost'] as const;
+// callback e lost não aparecem mais como opção (ficam pra leads antigos); answered = atendeu
+export const CALL_STATUSES = ['pending', 'no_answer', 'answered', 'callback', 'meeting', 'lost'] as const;
 
 export const updateMyLeadSchema = z.object({
   callStatus: z.enum(CALL_STATUSES).optional(),

@@ -1,6 +1,6 @@
 import { api } from './api';
 
-export type CallStatus = 'pending' | 'no_answer' | 'callback' | 'meeting' | 'lost';
+export type CallStatus = 'pending' | 'no_answer' | 'answered' | 'callback' | 'meeting' | 'lost';
 /** Plano B (WhatsApp): situação da mensagem */
 export type WhatsappStatus = 'waiting' | 'replied' | 'no_reply';
 /** Pessoa de contato conseguida na ligação (ex.: o dono, passado pelo atendente) */

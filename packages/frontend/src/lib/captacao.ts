@@ -3,16 +3,19 @@ import type { CallStatus, WhatsappStatus } from '@/services/captacao.service';
 /** Resultados da ligação, na ordem em que aparecem para o captador */
 /** Plano B (WhatsApp): situação da mensagem */
 export const WHATSAPP_STATUS: Record<WhatsappStatus, { label: string; className: string; dot: string }> = {
-  waiting: { label: 'Aguardando resposta', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
+  // 'waiting' = mensagem enviada, sem resposta registrada ainda
+  waiting: { label: 'Mensagem enviada', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
   replied: { label: 'Respondeu', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' },
   no_reply: { label: 'Não respondeu', className: 'bg-fg/[0.09] text-text-primary', dot: 'bg-text-secondary' },
 };
-export const WHATSAPP_STATUS_ORDER: WhatsappStatus[] = ['waiting', 'replied', 'no_reply'];
+// Opções do captador: só a resposta ('waiting' = enviada, marcado sozinho ao abrir o WhatsApp)
+export const WHATSAPP_STATUS_ORDER: WhatsappStatus[] = ['replied', 'no_reply'];
 
 export const CALL_STATUS: Record<CallStatus, { label: string; short: string; className: string; dot: string }> = {
   // Paleta de 3 cores (esmeralda/âmbar/vermelho): "a ligar" tracejado = ainda não ligou; "não atendeu" neutro
   pending: { label: 'A ligar', short: 'A ligar', className: 'border border-dashed border-fg/[0.22] text-text-muted', dot: 'bg-text-muted' },
   no_answer: { label: 'Não atendeu', short: 'Não atendeu', className: 'bg-fg/[0.09] text-text-primary', dot: 'bg-text-secondary' },
+  answered: { label: 'Atendeu', short: 'Atendeu', className: 'bg-accent-green/10 text-text-primary', dot: 'bg-accent-green' },
   callback: { label: 'Em aguardo', short: 'Aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
   meeting: { label: 'Reunião marcada', short: 'Reunião', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' },
   lost: { label: 'Perdido', short: 'Perdido', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
@@ -20,7 +23,10 @@ export const CALL_STATUS: Record<CallStatus, { label: string; short: string; cla
 
 // Sem 'callback': o "Em aguardo" agora é o botão ao lado de "Concluir lead" (on_hold_at). O valor segue
 // existindo só pra leads antigos que já têm esse resultado.
-export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'meeting', 'lost'];
+export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'answered', 'meeting', 'lost'];
+
+// Opções do Resultado na página do lead (reunião sai da Agenda; perdido quem decide é o admin)
+export const CALL_RESULT_OPTIONS = ['no_answer', 'answered'] as const satisfies readonly CallStatus[];
 
 export function formatBRL(value: number | null | undefined) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0);

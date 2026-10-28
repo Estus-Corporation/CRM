@@ -330,6 +330,7 @@ export async function getMyStats(tenantId: string, userId: string, days: 7 | 30)
       count(*) FILTER (WHERE outcome = 'won')::int AS won,
       count(*) FILTER (WHERE call_status = 'pending')::int AS st_pending,
       count(*) FILTER (WHERE call_status = 'no_answer')::int AS st_no_answer,
+      count(*) FILTER (WHERE call_status = 'answered')::int AS st_answered,
       count(*) FILTER (WHERE call_status = 'callback')::int AS st_callback,
       count(*) FILTER (WHERE call_status = 'meeting')::int AS st_meeting,
       count(*) FILTER (WHERE call_status = 'lost')::int AS st_lost
@@ -356,6 +357,7 @@ export async function getMyStats(tenantId: string, userId: string, days: 7 | 30)
     byStatus: {
       pending: c.st_pending,
       no_answer: c.st_no_answer,
+      answered: c.st_answered,
       callback: c.st_callback,
       meeting: c.st_meeting,
       lost: c.st_lost,
