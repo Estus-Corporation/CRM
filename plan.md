@@ -827,3 +827,6 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 - [x] **T4** (28/10/2026) Contatos do lead — migration **20240040** (`contacts.lead_people` jsonb `[{name,title?,phone?,email?}]`, roda sozinha no boot):
   - bloco "Contatos do lead" no Formulário (`LeadPeopleCard bare`), salva na hora (`leadPeople` no `PATCH /captacao/me/leads/:id`); card próprio quando o lead está concluído/fechado e na página do lead do admin (leitura)
   - nome capitalizado (`capitalizeName`), cargo com `JOB_TITLE_OPTIONS` + "Outro", e-mail minúsculo (`lowerEmail`, `withTransform`) no contato do lead e no Adicionar/Editar lead
+- [x] **T5** (28/10/2026) "Em aguardo" — migration **20240041** (`lead_assignments.on_hold_at`, roda sozinha no boot):
+  - botão ao lado de "Concluir lead" (no celular, os dois lado a lado embaixo do Formulário); salva resultado, anotação e agenda completa sem concluir; clicar de novo tira do aguardo
+  - `onHold` no `PATCH /captacao/me/leads/:id`; concluir limpa `on_hold_at`; selo âmbar "Em aguardo" na lista e na página
