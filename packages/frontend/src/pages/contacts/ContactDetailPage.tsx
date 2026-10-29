@@ -4,7 +4,6 @@ import { ArrowLeft, Pencil, Mail, Phone, Building2, Briefcase, Globe, UserCheck,
 import { useContact, useUpdateContact, useUploadContactPhoto, useDeleteContactPhoto } from '@/hooks/useContacts';
 import { ActivityTimeline } from '@/components/activities/ActivityTimeline';
 import { ContractSection } from '@/components/contacts/ContractSection';
-import { ContactDeals } from '@/components/contacts/ContactDeals';
 import { SendToPipelineModal } from '@/components/contacts/SendToPipelineModal';
 import { LeadHunterPanel } from '@/components/contacts/LeadHunterInfo';
 import { Button } from '@/components/ui/Button';
@@ -230,8 +229,6 @@ export function ContactDetailPage() {
               <p>Criado em: {new Date(contact.created_at).toLocaleDateString('pt-BR')}</p>
             </div>
           </div>
-
-          <ContactDeals contactId={contact.id} />
 
           {contact.type === 'client' && <ContractSection contactId={contact.id} />}
         </div>
