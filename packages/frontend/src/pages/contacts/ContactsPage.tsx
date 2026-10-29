@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Search, Plus, Download, Trash2, Pencil, Users, User, Check, Building2, Tag, Phone, Layers } from 'lucide-react';
@@ -61,12 +61,18 @@ export function ContactsPage() {
   // Celular: editar/excluir só aparecem nas linhas depois de tocar no lápis
   const [editMode, setEditMode] = useState(false);
 
+  const [page, setPage] = useState(1);
+
   const debouncedSearch = useDebounce(search, 300);
+
+  // Filtro novo volta pra primeira página
+  useEffect(() => setPage(1), [debouncedSearch, typeFilter, nicheFilter]);
 
   const { data, isLoading } = useContacts({
     search: debouncedSearch || undefined,
     type: typeFilter || undefined,
     niche: nicheFilter || undefined,
+    page,
   });
 
   const createContact = useCreateContact();
@@ -290,11 +296,16 @@ export function ContactsPage() {
       )}
       </div>
 
-      {/* Pagination hint */}
       {data?.meta && data.meta.totalPages > 1 && (
-        <p className="text-xs text-text-muted text-center">
-          Page {data.meta.page} of {data.meta.totalPages}
-        </p>
+        <div className="flex items-center justify-center gap-3 text-sm text-text-muted">
+          <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            Anterior
+          </Button>
+          Página {data.meta.page} de {data.meta.totalPages}
+          <Button variant="ghost" size="sm" disabled={page >= data.meta.totalPages} onClick={() => setPage((p) => p + 1)}>
+            Próxima
+          </Button>
+        </div>
       )}
 
       {/* Create / Edit Modal */}

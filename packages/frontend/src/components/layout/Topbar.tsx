@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronRight, Inbox, LogOut, Menu, NotebookPen, UserCog } from 'lucide-react';
+import { ChevronDown, ChevronRight, Inbox, LogOut, Menu, NotebookPen, Repeat, UserCog } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useUIStore } from '@/store/uiStore';
 import { authService } from '@/services/auth.service';
@@ -157,6 +157,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                   <Avatar name={user.full_name} src={user.avatar_url} online className="h-10 w-10 bg-bg-surface text-sm ring-2 ring-bg-primary" />
                 </span>
                 <span className="max-w-[180px] truncate text-sm font-medium text-text-primary max-md:hidden">{shortName(user.full_name)}</span>
+                <ChevronDown size={15} className={cn('text-text-muted transition-transform', menuOpen && 'rotate-180')} />
               </button>
 
               <AnimatePresence>
@@ -185,6 +186,14 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                       Tema
                       <ThemeToggle />
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-sm text-text-primary hover:bg-fg/[0.06]"
+                    >
+                      <Repeat size={16} />
+                      Trocar de conta
+                    </button>
                     <button
                       type="button"
                       onClick={handleLogout}
