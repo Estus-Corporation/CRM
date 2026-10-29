@@ -1,34 +1,41 @@
-import { useState } from 'react';
-import { HeadLabel } from '@/components/ui/HeadLabel';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Flag, Headset, Hourglass, PhoneCall } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Headset, Phone, BellRing } from 'lucide-react';
 import {
   useAssignments,
   useCaptadores,
   useCloseAssignment,
   useSetCommissionPaid,
-  useUnassign,
 } from '@/hooks/useCaptacao';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { contactsService } from '@/services/contacts.service';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { Assignment, CallStatus } from '@/services/captacao.service';
-import { CALL_STATUS, CALL_STATUS_ORDER, formatBRL, formatDay, WHATSAPP_STATUS } from '@/lib/captacao';
+import { CALL_STATUS, CALL_STATUS_ORDER, formatBRL, formatDay, LOST_REASON_LABEL, WHATSAPP_STATUS } from '@/lib/captacao';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { DataList, DataListBody, DataListHead, DataListRow, DataListSkeleton, listSpring } from '@/components/ui/DataList';
+import { DataListSkeleton, listSpring } from '@/components/ui/DataList';
 import { CloseLeadModal } from './CloseLeadModal';
 import { WhatsAppIcon } from '@/components/ui/BrandIcons';
-import { cn } from '@/lib/utils';
+import { cn, shortName } from '@/lib/utils';
 
 const GRID =
   'grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1.3fr)_minmax(0,1.3fr)] xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.5fr)_minmax(0,0.6fr)_minmax(0,1.3fr)]';
 
 const shortDate = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
-/** Em que pé o captador deixou o lead: pendente, em aguardo ou concluído (encerrado = admin já decidiu) */
+/** Em que pé o captador deixou o lead: pendente, em aguardo, ganhou/perdeu (encerrado = admin já decidiu) */
 function StatusChip({ a }: { a: Assignment }) {
   const s = a.outcome
     ? { label: 'Encerrado', className: 'bg-fg/[0.08] text-text-secondary', dot: 'bg-text-muted' }
+    : a.concluded_at && a.lead_result === 'won'
+      ? { label: 'Ganhou', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green', at: a.concluded_at }
+    : a.concluded_at && a.lead_result === 'lost'
+      ? { label: a.lost_reason ? `Perdeu · ${LOST_REASON_LABEL[a.lost_reason]}` : 'Perdeu', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost', at: a.concluded_at }
     : a.concluded_at
       ? { label: 'Concluído', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green', at: a.concluded_at }
       : a.on_hold_at
@@ -67,7 +74,6 @@ interface Props {
 function OutcomeCell({ a, isAdmin, onWon }: { a: Assignment; isAdmin: boolean; onWon: () => void }) {
   const close = useCloseAssignment();
   const setPaid = useSetCommissionPaid();
-  const unassign = useUnassign();
 
   if (a.outcome === 'won') {
     const paid = !!a.commission_paid_at;
@@ -126,32 +132,24 @@ function OutcomeCell({ a, isAdmin, onWon }: { a: Assignment; isAdmin: boolean; o
     );
   }
 
+  // Lead em aberto: Fechou / Não fechou num bloco só (remover do captador = botão direito no card)
+  const iconBtn = 'flex h-10 w-11 items-center justify-center text-text-secondary transition-colors';
   return (
-    <div className="flex items-center justify-end gap-1.5">
-      <Button size="sm" onClick={onWon} title="Fechou negócio com este lead">
-        <Trophy size={13} />
-        Fechou
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => close.mutate({ id: a.id, outcome: 'lost' })}
-        disabled={close.isPending}
-        title="Não fechou"
-      >
-        <XCircle size={13} />
-        <span className="hidden 2xl:inline">Não fechou</span>
-      </Button>
-      <button
-        type="button"
-        onClick={() => {
-          if (confirm(`Devolver ${a.full_name} para a fila de leads livres?`)) unassign.mutate(a.id);
-        }}
-        title="Remover do captador (volta para a fila)"
-        className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-status-lost/10 hover:text-status-lost"
-      >
-        <Trash2 size={14} />
-      </button>
+    <div className="flex justify-end">
+      <div className="flex divide-x divide-fg/[0.08] overflow-hidden rounded-xl border border-fg/[0.1] bg-fg/[0.03]">
+        <button type="button" onClick={onWon} title="Fechou negócio" className={cn(iconBtn, 'hover:bg-accent-green/10 hover:text-accent-green')}>
+          <Trophy size={19} />
+        </button>
+        <button
+          type="button"
+          onClick={() => close.mutate({ id: a.id, outcome: 'lost' })}
+          disabled={close.isPending}
+          title="Não fechou"
+          className={cn(iconBtn, 'hover:bg-status-lost/10 hover:text-status-lost')}
+        >
+          <XCircle size={19} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -165,6 +163,32 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
   const [page, setPage] = useState(1);
   const [closing, setClosing] = useState<Assignment | null>(null);
   const debouncedSearch = useDebounce(search, 300);
+  const navigate = useNavigate();
+  // Botão direito no card: menu com "Excluir lead" (apaga o contato e o vínculo com o captador)
+  const qc = useQueryClient();
+  const deleteLead = useMutation({
+    mutationFn: (contactId: string) => contactsService.delete(contactId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['captacao'] });
+      qc.invalidateQueries({ queryKey: ['contacts'] });
+      toast.success('Lead excluído');
+    },
+    onError: () => toast.error('Não foi possível excluir o lead'),
+  });
+  const [menu, setMenu] = useState<{ x: number; y: number; a: Assignment } | null>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const close = () => setMenu(null);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
 
   const { data, isLoading } = useAssignments({
     captadorId: captadorId || undefined,
@@ -252,72 +276,117 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
           />
         </motion.div>
       ) : (
-        <DataList outlined={false}>
-          <DataListHead grid={GRID}>
-            <span><HeadLabel icon={Building2}>Lead</HeadLabel></span>
-            <span className="hidden md:block"><HeadLabel icon={Headset}>Captador</HeadLabel></span>
-            <span className="hidden md:block"><HeadLabel icon={Hourglass}>Status</HeadLabel></span>
-            <span className="hidden md:block"><HeadLabel icon={PhoneCall}>Resultado da ligação</HeadLabel></span>
-            <span className="hidden xl:block"><HeadLabel icon={CalendarDays}>Recebido</HeadLabel></span>
-            <span className="text-right"><HeadLabel icon={Flag}>Fechamento</HeadLabel></span>
-          </DataListHead>
-          <DataListBody>
-            {rows.map((a, i) => (
-              <DataListRow key={a.id} grid={GRID} index={i}>
-                <div className="min-w-0">
-                  <p className="truncate text-[14.5px] font-medium text-text-primary">{a.full_name}</p>
-                  <p className="truncate text-xs text-text-muted">
-                    {[a.phone, a.company_name].filter(Boolean).join(' · ') || '—'}
-                  </p>
-                  {/* Celular: a coluna Status não cabe, o selo vai embaixo do nome */}
-                  <span className="mt-1 block md:hidden">
-                    <StatusChip a={a} />
-                  </span>
-                </div>
-                <span className="hidden truncate text-sm text-text-secondary md:block">{a.captador_name ?? '(removido)'}</span>
-                <span className="hidden min-w-0 md:block">
-                  <StatusChip a={a} />
-                </span>
-                <div className="hidden min-w-0 md:block">
-                  <span
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                      CALL_STATUS[a.call_status].className,
-                    )}
-                  >
-                    <span className={cn('h-1.5 w-1.5 rounded-full', CALL_STATUS[a.call_status].dot)} />
-                    {CALL_STATUS[a.call_status].label}
-                  </span>
-                  {/* Plano B: o captador partiu pra mensagem no WhatsApp */}
-                  {(a.whatsapp_at || a.whatsapp_status) && (
-                    <span
-                      className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-[#25D366]/10 px-2 py-0.5 text-[11px] font-medium text-[#25D366]"
-                      title={
-                        a.whatsapp_at
-                          ? `WhatsApp aberto ${a.whatsapp_count}x — último em ${new Date(a.whatsapp_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`
-                          : 'Mensagem no WhatsApp'
-                      }
-                    >
-                      <WhatsAppIcon size={11} />
-                      {a.whatsapp_status ? WHATSAPP_STATUS[a.whatsapp_status].label : 'WhatsApp'}
-                      {a.whatsapp_at &&
-                        ` · ${new Date(a.whatsapp_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`}
-                      {a.whatsapp_count > 1 && ` · ${a.whatsapp_count}x`}
+        // Cards no padrão de Meus leads; clicar abre a página do lead
+        <ul className="space-y-3">
+          {rows.map((a, i) => (
+            <motion.li
+              key={a.id}
+              layout
+              initial={{ opacity: 0, y: 14, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { ...listSpring, delay: Math.min(i * 0.03, 0.3) } }}
+              transition={listSpring}
+              onClick={() => navigate(`/captacao/lead/${a.contact_id}`)}
+              onContextMenu={(e) => {
+                if (a.outcome) return;
+                e.preventDefault();
+                setMenu({ x: Math.min(e.clientX, window.innerWidth - 230), y: Math.min(e.clientY, window.innerHeight - 60), a });
+              }}
+              // Vidro leve do cabeçalho do calendário (sem backdrop-blur: dentro da pasta ele deixa o fundo sólido)
+              className="group flex cursor-pointer flex-wrap items-center gap-4 overflow-hidden rounded-2xl border border-fg/[0.1] bg-fg/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:border-fg/[0.16] hover:bg-fg/[0.055] md:px-5"
+            >
+              <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-fg/[0.08] text-text-primary">
+                <Building2 size={20} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[15.5px] font-semibold text-text-primary">{a.full_name}</p>
+                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-muted">
+                  {a.company_name && a.company_name !== a.full_name && (
+                    <span className="flex min-w-0 max-w-full items-center gap-1">
+                      <Building2 size={12} className="flex-shrink-0" />
+                      <span className="truncate">{a.company_name}</span>
                     </span>
                   )}
-                  {a.call_notes && (
-                    <p className="mt-1 line-clamp-2 text-xs text-text-muted" title={a.call_notes}>
-                      {a.call_notes}
-                    </p>
-                  )}
+                  <span className="flex items-center gap-1" title="Captador">
+                    <Headset size={12} className="flex-shrink-0" />
+                    {a.captador_name ? shortName(a.captador_name) : '(removido)'}
+                  </span>
+                  <span className="flex items-center gap-1" title="Recebido em">
+                    <CalendarDays size={12} className="flex-shrink-0" />
+                    {formatDay(a.assigned_for)}
+                  </span>
                 </div>
-                <span className="hidden text-sm tabular-nums text-text-muted xl:block">{formatDay(a.assigned_for)}</span>
+                {a.call_notes && (
+                  <p className="mt-1.5 line-clamp-1 text-xs text-text-secondary" title={a.call_notes}>
+                    {a.call_notes}
+                  </p>
+                )}
+              </div>
+
+              {/* Situação: só o status em destaque; ligação e mensagem numa linha discreta embaixo */}
+              <div className="flex min-w-0 flex-shrink-0 flex-col items-start gap-1.5 max-md:w-full md:w-[200px]">
+                <StatusChip a={a} />
+                <div className="flex min-w-0 max-w-full items-center gap-3 text-xs text-text-muted">
+                  <span className="flex min-w-0 items-center gap-1" title="Ligação">
+                    <Phone size={12} className="flex-shrink-0" />
+                    <span className="truncate">{a.call_status === 'pending' ? '—' : CALL_STATUS[a.call_status].label}</span>
+                  </span>
+                  {(a.whatsapp_at || a.whatsapp_status) && (
+                    <span
+                      className="flex min-w-0 items-center gap-1"
+                      title={a.whatsapp_at ? `WhatsApp aberto ${a.whatsapp_count}x — último em ${shortDate(a.whatsapp_at)}` : 'Mensagem no WhatsApp'}
+                    >
+                      <WhatsAppIcon size={12} className="flex-shrink-0 text-[#25D366]/80" />
+                      <span className="truncate">{a.whatsapp_status ? WHATSAPP_STATUS[a.whatsapp_status].label : 'Enviada'}</span>
+                    </span>
+                  )}
+                  {a.attempts_count > 0 && <span title="Tentativas registradas">{a.attempts_count}x</span>}
+                </div>
+                {/* Retorno combinado (vermelho = atrasado) */}
+                {a.next_contact_at && !a.concluded_at && !a.outcome && (
+                  <span
+                    className={cn(
+                      'flex items-center gap-1 text-xs font-medium',
+                      new Date(a.next_contact_at) < new Date() ? 'text-status-lost' : 'text-accent-amber',
+                    )}
+                    title="Retorno marcado pelo captador"
+                  >
+                    <BellRing size={12} />
+                    Retorno {shortDate(a.next_contact_at)}
+                  </span>
+                )}
+              </div>
+
+              {/* Fechamento: os botões não abrem a página */}
+              <div className="flex-shrink-0 max-sm:w-full" onClick={(e) => e.stopPropagation()}>
                 <OutcomeCell a={a} isAdmin={isAdmin} onWon={() => setClosing(a)} />
-              </DataListRow>
-            ))}
-          </DataListBody>
-        </DataList>
+              </div>
+            </motion.li>
+          ))}
+        </ul>
       )}
+      {menu &&
+        createPortal(
+          <div
+            data-floating
+            style={{ left: menu.x, top: menu.y }}
+            className="glass-panel fixed z-[100] w-[220px] rounded-xl p-1.5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                const target = menu.a;
+                setMenu(null);
+                if (confirm(`Excluir o lead ${target.full_name}? Isso apaga o lead e não dá pra desfazer.`)) deleteLead.mutate(target.contact_id);
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-status-lost transition-colors hover:bg-status-lost/10"
+            >
+              <Trash2 size={14} />
+              Excluir lead
+            </button>
+          </div>,
+          document.body,
+        )}
       </div>
 
       {data && data.meta.totalPages > 1 && (

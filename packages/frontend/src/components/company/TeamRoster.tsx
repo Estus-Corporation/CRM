@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Briefcase, Headset, Mail, Shield, ShieldCheck, UserX, Users, type LucideIcon } from 'lucide-react';
 import type { KeyPerson, TenantMember } from '@/hooks/useTenant';
 import { Avatar } from '@/components/ui/Avatar';
+import { useOnlineIds } from '@/hooks/usePresence';
 import { cn } from '@/lib/utils';
 
 export const ROLE_LABEL: Record<TenantMember['role'], string> = {
@@ -80,6 +81,8 @@ export function titleFor(keyPeople: KeyPerson[] = [], email: string) {
 
 interface MemberCardProps {
   name: string;
+  /** Bolinha verde de online na foto */
+  online?: boolean;
   email?: string | null;
   avatarUrl?: string | null;
   /** Selo de cargo; omitido quando o cartão já está dentro do grupo do cargo */
@@ -93,11 +96,11 @@ interface MemberCardProps {
 }
 
 /** Cartão de integrante: foto, nome, selo de cargo, e-mail e uma linha de detalhes */
-export function MemberCard({ name, email, avatarUrl, title, meta, muted, actions, children }: MemberCardProps) {
+export function MemberCard({ name, email, avatarUrl, title, meta, muted, actions, children, online }: MemberCardProps) {
   return (
     <li className={cn('relative rounded-xl border border-fg/[0.06] bg-bg-surface/40 p-3', muted && 'opacity-60')}>
       <div className="flex items-center gap-3">
-        <Avatar name={name} src={avatarUrl} className="h-11 w-11 flex-shrink-0" />
+        <Avatar name={name} src={avatarUrl} online={online} className="h-11 w-11 flex-shrink-0" />
         <div className={cn('min-w-0 flex-1', actions && 'pr-7')}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <p className="truncate text-sm font-semibold text-text-primary">{name}</p>
@@ -165,6 +168,7 @@ export function buildRoster(members: TenantMember[] = [], keyPeople: KeyPerson[]
 /** Integrantes agrupados pelo papel (Admin, Gerente…); fundador/cofundador aparecem como selo */
 export function TeamRoster({ members, keyPeople, className }: { members?: TenantMember[]; keyPeople?: KeyPerson[]; className?: string }) {
   const roster = buildRoster(members, keyPeople);
+  const onlineIds = useOnlineIds();
   if (roster.length === 0) return null;
   return (
     <div className={cn('space-y-3', className)}>
@@ -174,7 +178,7 @@ export function TeamRoster({ members, keyPeople, className }: { members?: Tenant
           {[...g.items]
             .sort((a, b) => rankOf(a.title ?? g.title) - rankOf(b.title ?? g.title))
             .map(({ key, group: _group, meta, ...p }) => (
-              <MemberCard key={key} {...p} meta={meta || undefined} />
+              <MemberCard key={key} {...p} meta={meta || undefined} online={onlineIds.has(key)} />
             ))}
         </TitleGroup>
       ))}

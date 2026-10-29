@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { addDays, addMonths, format, isSameDay, startOfDay, startOfMonth, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { AlertTriangle, Building2, Check, ChevronLeft, ChevronRight, Clock, UserPlus, Users, X } from 'lucide-react';
+import { AlertTriangle, Building2, Check, ChevronLeft, ChevronRight, Clock, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useAdminBusy } from '@/hooks/useCaptacao';
 import { useTenant } from '@/hooks/useTenant';
 import type { AdminBusySlot, MeetingGuest } from '@/services/captacao.service';
@@ -179,6 +179,7 @@ export function AdminAgenda({
   initial,
   defaultGuest,
   leadName,
+  onRemove,
 }: {
   open: boolean;
   onClose: () => void;
@@ -189,6 +190,8 @@ export function AdminAgenda({
   defaultGuest?: MeetingGuest;
   /** Nome da empresa do lead (título do lado dele na reunião) */
   leadName?: string;
+  /** Reunião já marcada: botão pra excluir (limpa a reunião do lead) */
+  onRemove?: () => void;
 }) {
   const today = startOfDay(new Date());
   const initialDate = initial?.at ? startOfDay(new Date(initial.at)) : today;
@@ -481,15 +484,33 @@ export function AdminAgenda({
             )}
           </div>
 
-          {!pastDay && (
+          {(!pastDay || onRemove) && (
             <div className="flex items-center gap-2 border-t border-fg/[0.06] px-5 py-4">
               <Button type="button" variant="ghost" size="sm" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="button" size="sm" onClick={confirm} disabled={!canConfirm} className="ml-auto">
-                <Check size={14} />
-                Confirmar reunião
-              </Button>
+              {onRemove && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (!window.confirm('Excluir a reunião marcada com este lead?')) return;
+                    onRemove();
+                    onClose();
+                  }}
+                  className="text-status-lost hover:bg-status-lost/10 hover:text-status-lost"
+                >
+                  <Trash2 size={14} />
+                  Excluir reunião
+                </Button>
+              )}
+              {!pastDay && (
+                <Button type="button" size="sm" onClick={confirm} disabled={!canConfirm} className="ml-auto">
+                  <Check size={14} />
+                  Confirmar reunião
+                </Button>
+              )}
             </div>
           )}
         </div>

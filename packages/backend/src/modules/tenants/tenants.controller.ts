@@ -2,6 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import * as TenantsService from './tenants.service';
 
+export async function getOnlineMembers(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json({ data: await TenantsService.getOnlineMembers(req.user!.tenantId) });
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function getTenant(req: Request, res: Response, next: NextFunction) {
   try {
     const tenant = await TenantsService.getTenant(req.user!.tenantId);

@@ -73,10 +73,14 @@ async function notifyAssigned(tenantId: string, captadorId: string, count: numbe
 
 const MY_LEAD_COLUMNS = [
   'a.id', 'a.call_status', 'a.call_notes', 'a.call_updated_at', 'a.assigned_for', 'a.outcome',
-  'a.closed_at', 'a.commission_paid_at', 'a.concluded_at', 'a.on_hold_at',
+  'a.closed_at', 'a.commission_paid_at', 'a.concluded_at', 'a.on_hold_at', 'a.lead_result',
   'a.meeting_at', 'a.meeting_mode', 'a.meeting_location',
   'a.meeting_duration', 'a.meeting_attendee_ids', 'a.meeting_guests',
   'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
+  'a.next_contact_at', 'a.lost_reason',
+  // Histórico: quantas tentativas e quando foi a última
+  db.raw('(SELECT count(*) FROM lead_contact_attempts t WHERE t.assignment_id = a.id)::int AS attempts_count'),
+  db.raw('(SELECT max(t.created_at) FROM lead_contact_attempts t WHERE t.assignment_id = a.id) AS last_attempt_at'),
   db.raw('a.commission_value::float8 as commission_value'),
   'c.full_name', 'c.phone', 'c.email', 'c.company_name', 'c.job_title', 'c.niche', 'c.lead_context', 'c.lead_people',
   // Dados de prospecção (LeadHunter / planilha)
@@ -94,10 +98,16 @@ export async function listMyLeads(tenantId: string, userId: string, query: MyLea
   if (query.scope === 'open') q.whereNull('a.outcome');
   if (query.scope === 'won') q.where('a.outcome', 'won');
   if (query.status) q.where('a.call_status', query.status);
+  if (query.scope === 'followup') {
+    q.whereNull('a.outcome').whereNull('a.concluded_at').whereNotNull('a.next_contact_at')
+      .whereRaw("(a.next_contact_at AT TIME ZONE 'America/Sao_Paulo')::date <= ?", [TODAY]);
+  }
 
-  // A fazer primeiro (não concluídos), depois os mais recentes
+  // A fazer primeiro (não concluídos); entre eles, retorno vencido/de hoje na frente; depois os mais recentes
   return q
     .orderByRaw('CASE WHEN a.concluded_at IS NULL THEN 0 ELSE 1 END')
+    .orderByRaw("CASE WHEN a.concluded_at IS NULL AND a.next_contact_at IS NOT NULL AND (a.next_contact_at AT TIME ZONE 'America/Sao_Paulo')::date <= (now() AT TIME ZONE 'America/Sao_Paulo')::date THEN 0 ELSE 1 END")
+    .orderBy('a.next_contact_at', 'asc', 'last')
     .orderBy('a.assigned_for', 'desc')
     .orderBy('c.full_name', 'asc')
     .limit(500);
@@ -111,7 +121,51 @@ export async function getMyLead(tenantId: string, userId: string, id: string) {
     .select(MY_LEAD_COLUMNS)
     .first();
   if (!lead) throw httpError('Lead not found', 404);
-  return lead;
+  return { ...lead, attempts: await listAttempts(tenantId, id) };
+}
+
+/** Histórico de tentativas (ligação/WhatsApp) de um lead, da mais nova pra mais antiga */
+async function listAttempts(tenantId: string, assignmentId: string) {
+  return db('lead_contact_attempts')
+    .where({ tenant_id: tenantId, assignment_id: assignmentId })
+    .orderBy('created_at', 'desc')
+    .limit(50)
+    .select('id', 'channel', 'result', 'created_at');
+}
+
+async function logAttempt(tenantId: string, captadorId: string, assignmentId: string, channel: 'call' | 'whatsapp', result: string) {
+  await db('lead_contact_attempts').insert({ tenant_id: tenantId, assignment_id: assignmentId, captador_id: captadorId, channel, result });
+}
+
+/**
+ * Retornos que venceram: avisa o captador uma vez por retorno (chamado quando ele busca as notificações).
+ */
+export async function notifyDueFollowups(tenantId: string, userId: string) {
+  const due = await db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .where({ 'a.tenant_id': tenantId, 'a.captador_id': userId })
+    .whereNull('a.outcome')
+    .whereNull('a.concluded_at')
+    .whereNotNull('a.next_contact_at')
+    .where('a.next_contact_at', '<=', db.fn.now())
+    .whereNull('a.next_contact_notified_at')
+    .limit(20)
+    .select('a.id', 'a.next_contact_at', 'c.full_name', 'c.company_name');
+  if (!due.length) return;
+  await db('lead_assignments').whereIn('id', due.map((d) => d.id)).update({ next_contact_notified_at: db.fn.now() });
+  await Promise.all(
+    due.map((d) =>
+      createNotification({
+        tenantId,
+        userId,
+        type: 'leads.followup',
+        title: `Hora de retornar: ${d.company_name || d.full_name}`,
+        body: 'Você marcou um retorno pra este lead.',
+        resourceType: 'lead_assignment',
+        resourceId: d.id,
+      }),
+    ),
+  );
 }
 
 /**
@@ -171,8 +225,8 @@ async function syncMeetingEvent(tenantId: string, userId: string, assignmentId: 
   }
 }
 
-/** Captador colocou um lead em aguardo: notificação pra cada admin ativo do espaço */
-async function notifyOnHold(tenantId: string, captadorId: string, contactId: string) {
+/** Aviso pra cada admin ativo do espaço sobre um lead do captador (em aguardo / ganhou) */
+async function notifyAdmins(tenantId: string, captadorId: string, contactId: string, kind: 'on_hold' | 'won') {
   const [captador, contact, admins] = await Promise.all([
     db('users').where({ id: captadorId }).first('full_name'),
     db('contacts').where({ id: contactId, tenant_id: tenantId }).first('full_name', 'company_name'),
@@ -187,8 +241,11 @@ async function notifyOnHold(tenantId: string, captadorId: string, contactId: str
       createNotification({
         tenantId,
         userId: adminId,
-        type: 'leads.on_hold',
-        title: `${captador?.full_name ?? 'Captador'} colocou ${leadName} em aguardo`,
+        type: kind === 'won' ? 'leads.reported_won' : 'leads.on_hold',
+        title:
+          kind === 'won'
+            ? `${captador?.full_name ?? 'Captador'} marcou ${leadName} como ganho`
+            : `${captador?.full_name ?? 'Captador'} colocou ${leadName} em aguardo`,
         body: 'Veja em Captação › Acompanhamento.',
         resourceType: 'contact',
         resourceId: contactId,
@@ -200,7 +257,7 @@ async function notifyOnHold(tenantId: string, captadorId: string, contactId: str
 export async function updateMyLead(tenantId: string, userId: string, id: string, input: UpdateMyLeadInput) {
   const lead = await db('lead_assignments')
     .where({ id, tenant_id: tenantId, captador_id: userId })
-    .first('id', 'outcome', 'call_status', 'contact_id', 'on_hold_at');
+    .first('id', 'outcome', 'call_status', 'contact_id', 'on_hold_at', 'lead_result', 'concluded_at', 'whatsapp_status');
   if (!lead) throw httpError('Lead not found', 404);
   if (lead.outcome) throw httpError('Lead already closed by an admin', 409);
 
@@ -215,11 +272,20 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
   if (input.meetingAttendeeIds !== undefined) updates.meeting_attendee_ids = JSON.stringify(input.meetingAttendeeIds);
   if (input.meetingGuests !== undefined) updates.meeting_guests = JSON.stringify(input.meetingGuests);
   if (input.whatsappStatus !== undefined) updates.whatsapp_status = input.whatsappStatus;
+  if (input.leadResult !== undefined) updates.lead_result = input.leadResult;
+  // Motivo só vale pra lead perdido
+  if (input.leadResult !== undefined) updates.lost_reason = input.leadResult === 'lost' ? (input.lostReason ?? null) : null;
+  else if (input.lostReason !== undefined) updates.lost_reason = input.lostReason;
+  if (input.nextContactAt !== undefined) {
+    updates.next_contact_at = input.nextContactAt ? new Date(input.nextContactAt) : null;
+    updates.next_contact_notified_at = null;
+  }
 
   // "Concluir lead" exige um resultado escolhido; "Editar" reabre
   if (input.concluded === true) {
     const status = input.callStatus ?? lead.call_status;
-    if (status === 'pending') throw httpError('Choose a call result before concluding', 422, 'result_required');
+    // Ganhou/perdeu informado já basta pra salvar; sem situação, precisa do resultado da ligação
+    if (status === 'pending' && !input.leadResult) throw httpError('Choose a call result before concluding', 422, 'result_required');
     if (status === 'meeting' && (!input.meetingAt || !input.meetingMode)) {
       throw httpError('Meeting date and mode are required', 422, 'meeting_required');
     }
@@ -256,14 +322,23 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
       .update({ lead_people: JSON.stringify(people), updated_at: new Date() });
   }
   if (input.concluded !== undefined) await syncMeetingEvent(tenantId, userId, id);
+  // Histórico: ligação nova registrada, ou mudança na situação da mensagem
+  const callResult = input.callStatus ?? lead.call_status;
+  if (input.logCall && callResult !== 'pending') await logAttempt(tenantId, userId, id, 'call', callResult);
+  if (input.whatsappStatus && input.whatsappStatus !== lead.whatsapp_status) await logAttempt(tenantId, userId, id, 'whatsapp', input.whatsappStatus);
   // Acabou de entrar em aguardo → avisa os admins
-  if (input.onHold === true && input.concluded !== true && !lead.on_hold_at) await notifyOnHold(tenantId, userId, lead.contact_id);
+  if (input.onHold === true && input.concluded !== true && !lead.on_hold_at) await notifyAdmins(tenantId, userId, lead.contact_id, 'on_hold');
+  // Captador salvou como ganho → avisa os admins (que registram o fechamento com valor)
+  if (input.concluded === true && input.leadResult === 'won' && !(lead.concluded_at && lead.lead_result === 'won')) {
+    await notifyAdmins(tenantId, userId, lead.contact_id, 'won');
+  }
 
-  return db('lead_assignments as a')
+  const saved = await db('lead_assignments as a')
     .join('contacts as c', 'a.contact_id', 'c.id')
     .where({ 'a.id': id, 'a.tenant_id': tenantId })
     .select(MY_LEAD_COLUMNS)
     .first();
+  return { ...saved, attempts: await listAttempts(tenantId, id) };
 }
 
 // Datas no fuso do Brasil (o banco guarda em UTC)
@@ -427,9 +502,10 @@ export async function getLeadForManager(tenantId: string, contactId: string) {
       'c.address', 'c.maps_url', 'c.instagram', 'c.website', 'c.google_reviews', 'c.lead_context', 'c.lead_people',
       db.raw('c.google_rating::float8 as google_rating'),
       db.raw('a.id as assignment_id'), db.raw('u.full_name as captador_name'),
+      'a.call_status', 'a.call_notes', 'a.lead_result', 'a.lost_reason', 'a.next_contact_at', 'a.on_hold_at', 'a.concluded_at',
     );
   if (!lead) throw httpError('Lead not found', 404);
-  return lead;
+  return { ...lead, attempts: lead.assignment_id ? await listAttempts(tenantId, lead.assignment_id) : [] };
 }
 
 export async function listAvailableContacts(tenantId: string, query: AvailableContactsQuery) {
@@ -615,7 +691,9 @@ export async function listAssignments(tenantId: string, query: AssignmentsQuery)
     .clone()
     .select(
       'a.id', 'a.contact_id', 'a.captador_id', 'a.assigned_for', 'a.call_status', 'a.call_notes',
-      'a.call_updated_at', 'a.outcome', 'a.closed_at', 'a.commission_paid_at', 'a.concluded_at', 'a.on_hold_at',
+      'a.call_updated_at', 'a.outcome', 'a.closed_at', 'a.commission_paid_at', 'a.concluded_at', 'a.on_hold_at', 'a.lead_result',
+      'a.next_contact_at', 'a.lost_reason',
+      db.raw('(SELECT count(*) FROM lead_contact_attempts t WHERE t.assignment_id = a.id)::int AS attempts_count'),
       'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
       db.raw('a.deal_value::float8 as deal_value'),
       db.raw('a.commission_rate::float8 as commission_rate'),
@@ -734,6 +812,7 @@ export async function recordWhatsapp(tenantId: string, userId: string, id: strin
       updated_at: new Date(),
     });
   if (!updated) throw httpError('Lead not found', 404);
+  await logAttempt(tenantId, userId, id, 'whatsapp', 'waiting');
   return db('lead_assignments as a')
     .join('contacts as c', 'a.contact_id', 'c.id')
     .where({ 'a.id': id, 'a.tenant_id': tenantId })

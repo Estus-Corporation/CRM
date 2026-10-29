@@ -61,6 +61,16 @@ function listMembers(tenantId: string) {
     .select('u.id', 'u.full_name', 'u.email', 'u.avatar_url', 'ut.role', db.raw('ut.created_at as joined_at'));
 }
 
+/** Membros ativos do espaço vistos nos últimos 2 minutos (presença) */
+export async function getOnlineMembers(tenantId: string) {
+  return db('user_tenants as ut')
+    .join('users as u', 'ut.user_id', 'u.id')
+    .where({ 'ut.tenant_id': tenantId, 'ut.is_active': true, 'u.is_active': true })
+    .where('u.last_seen_at', '>', db.raw("now() - interval '2 minutes'"))
+    .orderBy('u.full_name', 'asc')
+    .select('u.id', 'u.full_name', 'u.avatar_url', 'ut.role');
+}
+
 export async function getTenant(tenantId: string) {
   const [tenant, members] = await Promise.all([
     db('tenants').where({ id: tenantId }).first(PUBLIC_COLUMNS),

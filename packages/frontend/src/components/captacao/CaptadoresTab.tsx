@@ -7,6 +7,7 @@ import { formatBRL } from '@/lib/captacao';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { useOnlineIds } from '@/hooks/usePresence';
 import { DataList, DataListBody, DataListHead, DataListRow, DataListSkeleton, listSpring } from '@/components/ui/DataList';
 
 const GRID =
@@ -21,6 +22,7 @@ interface Props {
 /** Visão por captador: produção do dia, reuniões, fechamentos e comissões a pagar */
 export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
   const { data: captadores = [], isLoading } = useCaptadores();
+  const onlineIds = useOnlineIds();
   const payAll = usePayAllCommissions();
 
   const totals = captadores.reduce(
@@ -89,7 +91,7 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
           {captadores.map((c, i) => (
             <DataListRow key={c.id} grid={GRID} index={i}>
               <div className="flex min-w-0 items-center gap-3">
-                <Avatar name={c.full_name} src={c.avatar_url} className="h-9 w-9 flex-shrink-0 text-[13px]" />
+                <Avatar name={c.full_name} src={c.avatar_url} online={onlineIds.has(c.id)} className="h-9 w-9 flex-shrink-0 text-[13px]" />
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 truncate text-[14.5px] font-medium text-text-primary">
                     {c.full_name}

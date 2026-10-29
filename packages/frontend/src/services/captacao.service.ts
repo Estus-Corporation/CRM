@@ -1,6 +1,16 @@
 import { api } from './api';
 
-export type CallStatus = 'pending' | 'no_answer' | 'answered' | 'callback' | 'meeting' | 'lost';
+export type CallStatus = 'pending' | 'no_answer' | 'answered' | 'wrong_number' | 'callback' | 'meeting' | 'lost';
+
+export type LostReason = 'no_interest' | 'has_supplier' | 'price' | 'wrong_number' | 'closed_business' | 'other';
+
+/** Uma tentativa de contato (histórico): ligação com o resultado, ou situação da mensagem no WhatsApp */
+export interface LeadAttempt {
+  id: string;
+  channel: 'call' | 'whatsapp';
+  result: string;
+  created_at: string;
+}
 /** Plano B (WhatsApp): situação da mensagem */
 export type WhatsappStatus = 'waiting' | 'replied' | 'no_reply';
 /** Pessoa de contato conseguida na ligação (ex.: o dono, passado pelo atendente) */
@@ -12,7 +22,7 @@ export interface LeadPerson {
 }
 export type Outcome = 'won' | 'lost' | null;
 /** won: só os que fecharam negócio (Minhas comissões) */
-export type MyLeadsScope = 'today' | 'open' | 'all' | 'won';
+export type MyLeadsScope = 'today' | 'open' | 'all' | 'won' | 'followup';
 
 /** Lead como o captador enxerga: dados de contato + resultado da ligação, sem valor do negócio */
 export interface MyLead {
@@ -27,6 +37,15 @@ export interface MyLead {
   concluded_at: string | null;
   /** Captador marcou "Em aguardo" (esperando o lead; não concluído) */
   on_hold_at: string | null;
+  /** Situação informada pelo captador ao salvar (ganhou / perdeu) */
+  lead_result: LeadResult | null;
+  lost_reason: LostReason | null;
+  /** Retorno combinado com o lead */
+  next_contact_at: string | null;
+  attempts_count: number;
+  last_attempt_at: string | null;
+  /** Só na página do lead */
+  attempts?: LeadAttempt[];
   commission_value: number | null;
   commission_paid_at: string | null;
   full_name: string;
@@ -65,11 +84,17 @@ export interface MeetingGuest {
 
 export type MeetingMode = 'online' | 'presencial';
 
+export type LeadResult = 'won' | 'lost';
+
 export interface UpdateMyLeadInput {
   callStatus?: CallStatus;
   callNotes?: string | null;
   concluded?: boolean;
   onHold?: boolean;
+  leadResult?: LeadResult | null;
+  lostReason?: LostReason | null;
+  nextContactAt?: string | null;
+  logCall?: boolean;
   meetingAt?: string | null;
   meetingMode?: MeetingMode | null;
   meetingLocation?: string | null;
@@ -161,6 +186,15 @@ export interface ManagerLead {
   /** Já atribuído: id da atribuição e nome do captador */
   assignment_id: string | null;
   captador_name: string | null;
+  // Andamento com o captador (quando atribuído)
+  call_status: CallStatus | null;
+  call_notes: string | null;
+  lead_result: LeadResult | null;
+  lost_reason: LostReason | null;
+  next_contact_at: string | null;
+  on_hold_at: string | null;
+  concluded_at: string | null;
+  attempts: LeadAttempt[];
 }
 
 export interface Assignment {
@@ -181,6 +215,10 @@ export interface Assignment {
   concluded_at: string | null;
   /** Captador marcou "Em aguardo" */
   on_hold_at: string | null;
+  lead_result: LeadResult | null;
+  lost_reason: LostReason | null;
+  next_contact_at: string | null;
+  attempts_count: number;
   /** Plano B: o captador abriu o WhatsApp do lead */
   whatsapp_at: string | null;
   whatsapp_count: number;

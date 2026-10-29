@@ -5,13 +5,18 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Building2, ClipboardPen, Users, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Hourglass, Send, PhoneIncoming, Instagram, Link2, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
+  Building2, ClipboardPen, Users, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, Check, CheckCircle2, ChevronDown, ChevronRight, Globe, Hourglass, PhoneOff, History, BellRing, MessageCircleQuestion, Sparkles, Save, Send, PhoneIncoming, Instagram, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
 } from 'lucide-react';
 import { useRecordWhatsapp, useUpdateMyLead } from '@/hooks/useCaptacao';
-import type { CallStatus, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
+import type { CallStatus, LeadAttempt, LostReason, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
+import { useTenant } from '@/hooks/useTenant';
+import { Modal } from '@/components/ui/Modal';
 import {
   CALL_STATUS,
   CALL_RESULT_OPTIONS,
+  LEAD_PAIN_SCRIPT,
+  LOST_REASON_LABEL,
+  LOST_REASONS,
   formatBRL,
   googleUrl,
   instagramHandle,
@@ -51,6 +56,7 @@ export const PAIN_ICON: Record<LeadPain, typeof Globe> = {
 const CALL_STATUS_ICON: Record<Exclude<CallStatus, 'pending'>, typeof Clock> = {
   no_answer: PhoneMissed,
   answered: PhoneIncoming,
+  wrong_number: PhoneOff,
   callback: PhoneForwarded,
   meeting: CalendarCheck,
   lost: XCircle,
@@ -84,7 +90,7 @@ function StatusBadge({ status }: { status: CallStatus }) {
 /**
  * Lead pra quem liga. Lista: resumo clicável (abre a página do lead) com status e atalhos de um clique.
  * Página (detail): resultado da ligação, agenda da reunião e anotações + sobre, dores e dados do lugar.
- * "Concluir lead" fecha num resumo; "Editar" reabre.
+ * "Salvar" com Ganhou/Perdeu fecha num resumo ("Editar" reabre); Em aguardo ou sem situação só salva.
  */
 // forwardRef: a lista usa AnimatePresence "popLayout", que precisa do ref do item pra animar a saída
 export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number; detail?: boolean }>(function LeadCard(
@@ -102,10 +108,12 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     setWaStatus((cur) => cur ?? 'waiting');
   };
   // Resposta da mensagem salva na hora (clicar de novo desmarca; se o WhatsApp já foi aberto volta pra "enviada")
+  // Respondeu / não respondeu tira o lead do aguardo; desmarcar zera a mensagem (só abrir o bloco de novo
+  // conta como enviada e põe em aguardo)
   const chooseWaStatus = (ws: WhatsappStatus) => {
-    const next = waStatus === ws ? (lead.whatsapp_at ? 'waiting' : null) : ws;
+    const next = waStatus === ws ? null : ws;
     setWaStatus(next);
-    update.mutate({ id: lead.id, whatsappStatus: next });
+    update.mutate({ id: lead.id, whatsappStatus: next, onHold: false });
   };
   const whatsappSent = lead.whatsapp_at
     ? `${format(new Date(lead.whatsapp_at), "d 'de' MMM 'às' HH:mm", { locale: ptBR })}${lead.whatsapp_count > 1 ? ` · ${lead.whatsapp_count}x` : ''}`
@@ -125,7 +133,28 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   const [showAgenda, setShowAgenda] = useState(false);
   const [showPlanA, setShowPlanA] = useState(false);
   const [showPlanB, setShowPlanB] = useState(false);
+  // Abrir a Ligação já conta como ligação feita: só falta dizer se o lead atendeu
+  const [callMade, setCallMade] = useState(lead.call_status !== 'pending');
+  // Escolheu um resultado nesta visita: o próximo salvamento entra como tentativa no histórico
+  const [callPicked, setCallPicked] = useState(false);
+  // "Perdeu" pede o motivo antes de salvar
+  const [lostOpen, setLostOpen] = useState(false);
+  const { data: tenant } = useTenant();
+  const toggleCall = () => {
+    setShowPlanA((v) => !v);
+    setCallMade(true);
+  };
+  // Abrir a Mensagem já conta como mensagem enviada: sem saber se respondeu, o lead fica em aguardo sozinho
+  const toggleMessage = () => {
+    const opening = !showPlanB;
+    setShowPlanB(opening);
+    if (!opening || waStatus || locked) return;
+    setWaStatus('waiting');
+    update.mutate({ id: lead.id, whatsappStatus: 'waiting', onHold: true, callStatus: status, callNotes: notes });
+  };
   const [showPeople, setShowPeople] = useState(false);
+  const [showFollowup, setShowFollowup] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [waStatus, setWaStatus] = useState<WhatsappStatus | null>(lead.whatsapp_status);
   const locked = lead.outcome !== null;
   const concluded = !!lead.concluded_at && !locked;
@@ -153,49 +182,29 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     update.mutate({ id: lead.id, callNotes: notes });
   };
 
-  const conclude = () => {
-    if (status === 'pending') {
-      toast.error('Escolha o resultado da ligação antes de concluir');
-      return;
-    }
-    if (meetingMissing) {
+  // Situação do lead escolhida acima do "Salvar": ganhou / perdeu (salva concluído) ou em aguardo
+  type Situation = 'won' | 'lost' | 'hold';
+  const [situationState, setSituation] = useState<Situation | null>(lead.lead_result ?? (lead.on_hold_at ? 'hold' : null));
+  useEffect(() => setSituation(lead.lead_result ?? (lead.on_hold_at ? 'hold' : null)), [lead.lead_result, lead.on_hold_at]);
+  const situation = situationState;
+
+  // Salvar: manda resultado + anotação + agenda + situação juntos (um único salvamento)
+  const save = (override?: Situation, lostReason?: LostReason) => {
+    const situation = override ?? situationState;
+    const finishing = situation === 'won' || situation === 'lost';
+    if (finishing && meetingMissing) {
       toast.error('Informe dia, horário e formato da reunião');
       return;
     }
-    // Manda resultado + anotação + agenda juntos: um único salvamento
     concludeMutation.mutate(
       {
         id: lead.id,
-        concluded: true,
         callStatus: status,
         callNotes: notes,
-        ...(isMeeting && {
-          meetingAt: new Date(meetingAt).toISOString(),
-          meetingMode,
-          meetingLocation: meetingLocation.trim() || null,
-          meetingDuration,
-          meetingAttendeeIds,
-          meetingGuests,
-        }),
-      },
-      { onSuccess: () => toast.success(`${lead.full_name} concluído`) },
-    );
-  };
-
-  // Em aguardo: salva o que já tem (resultado, anotação, agenda completa) sem concluir; clicar de novo tira
-  const holdMutation = useUpdateMyLead();
-  const onHold = !!lead.on_hold_at;
-  const toggleHold = () => {
-    if (onHold) {
-      holdMutation.mutate({ id: lead.id, onHold: false }, { onSuccess: () => toast.success('Saiu do aguardo') });
-      return;
-    }
-    holdMutation.mutate(
-      {
-        id: lead.id,
-        onHold: true,
-        callStatus: status,
-        callNotes: notes,
+        onHold: situation === 'hold',
+        logCall: callPicked,
+        ...(finishing ? { concluded: true, leadResult: situation } : { leadResult: null, ...(lead.concluded_at && { concluded: false }) }),
+        ...(situation === 'lost' && { lostReason: lostReason ?? lead.lost_reason ?? 'other' }),
         ...(isMeeting &&
           !meetingMissing && {
             meetingAt: new Date(meetingAt).toISOString(),
@@ -208,15 +217,45 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
       },
       {
         onSuccess: (saved) => {
-          // Servidor sem a versão nova ignora o "Em aguardo" sem erro — avisa em vez de fingir que salvou
-          if (!saved.on_hold_at) toast.error('Não foi possível marcar em aguardo: o servidor está desatualizado')
-          else toast.success(`${lead.full_name} em aguardo`);
+          setCallPicked(false);
+          // Servidor sem a versão nova ignora a situação sem erro — avisa em vez de fingir que salvou
+          if ((situation === 'hold' && !saved.on_hold_at) || (finishing && saved.lead_result === undefined)) {
+            toast.error('Não foi possível salvar a situação: o servidor está desatualizado');
+            return;
+          }
+          toast.success(
+            situation === 'won'
+              ? `${lead.full_name}: ganhou`
+              : situation === 'lost'
+                ? `${lead.full_name}: perdeu`
+                : situation === 'hold'
+                  ? `${lead.full_name} em aguardo`
+                  : 'Lead salvo',
+          );
         },
       },
     );
   };
 
   const reopen = () => update.mutate({ id: lead.id, concluded: false });
+
+  // Retorno: quando voltar a falar com o lead (salva na hora; vira lembrete pro captador)
+  const [nextContact, setNextContact] = useState(toLocalInput(lead.next_contact_at));
+  useEffect(() => setNextContact(toLocalInput(lead.next_contact_at)), [lead.next_contact_at]);
+  const saveNextContact = (local: string) => {
+    setNextContact(local);
+    update.mutate(
+      { id: lead.id, nextContactAt: local ? new Date(local).toISOString() : null },
+      { onSuccess: () => toast.success(local ? 'Retorno marcado' : 'Retorno removido') },
+    );
+  };
+  const quickNextContact = (days: number, hour: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    d.setHours(hour, 0, 0, 0);
+    saveNextContact(toLocalInput(d.toISOString()));
+  };
+  const attempts: LeadAttempt[] = lead.attempts ?? [];
 
   // Montou a reunião na agenda → o resultado vira "Reunião marcada"
   const pickMeeting = (pick: MeetingPick) => {
@@ -225,6 +264,32 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     setMeetingAttendeeIds(pick.attendeeIds);
     setMeetingGuests(pick.guests);
     setStatus('meeting');
+  };
+  // Excluir a reunião: limpa a agenda (o lead continua como "atendeu"); grava na hora se já estava salva
+  const removeMeeting = () => {
+    setMeetingAt('');
+    setMeetingMode(null);
+    setMeetingLocation('');
+    setMeetingDuration(60);
+    setMeetingAttendeeIds([]);
+    setMeetingGuests([]);
+    if (status === 'meeting') setStatus('answered');
+    if (situation === 'won') setSituation(null);
+    if (lead.meeting_at || lead.call_status === 'meeting') {
+      update.mutate(
+        {
+          id: lead.id,
+          ...(lead.call_status === 'meeting' && { callStatus: 'answered' as const }),
+          meetingAt: null,
+          meetingMode: null,
+          meetingLocation: null,
+          meetingDuration: null,
+          meetingAttendeeIds: [],
+          meetingGuests: [],
+        },
+        { onSuccess: () => toast.success('Reunião excluída') },
+      );
+    }
   };
   const pickMeetingMode = (m: MeetingMode) => {
     setMeetingMode(m);
@@ -237,6 +302,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     if (picked === 'answered' && status === 'meeting') return;
     const s = picked === status ? 'pending' : picked;
     setStatus(s);
+    setCallPicked(s !== 'pending');
     if (s === 'meeting') setShowAgenda(true);
     if (s !== 'meeting') {
       setMeetingAt('');
@@ -256,6 +322,10 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     ? lead.outcome === 'won'
       ? { label: 'Fechou negócio', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' }
       : { label: 'Não fechou', className: 'bg-fg/[0.08] text-text-secondary', dot: 'bg-text-muted' }
+    : lead.concluded_at && lead.lead_result
+      ? lead.lead_result === 'won'
+        ? { label: 'Ganhou', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' }
+        : { label: 'Perdeu', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' }
     : lead.on_hold_at && !lead.concluded_at
       ? { label: 'Em aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' }
     : lead.call_status === 'pending'
@@ -325,17 +395,85 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         exit={{ opacity: 0, x: -12, transition: { duration: 0.2 } }}
         transition={listSpring}
         onClick={() => navigate(`/meus-leads/lead/${lead.id}`)}
-        className={cn('card card-interactive group flex cursor-pointer items-center gap-4 overflow-hidden p-4 md:px-5', concluded && 'opacity-80')}
+        // Vidro leve (igual aos cards do Acompanhamento); sem backdrop-blur dentro da pasta
+        className={cn(
+          'group flex cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border border-fg/[0.1] bg-fg/[0.035] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:border-fg/[0.16] hover:bg-fg/[0.055] md:px-5',
+          concluded && 'opacity-80',
+        )}
       >
         {identity}
-        {/* À direita: só o status do lead e a seta */}
+        {/* À direita: retorno marcado (vermelho se atrasado), status e a seta */}
         <div className="flex flex-shrink-0 items-center gap-2">
+          {lead.next_contact_at && !lead.concluded_at && !locked && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 text-xs font-medium max-sm:hidden',
+                new Date(lead.next_contact_at) < new Date() ? 'text-status-lost' : 'text-accent-amber',
+              )}
+              title="Retorno marcado"
+            >
+              <BellRing size={12} />
+              {format(new Date(lead.next_contact_at), "d/MM 'às' HH:mm")}
+            </span>
+          )}
           <span className="max-sm:hidden">{stateBadge}</span>
           <ChevronRight size={18} className="text-text-muted transition-transform group-hover:translate-x-0.5" />
         </div>
       </motion.li>
     );
   }
+
+  // Ganhou / perdeu / em aguardo: salvam na hora; o botão aceso é a situação do lead
+  const situationButtons = (full = false) => (
+    <div className={cn('flex divide-x divide-fg/[0.08] overflow-hidden rounded-xl border border-fg/[0.1] bg-fg/[0.03]', full && 'w-full [&>button]:flex-1')}>
+      <button
+        type="button"
+        onClick={() => {
+          setSituation('won');
+          save('won');
+        }}
+        disabled={concludeMutation.isPending}
+        title="Ganhou"
+        aria-pressed={concluded && lead.lead_result === 'won'}
+        className={cn(
+          'flex h-10 w-11 items-center justify-center transition-colors hover:bg-accent-green/10 hover:text-accent-green',
+          concluded && lead.lead_result === 'won' ? 'bg-accent-green/15 text-accent-green' : 'text-text-secondary',
+        )}
+      >
+        <Trophy size={19} />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setLostOpen(true);
+        }}
+        disabled={concludeMutation.isPending}
+        title="Perdeu"
+        aria-pressed={concluded && lead.lead_result === 'lost'}
+        className={cn(
+          'flex h-10 w-11 items-center justify-center transition-colors hover:bg-status-lost/10 hover:text-status-lost',
+          concluded && lead.lead_result === 'lost' ? 'bg-status-lost/15 text-status-lost' : 'text-text-secondary',
+        )}
+      >
+        <XCircle size={19} />
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setSituation('hold');
+          save('hold');
+        }}
+        disabled={concludeMutation.isPending}
+        title="Em aguardo"
+        aria-pressed={!concluded && !!lead.on_hold_at}
+        className={cn(
+          'flex h-10 w-11 items-center justify-center transition-colors hover:bg-accent-amber/10 hover:text-accent-amber',
+          !concluded && lead.on_hold_at ? 'bg-accent-amber/15 text-accent-amber' : 'text-text-secondary',
+        )}
+      >
+        <Hourglass size={18} />
+      </button>
+    </div>  );
 
   // Atalhos de um clique (cabeçalho da página)
   const quickLinks = (
@@ -383,15 +521,26 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
 
   // Página do lead: cabeçalho; à esquerda a ligação, à direita contato, sobre e dores
   return (
-    <div className="mobile-split grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="mobile-split grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
       <div className="max-lg:order-1 lg:col-span-2">
         <div className="card flex flex-wrap items-center gap-4 p-5 md:p-6">
           {identity}
           {/* Celular: os atalhos vão pro bloco logo abaixo; o status fica no selo pequeno do cabeçalho */}
           <div className="flex flex-wrap items-center gap-2 max-sm:hidden">
             {quickLinks}
-            <span className="mx-1 h-6 w-px bg-fg/[0.1] max-sm:hidden" />
-            <span className="max-sm:hidden">{stateBadge}</span>
+            {/* Ganhou / perdeu / em aguardo direto do cabeçalho (salva na hora, como o "Salvar" com a situação);
+                o botão aceso é o status do lead */}
+            {locked ? (
+              <>
+                <span className="mx-1 h-6 w-px bg-fg/[0.1]" />
+                {stateBadge}
+              </>
+            ) : (
+              <>
+                <span className="mx-1 h-6 w-px bg-fg/[0.1]" />
+                {situationButtons()}
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -431,7 +580,19 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
           // Resumo do que houve; "Editar" reabre
           <div className="flex flex-wrap items-center gap-3">
             <CheckCircle2 size={18} className="flex-shrink-0 text-accent-green" />
-            <StatusBadge status={lead.call_status} />
+            {lead.lead_result && (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold',
+                  lead.lead_result === 'won' ? 'bg-accent-green/15 text-accent-green' : 'bg-status-lost/15 text-status-lost',
+                )}
+              >
+                {lead.lead_result === 'won' ? <Trophy size={12} /> : <XCircle size={12} />}
+                {lead.lead_result === 'won' ? 'Ganhou' : 'Perdeu'}
+                {lead.lead_result === 'lost' && lead.lost_reason && <span className="font-normal">· {LOST_REASON_LABEL[lead.lost_reason]}</span>}
+              </span>
+            )}
+            {lead.call_status !== 'pending' && <StatusBadge status={lead.call_status} />}
             {lead.call_status === 'meeting' && lead.meeting_at && (
               <span className="flex items-center gap-1 text-xs font-medium text-accent-green">
                 <CalendarClock size={13} />
@@ -450,7 +611,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               {lead.call_notes || <span className="text-text-muted">Sem anotações</span>}
             </p>
             <span className="text-xs text-text-muted">
-              Concluído {new Date(lead.concluded_at!).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+              Salvo {new Date(lead.concluded_at!).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
             </span>
             <Button variant="ghost" size="sm" onClick={reopen} disabled={update.isPending}>
               <Pencil size={13} />
@@ -459,275 +620,189 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
           </div>
         ) : (
           <>
-            {/* Protocolo de contato: Plano A (ligar) e, se não der certo, Plano B (WhatsApp) */}
-            <p className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Protocolo de contato</p>
+            {/* Etapas numa lista só (ligação, mensagem, agenda, contatos): uma linha por etapa, abre embaixo */}
+            <div className="divide-y divide-fg/[0.07] overflow-hidden rounded-xl border border-fg/[0.1]">
 
             {/* Plano A: a ligação — o que aconteceu ao ligar */}
             <PlanBlock
-              icon={<PhoneCall size={17} />}
+              icon={<PhoneCall size={15} />}
               title="Ligação"
-              tag={<span className="rounded-full bg-accent-green/15 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-accent-green">Obrigatório</span>}
+              tag={
+                callMade ? (
+                  <span className="text-[13px] text-text-muted">{status === 'pending' ? 'O lead atendeu?' : CALL_STATUS[status].label}</span>
+                ) : (
+                  <span className="text-[13px] font-medium text-accent-green">Obrigatório</span>
+                )
+              }
               done={status !== 'pending'}
               open={showPlanA}
-              onToggle={() => setShowPlanA((v) => !v)}
+              onToggle={toggleCall}
             >
-              <div className="space-y-4 p-4">
-                {/* 1. Ligar */}
-                {lead.phone ? (
-                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent-green/20 bg-accent-green/[0.05] p-3">
-                    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-accent-green/15 text-accent-green">
-                      <Phone size={18} fill="currentColor" strokeWidth={1} />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-text-primary">Ligar para o lead</span>
-                      <span className="block truncate text-xs tabular-nums text-text-muted">{lead.phone}</span>
-                    </span>
-                    <a
-                      href={`tel:${lead.phone.replace(/[^\d+]/g, '')}`}
-                      className="flex h-10 flex-shrink-0 items-center gap-2 rounded-xl bg-accent-green px-4 text-[13px] font-semibold text-[rgb(var(--on-accent))] shadow-[0_6px_16px_-8px_rgb(var(--accent-green))] transition-[filter] hover:brightness-110 max-sm:w-full max-sm:justify-center"
-                    >
-                      <Phone size={15} fill="currentColor" strokeWidth={1} />
-                      Ligar
-                    </a>
-                  </div>
-                ) : (
-                  <p className="text-sm text-text-muted">Este lead não tem telefone cadastrado.</p>
-                )}
-
-                {/* 2. Resultado da ligação: um bloco por opção (clicar de novo desmarca) */}
-                <div>
-                  <p className="mb-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-muted">Resultado</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CALL_RESULT_OPTIONS.map((s) => {
-                      // Reunião marcada na Agenda conta como "Atendeu"
-                      const active = status === s || (s === 'answered' && status === 'meeting');
-                      const Icon = CALL_STATUS_ICON[s];
-                      return (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => chooseStatus(s)}
-                          aria-pressed={active}
-                          className={cn(
-                            'flex min-w-0 flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors',
-                            active
-                              ? cn(CALL_STATUS[s].className, 'border-transparent')
-                              : 'border-fg/[0.08] text-text-secondary hover:border-fg/[0.16] hover:text-text-primary',
-                          )}
-                        >
-                          <Icon size={17} strokeWidth={2} />
-                          <span className="text-[12.5px] font-semibold leading-tight">{CALL_STATUS[s].label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+              <div className="space-y-3 p-4">
+                {/* Clicar de novo desmarca; reunião marcada na Agenda conta como "Atendeu" */}
+                <StepRow label="O lead atendeu?">
+                  {CALL_RESULT_OPTIONS.map((s) => (
+                    <ChoicePill
+                      key={s}
+                      active={status === s || (s === 'answered' && status === 'meeting')}
+                      activeClass={CALL_STATUS[s].className}
+                      icon={CALL_STATUS_ICON[s]}
+                      label={CALL_STATUS[s].label}
+                      onClick={() => chooseStatus(s)}
+                    />
+                  ))}
+                </StepRow>
               </div>
             </PlanBlock>
 
             {/* Plano B: não deu certo na ligação → mensagem no WhatsApp (fica registrado pros admins) */}
             <PlanBlock
-              className="mt-3"
-              icon={<WhatsAppIcon size={17} />}
+              icon={<WhatsAppIcon size={15} />}
               iconClassName="text-[#25D366]"
               title="Mensagem"
-              tag={<span className="text-[11px] font-medium text-text-muted">se não deu certo na ligação</span>}
+              tag={
+                <span className={cn('text-[13px]', waStatus === 'waiting' ? 'text-accent-amber' : 'text-text-muted')}>
+                  {waStatus === 'waiting' ? 'Enviada · em aguardo' : waStatus ? WHATSAPP_STATUS[waStatus].label : 'Se não deu certo na ligação'}
+                </span>
+              }
               // Só depois de registrar a ligação (quem já mandou mensagem antes continua vendo)
               lockedHint={status === 'pending' && !waStatus ? 'Diga primeiro se o lead atendeu ou não' : undefined}
-              done={!!waStatus}
+              // Só fica feito quando diz se respondeu ou não (enviada sem resposta = em aguardo)
+              done={waStatus === 'replied' || waStatus === 'no_reply'}
               open={showPlanB && !(status === 'pending' && !waStatus)}
-              onToggle={() => setShowPlanB((v) => !v)}
+              onToggle={toggleMessage}
             >
-              <div className="p-4">
-                {lead.phone ? (
-                  <div className="space-y-4">
-                    {/* 1. Mensagem: abrir a conversa (registra quando e quantas vezes) */}
-                    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-[#25D366]/20 bg-[#25D366]/[0.05] p-3">
-                      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#25D366]/15 text-[#25D366]">
-                        <WhatsAppIcon size={20} />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-text-primary">
-                          {whatsappSent ? 'Mensagem enviada' : 'Mandar mensagem'}
-                        </span>
-                        <span className="block truncate text-xs text-text-muted">
-                          {whatsappSent ?? 'Abrir a conversa já marca como enviada'}
-                        </span>
-                      </span>
-                      <a
-                        href={whatsappUrl(lead.phone)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={openWhatsapp}
-                        className="flex h-10 flex-shrink-0 items-center gap-2 rounded-xl bg-[#25D366] px-4 text-[13px] font-semibold text-[#062b14] shadow-[0_6px_16px_-8px_#25D366] transition-[filter] hover:brightness-110 max-sm:w-full max-sm:justify-center"
-                      >
-                        <WhatsAppIcon size={16} />
-                        {whatsappSent ? 'Abrir de novo' : 'Abrir WhatsApp'}
-                      </a>
-                    </div>
+              <div className="space-y-3 p-4">
+                    {/* Clicar de novo desmarca */}
+                    <StepRow label="Ele respondeu?">
+                      {WHATSAPP_STATUS_ORDER.map((ws) => (
+                        <ChoicePill
+                          key={ws}
+                          active={waStatus === ws}
+                          activeClass={WHATSAPP_STATUS[ws].className}
+                          icon={WA_STATUS_ICON[ws]}
+                          label={WHATSAPP_STATUS[ws].label}
+                          onClick={() => chooseWaStatus(ws)}
+                        />
+                      ))}
+                    </StepRow>
+              </div>
+            </PlanBlock>
 
-                    {/* 2. Situação: respondeu ou não (clicar de novo desmarca) */}
-                    <div>
-                      <p className="mb-2 text-[12px] font-medium uppercase tracking-[0.06em] text-text-muted">Situação</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {WHATSAPP_STATUS_ORDER.map((ws) => {
-                          const active = waStatus === ws;
-                          const Icon = WA_STATUS_ICON[ws];
-                          return (
-                            <button
-                              key={ws}
-                              type="button"
-                              onClick={() => chooseWaStatus(ws)}
-                              aria-pressed={active}
-                              className={cn(
-                                'flex min-w-0 flex-col items-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors',
-                                active
-                                  ? cn(WHATSAPP_STATUS[ws].className, 'border-transparent')
-                                  : 'border-fg/[0.08] text-text-secondary hover:border-fg/[0.16] hover:text-text-primary',
-                              )}
-                            >
-                              <Icon size={17} strokeWidth={2} />
-                              <span className="text-[12.5px] font-semibold leading-tight">{WHATSAPP_STATUS[ws].label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-sm text-text-muted">Este lead não tem telefone cadastrado.</p>
+
+            {/* Agenda: confere a agenda dos admins e marca o horário da reunião */}
+            <PlanBlock
+              icon={<CalendarClock size={15} />}
+              title="Agenda"
+              tag={
+                <span className={cn('text-[13px]', meetingAt ? 'text-accent-green' : 'text-text-muted')}>
+                  {meetingAt ? formatMeeting(new Date(meetingAt).toISOString()) : 'Sem reunião marcada'}
+                </span>
+              }
+              done={!!meetingAt && !!meetingMode}
+              open={showAgenda}
+              onToggle={() => {
+                // Abrir a Reunião já conta como lead ganho (o captador ainda pode trocar na Situação)
+                if (!showAgenda) setSituation('won');
+                setShowAgenda(!showAgenda);
+              }}
+            >
+              <div className="space-y-3 p-4">
+                <StepRow label="Data e hora">
+                  <button
+                    type="button"
+                    onClick={() => setAgendaOpen(true)}
+                    className={cn(
+                      'inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[14px] font-medium transition-colors',
+                      meetingAt
+                        ? 'border-accent-green/40 bg-accent-green/10 text-accent-green hover:bg-accent-green/15'
+                        : 'border-dashed border-fg/[0.18] text-text-secondary hover:border-accent-green/50 hover:text-accent-green',
+                    )}
+                  >
+                    {meetingAt ? <CalendarClock size={14} /> : <CalendarPlus size={14} />}
+                    {meetingAt ? (
+                      <span className="capitalize">{format(new Date(meetingAt), "EEE, d 'de' MMM 'às' HH:mm", { locale: ptBR })}</span>
+                    ) : (
+                      'Escolher na agenda dos admins'
+                    )}
+                    {meetingAt && <Pencil size={12} className="opacity-70" />}
+                  </button>
+                </StepRow>
+                <StepRow label="Formato">
+                  {MEETING_MODES.map(({ value, label, icon }) => (
+                    <ChoicePill
+                      key={value}
+                      active={meetingMode === value}
+                      activeClass="bg-accent-green/15 text-accent-green"
+                      icon={icon}
+                      label={label}
+                      onClick={() => pickMeetingMode(value)}
+                    />
+                  ))}
+                </StepRow>
+                {meetingMode && (
+                  <StepRow label={meetingMode === 'online' ? 'Link' : 'Endereço'}>
+                    <input
+                      value={meetingLocation}
+                      onChange={(e) => setMeetingLocation(e.target.value)}
+                      maxLength={500}
+                      placeholder={meetingMode === 'online' ? 'Meet, Zoom, WhatsApp… (opcional)' : 'Onde vai ser (opcional)'}
+                      className="input-base h-9 w-full max-w-md text-sm"
+                    />
+                  </StepRow>
                 )}
               </div>
             </PlanBlock>
 
-            {/* Seção à parte: título à esquerda + espaço (mesmo padrão do Protocolo de contato) */}
-            <p className="mb-2.5 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Reunião</p>
-
-            {/* Agenda: confere a agenda dos admins e marca o horário da reunião */}
+            {/* Retorno combinado com o lead: vira lembrete na hora marcada */}
             <PlanBlock
-              icon={<CalendarClock size={17} />}
-              title="Agenda"
-              done={!!meetingAt && !!meetingMode}
-              open={showAgenda}
-              onToggle={() => setShowAgenda((v) => !v)}
+              icon={<BellRing size={15} />}
+              title="Retorno"
+              tag={
+                <span className={cn('text-[13px]', nextContact ? (new Date(nextContact) < new Date() ? 'text-status-lost' : 'text-accent-amber') : 'text-text-muted')}>
+                  {nextContact ? format(new Date(nextContact), "EEE, d 'de' MMM 'às' HH:mm", { locale: ptBR }) : 'Sem retorno marcado'}
+                </span>
+              }
+              done={!!nextContact}
+              open={showFollowup}
+              onToggle={() => setShowFollowup((v) => !v)}
             >
-                  <div className="p-4">
-
-                    <div className="grid max-w-3xl gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)]">
-                      {(() => {
-                        const date = meetingAt ? new Date(meetingAt) : null;
-                        const open = () => setAgendaOpen(true);
-                        return (
-                          <button
-                            type="button"
-                            onClick={open}
-                            className={cn(
-                              'group flex h-[76px] w-full items-center gap-3 rounded-xl border px-3 text-left transition-colors',
-                              date
-                                ? 'border-fg/[0.06] bg-fg/[0.025] hover:border-accent-green/40'
-                                : 'border-dashed border-fg/[0.14] bg-fg/[0.025] hover:border-accent-green/50 hover:bg-accent-green/[0.04]',
-                            )}
-                          >
-                            {date ? (
-                              <>
-                                <span className="flex h-[52px] w-12 flex-shrink-0 flex-col overflow-hidden rounded-lg bg-bg-surface text-center shadow-sm ring-1 ring-fg/[0.06]">
-                                  <span className="bg-accent-green py-0.5 text-[10px] font-bold uppercase tracking-wider text-[rgb(var(--on-accent))]">
-                                    {format(date, 'MMM', { locale: ptBR }).replace('.', '')}
-                                  </span>
-                                  <span className="flex flex-1 items-center justify-center text-lg font-bold tabular-nums text-text-primary">
-                                    {format(date, 'd')}
-                                  </span>
-                                </span>
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-[13px] capitalize text-text-secondary">
-                                    {format(date, 'EEEE', { locale: ptBR })}
-                                  </span>
-                                  <span className="block text-lg font-semibold leading-tight tabular-nums text-text-primary">
-                                    {format(date, 'HH:mm')}
-                                  </span>
-                                </span>
-                                <Pencil size={13} className="flex-shrink-0 text-text-muted transition-colors group-hover:text-accent-green" />
-                              </>
-                            ) : (
-                              <>
-                                <span className="flex h-[52px] w-12 flex-shrink-0 items-center justify-center rounded-lg bg-fg/[0.05] text-text-muted transition-colors group-hover:text-accent-green">
-                                  <CalendarPlus size={20} />
-                                </span>
-                                <span className="min-w-0">
-                                  <span className="block text-sm font-medium text-text-primary">Data e Hora</span>
-                                  <span className="block text-xs text-text-muted">Abre a agenda dos admins</span>
-                                </span>
-                              </>
-                            )}
-                          </button>
-                        );
-                      })()}
-
-                      <div className="grid grid-cols-2 gap-2">
-                        {MEETING_MODES.map(({ value, label, icon: Icon }) => {
-                          const active = meetingMode === value;
-                          return (
-                            <button
-                              key={value}
-                              type="button"
-                              onClick={() => pickMeetingMode(value)}
-                              aria-pressed={active}
-                              className={cn(
-                                // Celular: ícone em cima e nome embaixo, centralizados (lado a lado o check cobria o nome)
-                                'relative flex h-[76px] min-w-0 items-center gap-3 rounded-xl border px-3 text-left transition-colors max-sm:h-auto max-sm:flex-col max-sm:justify-center max-sm:gap-1.5 max-sm:py-3 max-sm:text-center',
-                                active ? 'border-accent-green/60 bg-accent-green/[0.12]' : 'border-fg/[0.06] bg-fg/[0.025] hover:border-fg/[0.16]',
-                              )}
-                            >
-                              {/* Ícone grande à esquerda, como no "Data e Hora" */}
-                              <span
-                                className={cn(
-                                  'flex h-[52px] w-12 flex-shrink-0 items-center justify-center rounded-lg transition-colors max-sm:h-9 max-sm:w-9',
-                                  active ? 'bg-accent-green/20 text-accent-green' : 'bg-fg/[0.05] text-text-muted',
-                                )}
-                              >
-                                <Icon size={21} />
-                              </span>
-                              <span className="min-w-0">
-                                <span className={cn('block text-sm font-semibold max-sm:text-[13px]', active ? 'text-text-primary' : 'text-text-secondary')}>{label}</span>
-                              </span>
-                              {active && (
-                                <motion.span
-                                  layoutId={`meeting-check-${lead.id}`}
-                                  className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-[rgb(var(--on-accent))]"
-                                >
-                                  <Check size={10} strokeWidth={3} />
-                                </motion.span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {meetingMode && (
-                      <div className="relative mt-3 max-w-3xl">
-                        {meetingMode === 'online' ? (
-                          <Link2 size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
-                        ) : (
-                          <MapPin size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-text-muted" />
-                        )}
-                        <input
-                          value={meetingLocation}
-                          onChange={(e) => setMeetingLocation(e.target.value)}
-                          maxLength={500}
-                          placeholder={meetingMode === 'online' ? 'Link da chamada (Meet, Zoom, WhatsApp…) — opcional' : 'Endereço da reunião — opcional'}
-                          className="input-base h-11 border-fg/[0.06] bg-fg/[0.025] pl-10 text-sm"
-                        />
-                      </div>
-                    )}
-                  </div>
+              <div className="space-y-3 p-4">
+                <StepRow label="Voltar a falar em">
+                  <input
+                    type="datetime-local"
+                    value={nextContact}
+                    onChange={(e) => setNextContact(e.target.value)}
+                    onBlur={(e) => e.target.value !== toLocalInput(lead.next_contact_at) && saveNextContact(e.target.value)}
+                    className="input-base h-10 w-auto text-sm [color-scheme:dark]"
+                  />
+                  {nextContact && (
+                    <button type="button" onClick={() => saveNextContact('')} className="text-[13px] text-text-muted hover:text-status-lost">
+                      Remover
+                    </button>
+                  )}
+                </StepRow>
+                <StepRow label="Atalhos">
+                  <ChoicePill active={false} activeClass="" icon={Clock} label="Hoje 17h" onClick={() => quickNextContact(0, 17)} />
+                  <ChoicePill active={false} activeClass="" icon={Clock} label="Amanhã 10h" onClick={() => quickNextContact(1, 10)} />
+                  <ChoicePill active={false} activeClass="" icon={Clock} label="Em 3 dias" onClick={() => quickNextContact(3, 10)} />
+                  <ChoicePill active={false} activeClass="" icon={Clock} label="Em 1 semana" onClick={() => quickNextContact(7, 10)} />
+                </StepRow>
+                <p className="text-xs text-text-muted">Na hora marcada você recebe um aviso, e o lead aparece em "Retornar hoje".</p>
+              </div>
             </PlanBlock>
 
-            {/* Contatos conseguidos na ligação: bloco do Formulário, salva na hora (ligado à empresa) */}
-            <p className="mb-2.5 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Contatos</p>
+            {/* Contatos conseguidos na ligação: salva na hora (ligado à empresa) */}
             <PlanBlock
-              icon={<Users size={17} />}
-              title={`Contatos do lead${(lead.lead_people ?? []).length ? ` · ${(lead.lead_people ?? []).length}` : ''}`}
+              icon={<Users size={15} />}
+              title="Contatos do lead"
+              tag={
+                <span className="text-[13px] text-text-muted">
+                  {(lead.lead_people ?? []).length
+                    ? `${(lead.lead_people ?? []).length} ${(lead.lead_people ?? []).length === 1 ? 'pessoa' : 'pessoas'}`
+                    : 'Nenhum'}
+                </span>
+              }
               done={(lead.lead_people ?? []).length > 0}
               open={showPeople}
               onToggle={() => setShowPeople((v) => !v)}
@@ -740,33 +815,50 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               />
             </PlanBlock>
 
-            {/* Seção à parte: título à esquerda + espaço (mesmo padrão do Protocolo de contato) */}
-            <p className="mb-2.5 mt-6 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Anotações</p>
+            {/* Histórico: cada ligação e mensagem registrada */}
+            <PlanBlock
+              icon={<History size={15} />}
+              title="Histórico"
+              tag={
+                <span className="text-[13px] text-text-muted">
+                  {attempts.length
+                    ? `${attempts.length} ${attempts.length === 1 ? 'tentativa' : 'tentativas'} · última ${format(new Date(attempts[0].created_at), "d/MM 'às' HH:mm")}`
+                    : 'Nenhuma tentativa'}
+                </span>
+              }
+              open={showHistory}
+              onToggle={() => setShowHistory((v) => !v)}
+            >
+              <div className="p-4">
+                {attempts.length === 0 ? (
+                  <p className="text-sm text-text-muted">As ligações e mensagens que você salvar aparecem aqui.</p>
+                ) : (
+                  <AttemptsTimeline attempts={attempts} />
+                )}
+              </div>
+            </PlanBlock>
+            </div>
+
+            <p className="mb-2 mt-5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Anotações</p>
 
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               onBlur={saveNotes}
-              rows={3}
+              rows={2}
               maxLength={2000}
               aria-label="Anotações"
               placeholder="Com quem falou, objeções, melhor horário para retornar…"
-              className="input-base min-h-[84px] resize-y border-fg/[0.12] bg-fg/[0.05] py-2.5 text-sm leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+              className="input-base min-h-[64px] resize-y border-fg/[0.12] bg-fg/[0.05] py-2.5 text-sm leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
             />
 
             <div className="mt-3 flex flex-wrap items-center justify-end gap-3">
-              {(status === 'pending' || meetingMissing) && (
-                <span className="mr-auto text-xs text-text-muted">
-                  {status === 'pending' ? 'Escolha o resultado para concluir.' : 'Defina dia, horário e formato da reunião na Agenda.'}
-                </span>
+              {meetingMissing && (situation === 'won' || situation === 'lost') && (
+                <span className="mr-auto text-xs text-text-muted">Defina dia, horário e formato da reunião na Agenda.</span>
               )}
-              <Button variant="secondary" onClick={toggleHold} disabled={holdMutation.isPending} className={cn('max-sm:hidden', onHold && 'text-accent-amber')}>
-                <Hourglass size={15} />
-                {holdMutation.isPending ? 'Salvando…' : onHold ? 'Tirar do aguardo' : 'Em aguardo'}
-              </Button>
-              <Button onClick={conclude} disabled={concludeMutation.isPending || status === 'pending' || meetingMissing} className="max-sm:hidden">
-                <CheckCircle2 size={15} />
-                {concludeMutation.isPending ? 'Salvando…' : 'Concluir lead'}
+              <Button onClick={() => save()} disabled={concludeMutation.isPending} className="max-sm:hidden">
+                <Save size={15} />
+                {concludeMutation.isPending ? 'Salvando…' : 'Salvar'}
               </Button>
             </div>
           </>
@@ -776,64 +868,61 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         </div>
       </div>
 
-      <div className="mobile-split flex flex-col gap-4 max-lg:order-2">
-        {/* Sobre o lead: resumo + ficha com tudo que se sabe (só as linhas que têm valor) */}
-        <div>
-          <div className="card p-4 md:p-5">
-            <div className="flex items-center gap-2.5">
-              <ClipboardList size={18} strokeWidth={2} className="flex-shrink-0 text-accent-green" />
-              <h2 className="text-[15px] font-semibold text-text-primary">Sobre o lead</h2>
-            </div>
-
-            {facts.length > 0 && (
-              <dl className="mt-4 divide-y divide-fg/[0.06] overflow-hidden rounded-xl border border-fg/[0.06]">
-                {facts.map(({ icon: Icon, label, value, href }) => (
-                  <div key={label} className="grid grid-cols-[18px_minmax(0,0.9fr)_minmax(0,1.4fr)] items-center gap-3 px-3.5 py-3">
-                    <Icon size={16} className="text-text-muted" />
-                    <dt className="truncate text-[13px] text-text-muted">{label}</dt>
-                    <dd className="min-w-0 break-words text-[13px] font-medium text-text-primary">
-                      {href ? (
-                        <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-accent-green hover:underline">
-                          {value}
-                        </a>
-                      ) : (
-                        value
-                      )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-
+      {/* Coluna da direita: ficha do lead e, embaixo, o card das possíveis dores */}
+      <div className="max-lg:order-2 lg:sticky lg:top-3">
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-fg/[0.06] px-4 py-3.5">
+            <ClipboardList size={16} className="text-accent-green" />
+            <h2 className="text-[15px] font-semibold text-text-primary">Sobre o lead</h2>
           </div>
-        </div>
 
-        {/* Possíveis dores: bloco próprio */}
+          {facts.length > 0 && (
+            <dl className="divide-y divide-fg/[0.06] px-4 py-1">
+              {facts.map(({ icon: Icon, label, value, href }) => (
+                <div key={label} className="grid grid-cols-[16px_100px_minmax(0,1fr)] items-start gap-2.5 py-3">
+                  <Icon size={14} className="mt-0.5 text-text-muted" />
+                  <dt className="text-[13.5px] text-text-muted">{label}</dt>
+                  <dd className="min-w-0 break-words text-[13.5px] font-medium text-text-primary">
+                    {href ? (
+                      <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-accent-green hover:underline">
+                        {value}
+                      </a>
+                    ) : (
+                      value
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
+        </div>
+        {/* Possíveis dores: cada uma com uma frase pronta pra usar na ligação */}
         {pains.length > 0 && (
-        <div>
-          <div className="card p-4 md:p-5">
-            <div className="flex items-center gap-2.5">
-              <Lightbulb size={18} strokeWidth={2} className="flex-shrink-0 text-accent-amber" />
+          <div className="card mt-4 overflow-hidden">
+            <div className="flex items-center gap-2 border-b border-fg/[0.06] px-4 py-3.5">
+              <Lightbulb size={16} className="text-accent-amber" />
               <h2 className="text-[15px] font-semibold text-text-primary">Possíveis dores</h2>
-              <span className="ml-auto text-[11px] text-text-muted">use como argumento na ligação</span>
             </div>
-            <ul className="mt-4 divide-y divide-fg/[0.06] overflow-hidden rounded-xl border border-fg/[0.06]">
+            <ul className="divide-y divide-fg/[0.06]">
               {pains.map((pn) => {
                 const Icon = PAIN_ICON[pn];
                 return (
-                  <li key={pn} className="flex items-center gap-3 px-3.5 py-2.5">
-                    <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-fg/[0.05] text-accent-amber">
-                      <Icon size={14} />
-                    </span>
-                    <span className="text-[13px] font-medium text-text-primary">{LEAD_PAIN_LABEL[pn]}</span>
+                  <li key={pn} className="px-4 py-3">
+                    <p className="flex items-center gap-2 text-[13.5px] font-semibold text-text-primary">
+                      <Icon size={14} className="text-accent-amber" />
+                      {LEAD_PAIN_LABEL[pn]}
+                    </p>
+                    <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">"{LEAD_PAIN_SCRIPT[pn]}"</p>
                   </li>
                 );
               })}
             </ul>
           </div>
-          </div>
         )}
 
+        {/* Roteiro da ligação: abertura e respostas pras objeções mais comuns */}
+        <CallScript leadName={lead.company_name || lead.full_name} companyName={tenant?.name} />
       </div>
 
       {/* Lead concluído/fechado: o Formulário vira resumo, então os contatos aparecem num card (concluído
@@ -848,33 +937,183 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         </div>
       )}
 
-      {/* Celular: "Concluir lead" é um botão próprio embaixo do Formulário (não dentro dele) */}
+      {/* Celular: "Salvar" é um botão próprio embaixo do Formulário (não dentro dele) */}
       {!locked && !concluded && (
-        <div className="grid grid-cols-2 gap-2 max-lg:order-4 sm:hidden">
-          <Button size="lg" variant="secondary" onClick={toggleHold} disabled={holdMutation.isPending} className={cn('w-full', onHold && 'text-accent-amber')}>
-            <Hourglass size={17} />
-            {holdMutation.isPending ? 'Salvando…' : onHold ? 'Tirar do aguardo' : 'Em aguardo'}
-          </Button>
-          <Button
-            size="lg"
-            onClick={conclude}
-            disabled={concludeMutation.isPending || status === 'pending' || meetingMissing}
-            className="w-full"
-          >
-            <CheckCircle2 size={17} />
-            {concludeMutation.isPending ? 'Salvando…' : 'Concluir lead'}
+        <div className="space-y-2 max-lg:order-4 sm:hidden">
+          {situationButtons(true)}
+          <Button size="lg" onClick={() => save()} disabled={concludeMutation.isPending} className="w-full">
+            <Save size={17} />
+            {concludeMutation.isPending ? 'Salvando…' : 'Salvar'}
           </Button>
         </div>
       )}
+
+      <Modal open={lostOpen} onClose={() => setLostOpen(false)} title="Por que o lead foi perdido?" className="max-w-md">
+        <div className="grid grid-cols-2 gap-2">
+          {LOST_REASONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => {
+                setLostOpen(false);
+                setSituation('lost');
+                save('lost', r);
+              }}
+              className="rounded-xl border border-fg/[0.1] px-3 py-3 text-left text-[14px] font-medium text-text-primary transition-colors hover:border-status-lost/40 hover:bg-status-lost/10"
+            >
+              {LOST_REASON_LABEL[r]}
+            </button>
+          ))}
+        </div>
+      </Modal>
 
       <AdminAgenda open={agendaOpen} onClose={() => setAgendaOpen(false)} onPick={pickMeeting}
         initial={meetingAt ? { at: meetingAt, duration: meetingDuration, attendeeIds: meetingAttendeeIds, guests: meetingGuests } : undefined}
         defaultGuest={{ name: lead.full_name, title: lead.job_title ?? undefined }}
         leadName={lead.company_name || lead.full_name}
+        onRemove={meetingAt || lead.meeting_at ? removeMeeting : undefined}
       />
     </div>
   );
 });
+
+const ATTEMPT_LABEL: Record<string, string> = {
+  no_answer: 'Não atendeu',
+  answered: 'Atendeu',
+  wrong_number: 'Número errado',
+  meeting: 'Reunião marcada',
+  callback: 'Em aguardo',
+  lost: 'Perdido',
+  waiting: 'Mensagem enviada',
+  replied: 'Respondeu',
+  no_reply: 'Não respondeu',
+};
+
+/** Histórico de tentativas: uma linha por ligação/mensagem, da mais nova pra mais antiga */
+export function AttemptsTimeline({ attempts }: { attempts: LeadAttempt[] }) {
+  return (
+    <ol className="relative space-y-3 border-l border-fg/[0.1] pl-5">
+      {attempts.map((t) => (
+        <li key={t.id} className="relative">
+          <span
+            className={cn(
+              'absolute -left-[27px] top-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full ring-4 ring-bg-surface',
+              t.channel === 'whatsapp' ? 'bg-[#25D366]/15 text-[#25D366]' : 'bg-fg/[0.1] text-text-secondary',
+            )}
+          >
+            {t.channel === 'whatsapp' ? <WhatsAppIcon size={10} /> : <Phone size={9} fill="currentColor" strokeWidth={1} />}
+          </span>
+          <p className="text-[13.5px] font-medium text-text-primary">
+            {t.channel === 'whatsapp' ? 'WhatsApp' : 'Ligação'} · {ATTEMPT_LABEL[t.result] ?? t.result}
+          </p>
+          <p className="text-xs text-text-muted">{format(new Date(t.created_at), "EEEE, d 'de' MMM 'às' HH:mm", { locale: ptBR })}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+const OBJECTIONS = [
+  { q: '"Não tenho interesse."', a: 'Entendo! Posso só te mostrar em 2 minutos como outras lojas da região estão trazendo mais clientes? Se não fizer sentido, sem problema.' },
+  { q: '"Já tenho alguém que cuida disso."', a: 'Ótimo, então vocês já sabem a importância. Vale uma segunda opinião sem compromisso: às vezes dá pra ter mais resultado pelo mesmo valor.' },
+  { q: '"Está caro / não tenho verba agora."', a: 'Faz sentido. A ideia é que se pague com os clientes novos. Posso te mostrar os planos e você decide com calma.' },
+  { q: '"Me manda por WhatsApp / e-mail."', a: 'Mando sim! Pra mandar algo que faça sentido pra vocês, posso marcar 15 minutos com nosso time pra entender melhor?' },
+  { q: '"O dono não está."', a: 'Sem problema! Qual o melhor horário pra falar com ele? E qual o nome dele? (registre em Contatos do lead e marque o Retorno)' },
+];
+
+/** Roteiro da ligação: abertura pronta e respostas pras objeções mais comuns (começa fechado) */
+function CallScript({ leadName, companyName }: { leadName: string; companyName?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="card mt-4 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-4 py-3.5 text-left transition-colors hover:bg-fg/[0.03]"
+      >
+        <Sparkles size={16} className="text-accent-green" />
+        <h2 className="flex-1 text-[15px] font-semibold text-text-primary">Roteiro da ligação</h2>
+        <ChevronDown size={17} className={cn('text-text-muted transition-transform duration-300', open && 'rotate-180')} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: 'spring', visualDuration: 0.32, bounce: 0.1 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-4 border-t border-fg/[0.06] px-4 py-3.5">
+              <div>
+                <p className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Abertura</p>
+                <p className="text-[13.5px] leading-relaxed text-text-primary">
+                  "Oi, tudo bem? Aqui é [seu nome]{companyName ? `, da ${companyName}` : ''}. Falo com o responsável pela {leadName}? Estou ligando
+                  porque a gente ajuda negócios como o de vocês a conseguir mais clientes. Você tem 2 minutinhos?"
+                </p>
+              </div>
+              <div>
+                <p className="mb-1.5 flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">
+                  <MessageCircleQuestion size={13} />
+                  Objeções comuns
+                </p>
+                <ul className="space-y-2.5">
+                  {OBJECTIONS.map((o) => (
+                    <li key={o.q}>
+                      <p className="text-[13.5px] font-medium text-text-primary">{o.q}</p>
+                      <p className="text-[13px] leading-relaxed text-text-secondary">{o.a}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** Linha de uma etapa: pergunta curta à esquerda, resposta/opções à direita (no celular, uma embaixo da outra) */
+function StepRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid items-center gap-x-4 gap-y-1.5 sm:grid-cols-[130px_minmax(0,1fr)]">
+      <p className="text-[13.5px] text-text-muted">{label}</p>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">{children}</div>
+    </div>
+  );
+}
+
+/** Opção pequena (pílula) de uma etapa; ativa ganha a cor do resultado */
+function ChoicePill({
+  active,
+  activeClass,
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  activeClass: string;
+  icon: typeof Clock;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'inline-flex h-10 items-center gap-2 rounded-lg border px-4 text-[14px] font-medium transition-colors',
+        active ? cn(activeClass, 'border-transparent') : 'border-fg/[0.1] text-text-secondary hover:border-fg/[0.2] hover:text-text-primary',
+      )}
+    >
+      <Icon size={14} />
+      {label}
+    </button>
+  );
+}
 
 /**
  * Parte da ligação (Plano A, Plano B, Agenda): cabeçalho clicável e o conteúdo num bloco só —
@@ -907,16 +1146,19 @@ function PlanBlock({
   children: ReactNode;
 }) {
   return (
-    <div className={cn('overflow-hidden rounded-2xl border border-fg/[0.12] transition-colors hover:border-fg/[0.18]', lockedHint && 'opacity-60', className)}>
-      {/* Cabeçalho no vidro da barra "Progresso de hoje"; o conteúdo embaixo fica no fundo do card */}
+    <div className={cn(lockedHint && 'opacity-55', className)}>
+      {/* Uma linha da lista de etapas: ícone, título, situação à direita e a seta */}
       <button
         type="button"
         onClick={onToggle}
         disabled={!!lockedHint}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 bg-fg/[0.05] p-3 text-left disabled:cursor-not-allowed shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_4px_14px_-8px_rgba(0,0,0,0.35)] transition-colors hover:bg-fg/[0.07]"
+        className={cn(
+          'flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-fg/[0.03] disabled:cursor-not-allowed disabled:hover:bg-transparent',
+          open && 'bg-fg/[0.03]',
+        )}
       >
-        <span className={cn('relative flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-fg/[0.06] text-text-primary', iconClassName)}>
+        <span className={cn('relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fg/[0.06] text-text-secondary', iconClassName)}>
           {icon}
           {done && (
             <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-accent-green text-[rgb(var(--on-accent))] ring-2 ring-bg-surface">
@@ -924,16 +1166,10 @@ function PlanBlock({
             </span>
           )}
         </span>
-        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="text-sm font-semibold text-text-primary">{title}</span>
-          {lockedHint ? (
-            <span className="flex items-center gap-1 text-[11px] font-medium text-text-muted">
-              <Lock size={11} />
-              {lockedHint}
-            </span>
-          ) : (
-            tag
-          )}
+        <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-text-primary">{title}</span>
+        {/* Situação da etapa à direita (texto discreto) */}
+        <span className="min-w-0 max-w-[55%] truncate text-right max-sm:hidden">
+          {lockedHint ? <span className="text-[13px] text-text-muted">{lockedHint}</span> : tag}
         </span>
         {lockedHint ? <Lock size={15} className="flex-shrink-0 text-text-muted" /> : <ChevronDown size={17} className={cn('flex-shrink-0 text-text-muted transition-transform duration-300', open && 'rotate-180')} />}
       </button>
@@ -946,7 +1182,7 @@ function PlanBlock({
             transition={{ type: 'spring', visualDuration: 0.32, bounce: 0.1 }}
             className="overflow-hidden"
           >
-            <div className="border-t border-fg/[0.06]">{children}</div>
+            <div className="border-t border-fg/[0.06] bg-fg/[0.015]">{children}</div>
           </motion.div>
         )}
       </AnimatePresence>

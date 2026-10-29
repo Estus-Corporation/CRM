@@ -59,6 +59,12 @@ export const lowerEmail = (v: string) => v.toLowerCase().replace(/\s/g, '');
 const NAME_LOWER = new Set(['de', 'da', 'do', 'dos', 'das', 'e']);
 
 /** Nome com a primeira letra de cada palavra maiúscula (mantém o resto como digitado) */
+/** Primeiro e último nome ("Lucca Periotto" de "Lucca de Souza Periotto") */
+export function shortName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/);
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]}` : parts[0];
+}
+
 export function capitalizeName(value: string): string {
   return value.replace(/(^|\s)(\S)(\S*)/g, (_m, sp: string, first: string, rest: string, offset: number) => {
     const word = (first + rest).toLowerCase();

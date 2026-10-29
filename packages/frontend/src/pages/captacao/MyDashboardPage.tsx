@@ -253,6 +253,7 @@ export function MyDashboardPage() {
     pending: c.axisMuted,
     no_answer: c.axis,
     answered: '#5FB3D9',
+    wrong_number: '#E5484D',
     callback: c.amber,
     meeting: c.brand,
     lost: '#E5484D',

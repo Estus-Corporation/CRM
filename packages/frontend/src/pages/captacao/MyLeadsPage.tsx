@@ -13,10 +13,11 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 
-type Scope = 'today' | 'open' | 'all';
+type Scope = 'today' | 'followup' | 'open' | 'all';
 
 const SCOPE_OPTIONS: { value: Scope; label: string }[] = [
   { value: 'today', label: 'Hoje' },
+  { value: 'followup', label: 'Retornar hoje' },
   { value: 'open', label: 'Em aberto' },
   { value: 'all', label: 'Todos' },
 ];

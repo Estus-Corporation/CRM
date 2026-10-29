@@ -9,7 +9,8 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 import { ThemeToggle } from './ThemeToggle';
-import { cn } from '@/lib/utils';
+import { OnlineMembers } from './OnlineMembers';
+import { cn, shortName } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { dropdownMotion } from '@/lib/motion';
 
@@ -36,12 +37,6 @@ const PAGE_TITLES: [string, string][] = [
   ['/conta', 'Minha conta'],
   ['/empresa', 'Sobre a empresa'],
 ];
-
-/** Primeiro e último nome ("Lucca Periotto" de "Lucca de Souza Periotto") */
-function shortName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/);
-  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]}` : parts[0];
-}
 
 function pageTitle(pathname: string) {
   return PAGE_TITLES.find(([path]) => pathname === path || pathname.startsWith(`${path}/`))?.[1] ?? '';
@@ -143,6 +138,9 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
               )}
             </button>
 
+            {/* Quem do espaço está online agora */}
+            <OnlineMembers />
+
             {/* Separador entre os ícones e a foto */}
             <span aria-hidden className="mx-1.5 h-7 w-px bg-fg/[0.12]" />
 
@@ -163,7 +161,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                       'conic-gradient(from 200deg, rgb(var(--accent-green)), rgb(var(--accent-green)) 55%, rgb(var(--accent-amber)) 80%, rgb(var(--accent-green)))',
                   }}
                 >
-                  <Avatar name={user.full_name} src={user.avatar_url} className="h-10 w-10 bg-bg-surface text-sm ring-2 ring-bg-primary" />
+                  <Avatar name={user.full_name} src={user.avatar_url} online className="h-10 w-10 bg-bg-surface text-sm ring-2 ring-bg-primary" />
                 </span>
                 <span className="max-w-[180px] truncate text-sm font-medium text-text-primary max-md:hidden">{shortName(user.full_name)}</span>
               </button>

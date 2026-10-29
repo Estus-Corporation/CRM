@@ -1,15 +1,21 @@
 import type { Knex } from 'knex';
 
 /**
- * Marcador: esta migration já foi aplicada no banco de produção (rodando o backend local, cujo `.env`
- * aponta para lá), mas o arquivo original nunca foi commitado e o Knex se recusa a subir quando o banco
- * registra uma migration que o código não tem. Este arquivo de mesmo nome só devolve o registro ao
- * diretório; não altera o schema. Quando o arquivo original for commitado, ele substitui este.
+ * Situação informada pelo captador ao salvar o lead: ganhou ou perdeu (em aguardo = `on_hold_at`).
+ * O fechamento oficial (valor e comissão) continua sendo do admin em `outcome`.
  */
-export async function up(_knex: Knex): Promise<void> {
-  // sem alterações: a coluna já existe onde a migration foi aplicada
+export async function up(knex: Knex): Promise<void> {
+  await knex.schema.alterTable('lead_assignments', (t) => {
+    t.string('lead_result', 10).nullable();
+  });
+  await knex.raw(
+    "ALTER TABLE lead_assignments ADD CONSTRAINT lead_assignments_lead_result_check CHECK (lead_result IN ('won', 'lost'))",
+  );
 }
 
-export async function down(_knex: Knex): Promise<void> {
-  // sem alterações
+export async function down(knex: Knex): Promise<void> {
+  await knex.raw('ALTER TABLE lead_assignments DROP CONSTRAINT IF EXISTS lead_assignments_lead_result_check');
+  await knex.schema.alterTable('lead_assignments', (t) => {
+    t.dropColumn('lead_result');
+  });
 }

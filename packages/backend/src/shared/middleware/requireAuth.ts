@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { jwtVerify } from 'jose';
 import { env } from '../../config/env';
+import { db } from '../../db';
 
 const secret = new TextEncoder().encode(env.JWT_SECRET);
 
@@ -20,6 +21,15 @@ function captadorCanAccess(req: Request) {
     ({ prefix, methods }) =>
       (path === prefix || path.startsWith(`${prefix}/`)) && (!methods || methods.includes(req.method)),
   );
+}
+
+// Presença: grava a última vez que o usuário apareceu, no máximo 1x por minuto por usuário (sem esperar o banco)
+const lastTouch = new Map<string, number>();
+function touchPresence(userId: string) {
+  const now = Date.now();
+  if (now - (lastTouch.get(userId) ?? 0) < 60_000) return;
+  lastTouch.set(userId, now);
+  db('users').where({ id: userId }).update({ last_seen_at: new Date() }).catch(() => lastTouch.delete(userId));
 }
 
 export async function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -43,6 +53,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     res.status(401).json({ error: 'Invalid or expired token' });
     return;
   }
+
+  touchPresence(req.user.id);
 
   if (req.user.role === 'captador' && !captadorCanAccess(req)) {
     res.status(403).json({ error: 'Insufficient permissions' });

@@ -9,6 +9,7 @@ import type { TeamMember } from '@/services/users.service';
 import { MemberCard, ROLE_LABEL, TitleGroup, groupByTitle, rankOf, titleFor } from '@/components/company/TeamRoster';
 import { AddMemberModal } from './AddMemberModal';
 import { Button } from '@/components/ui/Button';
+import { useOnlineIds } from '@/hooks/usePresence';
 import { Spinner } from '@/components/ui/Spinner';
 
 const TITLE_SUGGESTIONS = ['Fundador', 'Fundadora', 'Cofundador', 'Cofundadora', 'Sócio', 'CEO', 'Diretor', 'Gerente'];
@@ -207,6 +208,7 @@ function TitleEditor({
 
 /** Painel lateral da equipe nas Configurações: cartões dos membros + todas as ações de gestão */
 export function TeamPanel() {
+  const onlineIds = useOnlineIds();
   const currentUser = useAuthStore((s) => s.user);
   const isAdmin = currentUser?.role === 'admin';
   const { data, isLoading } = useUsers();
@@ -277,6 +279,7 @@ export function TeamPanel() {
                       name={isSelf ? `${m.full_name} (você)` : m.full_name}
                       email={m.email}
                       avatarUrl={m.avatar_url}
+                      online={m.is_active && onlineIds.has(m.id)}
                       title={title ?? undefined}
                       muted={!m.is_active}
                       meta={m.is_active ? lastAccess(m.last_login_at) : 'Desativado'}

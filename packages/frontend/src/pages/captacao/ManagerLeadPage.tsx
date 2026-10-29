@@ -21,16 +21,18 @@ import {
 } from 'lucide-react';
 import { useAssignLeads, useCaptadores, useManagerLead } from '@/hooks/useCaptacao';
 import {
+  CALL_STATUS,
   googleUrl,
   instagramHandle,
   instagramUrl,
   LEAD_PAIN_LABEL,
   leadPains,
+  LOST_REASON_LABEL,
   websiteLabel,
   websiteUrl,
   whatsappUrl,
 } from '@/lib/captacao';
-import { PAIN_ICON } from '@/components/captacao/LeadCard';
+import { AttemptsTimeline, PAIN_ICON } from '@/components/captacao/LeadCard';
 import { AddLeadModal } from '@/components/captacao/AddLeadModal';
 import { LeadPeopleCard } from '@/components/captacao/LeadPeopleCard';
 import { GmailIcon, GoogleIcon, InstagramIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
@@ -238,10 +240,48 @@ export function ManagerLeadPage() {
                   <p className="mt-3 text-xs text-text-muted">O lead sai da fila e entra nos leads de hoje do captador.</p>
                 </>
               ) : (
-                <p className="text-sm text-text-secondary">
-                  Este lead já está com <strong className="text-text-primary">{lead.captador_name ?? 'um captador'}</strong>. Acompanhe na aba
-                  Acompanhamento da Captação.
-                </p>
+                // Andamento com o captador: situação, ligação, retorno, anotação e histórico de tentativas
+                <div className="space-y-3">
+                  <p className="text-sm text-text-secondary">
+                    Com <strong className="text-text-primary">{lead.captador_name ?? 'um captador'}</strong>
+                  </p>
+                  <dl className="grid gap-x-4 gap-y-2 text-[13.5px] sm:grid-cols-[120px_minmax(0,1fr)]">
+                    <dt className="text-text-muted">Situação</dt>
+                    <dd className="font-medium text-text-primary">
+                      {lead.lead_result === 'won'
+                        ? 'Ganhou'
+                        : lead.lead_result === 'lost'
+                          ? `Perdeu${lead.lost_reason ? ` · ${LOST_REASON_LABEL[lead.lost_reason]}` : ''}`
+                          : lead.on_hold_at && !lead.concluded_at
+                            ? 'Em aguardo'
+                            : 'Pendente'}
+                    </dd>
+                    <dt className="text-text-muted">Ligação</dt>
+                    <dd className="font-medium text-text-primary">
+                      {lead.call_status && lead.call_status !== 'pending' ? CALL_STATUS[lead.call_status].label : '—'}
+                    </dd>
+                    {lead.next_contact_at && (
+                      <>
+                        <dt className="text-text-muted">Retorno</dt>
+                        <dd className={cn('font-medium', new Date(lead.next_contact_at) < new Date() ? 'text-status-lost' : 'text-accent-amber')}>
+                          {format(new Date(lead.next_contact_at), "EEE, d 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                        </dd>
+                      </>
+                    )}
+                    {lead.call_notes && (
+                      <>
+                        <dt className="text-text-muted">Anotação</dt>
+                        <dd className="whitespace-pre-line text-text-secondary">{lead.call_notes}</dd>
+                      </>
+                    )}
+                  </dl>
+                  {lead.attempts.length > 0 && (
+                    <div className="border-t border-fg/[0.06] pt-3">
+                      <p className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Histórico</p>
+                      <AttemptsTimeline attempts={lead.attempts} />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

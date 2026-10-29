@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 // callback e lost não aparecem mais como opção (ficam pra leads antigos); answered = atendeu
-export const CALL_STATUSES = ['pending', 'no_answer', 'answered', 'callback', 'meeting', 'lost'] as const;
+export const CALL_STATUSES = ['pending', 'no_answer', 'answered', 'wrong_number', 'callback', 'meeting', 'lost'] as const;
+
+export const LOST_REASONS = ['no_interest', 'has_supplier', 'price', 'wrong_number', 'closed_business', 'other'] as const;
 
 export const updateMyLeadSchema = z.object({
   callStatus: z.enum(CALL_STATUSES).optional(),
@@ -10,6 +12,14 @@ export const updateMyLeadSchema = z.object({
   concluded: z.boolean().optional(),
   // true = Em aguardo (salva sem concluir); false = tira do aguardo
   onHold: z.boolean().optional(),
+  // Situação informada pelo captador ao salvar: ganhou / perdeu (null = sem situação)
+  leadResult: z.enum(['won', 'lost']).nullable().optional(),
+  // Motivo da perda (com leadResult = lost)
+  lostReason: z.enum(LOST_REASONS).nullable().optional(),
+  // Próximo contato combinado com o lead (null = sem retorno)
+  nextContactAt: z.string().datetime({ offset: true }).nullable().optional(),
+  // true = esta gravação é uma tentativa de ligação nova (entra no histórico com o callStatus)
+  logCall: z.boolean().optional(),
   // Reunião marcada: quando e como
   meetingAt: z.string().datetime({ offset: true }).nullable().optional(),
   meetingMode: z.enum(['online', 'presencial']).nullable().optional(),
@@ -40,7 +50,8 @@ export const updateMyLeadSchema = z.object({
 export const myLeadsQuerySchema = z.object({
   status: z.enum(CALL_STATUSES).optional(),
   // won: só os que fecharam negócio (tela Minhas comissões)
-  scope: z.enum(['today', 'open', 'all', 'won']).default('open'),
+  // followup: retorno marcado pra hoje ou atrasado
+  scope: z.enum(['today', 'open', 'all', 'won', 'followup']).default('open'),
 });
 
 export const assignLeadsSchema = z.object({

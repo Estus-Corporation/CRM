@@ -1,4 +1,4 @@
-import type { CallStatus, WhatsappStatus } from '@/services/captacao.service';
+import type { CallStatus, LostReason, WhatsappStatus } from '@/services/captacao.service';
 
 /** Resultados da ligação, na ordem em que aparecem para o captador */
 /** Plano B (WhatsApp): situação da mensagem */
@@ -15,6 +15,7 @@ export const CALL_STATUS: Record<CallStatus, { label: string; short: string; cla
   // Paleta de 3 cores (esmeralda/âmbar/vermelho): "a ligar" tracejado = ainda não ligou; "não atendeu" neutro
   pending: { label: 'A ligar', short: 'A ligar', className: 'border border-dashed border-fg/[0.22] text-text-muted', dot: 'bg-text-muted' },
   no_answer: { label: 'Não atendeu', short: 'Não atendeu', className: 'bg-fg/[0.09] text-text-primary', dot: 'bg-text-secondary' },
+  wrong_number: { label: 'Número errado', short: 'Nº errado', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
   answered: { label: 'Atendeu', short: 'Atendeu', className: 'bg-accent-green/10 text-text-primary', dot: 'bg-accent-green' },
   callback: { label: 'Em aguardo', short: 'Aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
   meeting: { label: 'Reunião marcada', short: 'Reunião', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' },
@@ -23,10 +24,21 @@ export const CALL_STATUS: Record<CallStatus, { label: string; short: string; cla
 
 // Sem 'callback': o "Em aguardo" agora é o botão ao lado de "Concluir lead" (on_hold_at). O valor segue
 // existindo só pra leads antigos que já têm esse resultado.
-export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'answered', 'meeting', 'lost'];
+export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'answered', 'wrong_number', 'meeting', 'lost'];
 
 // Opções do Resultado na página do lead (reunião sai da Agenda; perdido quem decide é o admin)
-export const CALL_RESULT_OPTIONS = ['no_answer', 'answered'] as const satisfies readonly CallStatus[];
+export const CALL_RESULT_OPTIONS = ['no_answer', 'answered', 'wrong_number'] as const satisfies readonly CallStatus[];
+
+/** Motivos de perda (escolhidos ao marcar "Perdeu") */
+export const LOST_REASON_LABEL: Record<LostReason, string> = {
+  no_interest: 'Sem interesse',
+  has_supplier: 'Já tem fornecedor',
+  price: 'Preço',
+  wrong_number: 'Número errado',
+  closed_business: 'Empresa fechada',
+  other: 'Outro motivo',
+};
+export const LOST_REASONS = Object.keys(LOST_REASON_LABEL) as LostReason[];
 
 export function formatBRL(value: number | null | undefined) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0);
@@ -93,6 +105,16 @@ export const LEAD_PAIN_LABEL: Record<LeadPain, string> = {
   no_google: 'Sem perfil no Google',
   few_reviews: 'Poucas avaliações',
   low_rating: 'Nota baixa no Google',
+};
+
+/** Frase pronta pra puxar a conversa a partir de cada dor (roteiro da ligação) */
+export const LEAD_PAIN_SCRIPT: Record<LeadPain, string> = {
+  no_site: 'Vi que vocês ainda não têm site. Hoje muita gente procura antes de comprar, e sem site esse cliente vai pro concorrente.',
+  no_instagram: 'Notei que vocês ainda não têm Instagram. É onde boa parte dos clientes de vocês descobre lojas novas.',
+  no_marketing: 'Vocês ainda não aparecem muito na internet. Dá pra trazer clientes novos sem depender só de quem passa na porta.',
+  no_google: 'Não encontrei vocês no Google Maps. Quem procura "perto de mim" acaba achando só os concorrentes.',
+  few_reviews: 'Vocês têm poucas avaliações no Google. Mais avaliações passam confiança e fazem vocês aparecerem antes.',
+  low_rating: 'A nota de vocês no Google está abaixo do que poderia. Dá pra melhorar isso e atrair mais clientes.',
 };
 
 /**

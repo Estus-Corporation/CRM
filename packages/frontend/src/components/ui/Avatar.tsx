@@ -7,6 +7,8 @@ interface AvatarProps {
   src?: string | null;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
+  /** true = bolinha verde de online no canto inferior direito */
+  online?: boolean;
 }
 
 const sizes = { sm: 'h-6 w-6 text-xs', md: 'h-8 w-8 text-sm', lg: 'h-10 w-10 text-base' };
@@ -20,7 +22,21 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
+export function Avatar({ online, ...props }: AvatarProps) {
+  if (!online) return <AvatarImage {...props} />;
+  return (
+    <span className="relative flex flex-shrink-0 rounded-full">
+      <AvatarImage {...props} />
+      <span
+        aria-label="Online"
+        title="Online"
+        className="absolute bottom-0 right-0 h-[30%] max-h-3.5 min-h-2 w-[30%] min-w-2 max-w-3.5 rounded-full bg-accent-green ring-2 ring-bg-surface"
+      />
+    </span>
+  );
+}
+
+function AvatarImage({ name, src, size = 'md', className }: Omit<AvatarProps, 'online'>) {
   // Foto que não carrega (link quebrado, arquivo corrompido) cai para as iniciais
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
