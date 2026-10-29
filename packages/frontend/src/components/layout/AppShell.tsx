@@ -12,6 +12,7 @@ import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { SilkShader } from '@/components/ui/SilkShader';
 import { useTenant } from '@/hooks/useTenant';
 import { useLeadHunterEnabled } from '@/hooks/useLeadHunter';
+import { useRealtime } from '@/hooks/useRealtime';
 import { applyTheme, useTheme } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 
@@ -36,6 +37,7 @@ export function AppShell() {
   const outlet = useOutlet();
   const { isPending: tenantPending } = useTenant();
   const leadhunterEnabled = useLeadHunterEnabled();
+  useRealtime();
   // A flag só é conhecida depois do GET /tenant: nas telas que dependem dela, espera em vez de decidir às cegas
   const waitingFlag = tenantPending && (pathname.startsWith('/leadhunter') || pathname.startsWith('/solicitacoes'));
   const redirectTo = waitingFlag ? null : roleRedirect(role, pathname, leadhunterEnabled);

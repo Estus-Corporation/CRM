@@ -1,6 +1,7 @@
 import { db } from '../../db';
 import { z } from 'zod';
 import { getPaginationParams, paginatedResponse } from '../../shared/utils/paginate';
+import { publishToTenantManagers, publishToUser } from '../realtime/hub';
 import { cancelInvite, createInvite, listTenantInvites } from '../invites/invites.service';
 
 /**
@@ -94,6 +95,10 @@ export async function deleteUser(tenantId: string, userId: string) {
     // Sessões abertas neste workspace: a próxima renovação leva a pessoa pra outro workspace dela
     await trx('user_tenants').where({ tenant_id: tenantId, user_id: userId }).delete();
   });
+  // Quem está conectado perde o acesso na hora (a renovação da sessão leva a pessoa pra outro workspace)
+  publishToUser(userId, 'session');
+  publishToUser(userId, 'workspaces');
+  void publishToTenantManagers(tenantId, 'team');
   return { id: userId };
 }
 
@@ -109,6 +114,10 @@ export async function updateUser(tenantId: string, userId: string, input: z.infe
   if (input.role !== undefined) updates.role = input.role;
   if (input.isActive !== undefined) updates.is_active = input.isActive;
   await db('user_tenants').where({ id: membership.id }).update(updates);
+  // Papel/ativação mudou: a pessoa conectada renova a sessão (o papel vive no token) sem F5
+  publishToUser(userId, 'session');
+  publishToUser(userId, 'workspaces');
+  void publishToTenantManagers(tenantId, 'team');
 
 
   return db('user_tenants as ut')

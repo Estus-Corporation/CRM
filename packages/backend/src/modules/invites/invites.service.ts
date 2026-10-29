@@ -1,6 +1,7 @@
 import { db } from '../../db';
 import { env } from '../../config/env';
 import { createNotification } from '../notifications/notifications.service';
+import { publishToTenantManagers, publishToUser } from '../realtime/hub';
 
 /**
  * Convites para entrar num workspace (workspace_invites). O admin convida pelo e-mail; a pessoa
@@ -83,6 +84,9 @@ export async function createInvite(tenantId: string, actorId: string, input: { e
     db('users').where({ id: actorId }).first('full_name'),
   ]);
   void sendInviteEmail(email, tenant?.name ?? 'um workspace', actor?.full_name ?? 'Um admin', input.role, !!user);
+  // Quem já está conectado vê o convite na hora; os outros admins veem o pendente na equipe
+  publishToUser(user?.id, 'invites');
+  void publishToTenantManagers(tenantId, 'team');
 
   return { ...invite, has_account: !!user, full_name: user?.full_name ?? null, avatar_url: user?.avatar_url ?? null };
 }
@@ -99,10 +103,14 @@ export function listTenantInvites(tenantId: string) {
 }
 
 export async function cancelInvite(tenantId: string, inviteId: string) {
-  const updated = await db('workspace_invites')
+  const [canceled] = await db('workspace_invites')
     .where({ id: inviteId, tenant_id: tenantId, status: 'pending' })
-    .update({ status: 'canceled', responded_at: new Date() });
-  if (!updated) throw httpError('Invite not found', 404);
+    .update({ status: 'canceled', responded_at: new Date() })
+    .returning('email');
+  if (!canceled) throw httpError('Invite not found', 404);
+  const invitee = await db('users').whereRaw('lower(email) = lower(?)', [canceled.email]).first('id');
+  publishToUser(invitee?.id, 'invites');
+  void publishToTenantManagers(tenantId, 'team');
 }
 
 async function userEmail(userId: string) {
@@ -164,6 +172,11 @@ export async function acceptInvite(userId: string, inviteId: string) {
     }).catch(() => {});
   }
 
+  // Outras abas da pessoa atualizam workspaces/convites; a equipe vê o novo membro
+  publishToUser(userId, 'invites');
+  publishToUser(userId, 'workspaces');
+  void publishToTenantManagers(invite.tenant_id, 'team');
+
   const tenant = await db('tenants').where({ id: invite.tenant_id }).first('id', 'name');
   return { tenantId: tenant.id as string, tenantName: tenant.name as string, role: invite.role as string };
 }
@@ -171,6 +184,8 @@ export async function acceptInvite(userId: string, inviteId: string) {
 export async function declineInvite(userId: string, inviteId: string) {
   const { invite, fullName } = await pendingInviteFor(userId, inviteId);
   await db('workspace_invites').where({ id: invite.id }).update({ status: 'declined', responded_at: new Date() });
+  publishToUser(userId, 'invites');
+  void publishToTenantManagers(invite.tenant_id, 'team');
   if (invite.invited_by) {
     await createNotification({
       tenantId: invite.tenant_id,

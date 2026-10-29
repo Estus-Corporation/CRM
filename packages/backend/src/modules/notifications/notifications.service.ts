@@ -1,4 +1,5 @@
 import { db } from '../../db';
+import { publishToUser } from '../realtime/hub';
 
 export interface CreateNotificationInput {
   tenantId: string;
@@ -22,6 +23,7 @@ export async function createNotification(input: CreateNotificationInput) {
       resource_id: input.resourceId || null,
     })
     .returning('*');
+  publishToUser(input.userId, 'notifications');
   return notification;
 }
 

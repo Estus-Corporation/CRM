@@ -20,12 +20,50 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-let isRefreshing = false;
-let failedQueue: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void }> = [];
+// Renovação de sessão em voo único: o refresh token gira a cada uso, então duas renovações
+// ao mesmo tempo invalidariam uma à outra (a segunda usaria um token já descartado).
+let renewing: Promise<string> | null = null;
 
-function processQueue(error: unknown, token?: string) {
-  failedQueue.forEach((p) => (error ? p.reject(error) : p.resolve(token)));
-  failedQueue = [];
+/**
+ * Troca o refresh token por uma sessão nova e sincroniza o papel/workspace na tela.
+ * Usada pelo 401 do interceptor e pelo aviso em tempo real de que o acesso da pessoa mudou.
+ */
+export function renewSession(): Promise<string> {
+  if (renewing) return renewing;
+  const refreshToken = useAuthStore.getState().refreshToken;
+  if (!refreshToken) {
+    useAuthStore.getState().logout();
+    return Promise.reject(new Error('no_refresh_token'));
+  }
+  renewing = (async () => {
+    try {
+      const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
+      const { accessToken, refreshToken: newRefreshToken, tenantId, role } = res.data.data;
+      const auth = useAuthStore.getState();
+      auth.setTokens(accessToken, newRefreshToken);
+      // Se a pessoa foi removida do workspace atual, a renovação a leva pra outro workspace dela:
+      // atualiza a sessão na tela e descarta os dados do workspace antigo
+      if (auth.user && tenantId && (tenantId !== auth.user.tenant_id || role !== auth.user.role)) {
+        const movedOut = tenantId !== auth.user.tenant_id;
+        auth.patchUser({ tenant_id: tenantId, role });
+        if (movedOut) {
+          queryClient.clear();
+          toast.info('Você não faz mais parte daquele workspace — voltou para o seu.');
+        } else {
+          // Mesmo workspace, papel novo: o menu e as telas mudam, os dados são rebuscados
+          queryClient.invalidateQueries();
+          toast.info('Seu acesso neste workspace foi atualizado.');
+        }
+      }
+      return accessToken as string;
+    } catch (err) {
+      useAuthStore.getState().logout();
+      throw err;
+    } finally {
+      renewing = null;
+    }
+  })();
+  return renewing;
 }
 
 api.interceptors.response.use(
@@ -44,51 +82,14 @@ api.interceptors.response.use(
     if (error.response?.status !== 401 || originalRequest._retry || isAuthEndpoint) {
       return Promise.reject(error);
     }
-
-    if (isRefreshing) {
-      return new Promise((resolve, reject) => {
-        failedQueue.push({ resolve, reject });
-      })
-        .then((token) => {
-          originalRequest.headers.Authorization = `Bearer ${token}`;
-          return api(originalRequest);
-        })
-        .catch((err) => Promise.reject(err));
-    }
-
     originalRequest._retry = true;
-    isRefreshing = true;
-
-    const refreshToken = useAuthStore.getState().refreshToken;
-    if (!refreshToken) {
-      useAuthStore.getState().logout();
-      return Promise.reject(error);
-    }
 
     try {
-      const res = await axios.post(`${API_URL}/auth/refresh`, { refreshToken });
-      const { accessToken, refreshToken: newRefreshToken, tenantId, role } = res.data.data;
-      const auth = useAuthStore.getState();
-      auth.setTokens(accessToken, newRefreshToken);
-      // Se a pessoa foi removida do workspace atual, a renovação a leva pra outro workspace dela:
-      // atualiza a sessão na tela e descarta os dados do workspace antigo
-      if (auth.user && tenantId && (tenantId !== auth.user.tenant_id || role !== auth.user.role)) {
-        const movedOut = tenantId !== auth.user.tenant_id;
-        auth.patchUser({ tenant_id: tenantId, role });
-        if (movedOut) {
-          queryClient.clear();
-          toast.info('Você não faz mais parte daquele workspace — voltou para o seu.');
-        }
-      }
-      processQueue(null, accessToken);
+      const accessToken = await renewSession();
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
       return api(originalRequest);
-    } catch (refreshError) {
-      processQueue(refreshError);
-      useAuthStore.getState().logout();
-      return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
+    } catch {
+      return Promise.reject(error);
     }
   },
 );
