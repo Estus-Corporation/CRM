@@ -35,7 +35,7 @@ function Rating({ company }: { company: FoundCompany }) {
 }
 
 /** Caixa de seleção; `indeterminate` só existe como propriedade do DOM, por isso o ref */
-function Checkbox({
+export function Checkbox({
   checked,
   indeterminate = false,
   label,

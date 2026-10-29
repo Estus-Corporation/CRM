@@ -129,6 +129,14 @@ export function useImportCampaign() {
   });
 }
 
+/** CSV da campanha com os filtros da tela; devolve o Blob para a tela baixar */
+export function useExportCampaign() {
+  return useMutation({
+    mutationFn: ({ id, filters }: { id: string; filters?: CompanyFilters }) => leadhunterService.exportCampaign(id, filters),
+    onError: async (err) => toast.error(await downloadErrorMessage(err, 'Não foi possível exportar')),
+  });
+}
+
 /** Etapa, notas e revisão do Instagram: o backend recalcula a pontuação, então recarrega campanhas e empresas */
 export function useUpdateCompany() {
   const qc = useQueryClient();
