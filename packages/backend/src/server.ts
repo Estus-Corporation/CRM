@@ -69,6 +69,8 @@ app.use('/api/v1/leadhunter', leadhunterRoutes);
 
 app.use(errorHandler);
 
+const SWEEP_INTERVAL_MS = 60_000;
+
 db.migrate.latest().then(async () => {
   console.log('[db] Migrations up to date');
   // Worker do LeadHunter no próprio processo (supõe uma instância no Railway); nos testes não sobe.
@@ -83,6 +85,11 @@ db.migrate.latest().then(async () => {
       console.error('[leadhunter] recuperação no boot falhou', err);
     }
     startWorker();
+    // A varredura periódica fecha o pedido cuja campanha terminou antes de ele ser gravado (a campanha é
+    // criada em outra conexão); a entrega é idempotente, então não conflita com o hook.
+    setInterval(() => {
+      deliverFinishedCampaigns().catch((err) => console.error('[leadhunter] varredura de entregas falhou', err));
+    }, SWEEP_INTERVAL_MS).unref();
   }
   app.listen(env.PORT, () => {
     console.log(`[server] Running on http://localhost:${env.PORT}`);

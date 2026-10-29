@@ -148,9 +148,11 @@ export async function deliverForCampaign(tenantId: string, campaignId: string): 
 }
 
 /**
- * No boot: fecha os pedidos ainda `running` cuja campanha já está em estado final. Cobre o processo que
- * morreu entre o estado final da campanha e a entrega (o hook não roda de novo) e as campanhas que o
- * `recover()` marcou como `interrupted` (sem hook). A entrega é idempotente: o portão deixa uma só passar.
+ * No boot e a cada minuto: fecha os pedidos ainda `running` cuja campanha já está em estado final. Cobre o
+ * processo que morreu entre o estado final da campanha e a entrega (o hook não roda de novo), as campanhas
+ * que o `recover()` marcou como `interrupted` (sem hook) e a campanha que termina antes de o pedido que a
+ * criou ser gravado (a campanha é criada em outra conexão). A entrega é idempotente: o portão deixa uma só
+ * passar. Uma campanha com falha não impede as demais.
  */
 export async function deliverFinishedCampaigns(): Promise<void> {
   const rows = await db('lead_requests as lr')
@@ -160,5 +162,11 @@ export async function deliverFinishedCampaigns(): Promise<void> {
     .where('lr.status', 'running')
     .whereIn('c.state', FINISHED_STATES as store.CampaignState[])
     .select('lr.tenant_id', 'lr.campaign_id');
-  for (const row of rows) await deliverForCampaign(row.tenant_id, row.campaign_id);
+  for (const row of rows) {
+    try {
+      await deliverForCampaign(row.tenant_id, row.campaign_id);
+    } catch (err) {
+      console.error('[leadhunter] entrega do pedido falhou', row.campaign_id, err);
+    }
+  }
 }

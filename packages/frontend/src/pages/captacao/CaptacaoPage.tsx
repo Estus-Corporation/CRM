@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, FileSpreadsheet, Plus, Settings, UserPlus } from 'lucide-react';
 import { useTenant, isCompanyProfileComplete } from '@/hooks/useTenant';
+import { useLeadHunterEnabled } from '@/hooks/useLeadHunter';
 import { useAuthStore } from '@/store/authStore';
 import { useCaptacaoSettings, useUpdateCaptacaoSettings } from '@/hooks/useCaptacao';
 import type { CaptacaoSettings } from '@/services/captacao.service';
@@ -101,6 +102,7 @@ function SettingsModal({ open, onClose, current }: { open: boolean; onClose: () 
 export function CaptacaoPage() {
   const role = useAuthStore((s) => s.user?.role);
   const isAdmin = role === 'admin';
+  const leadhunterEnabled = useLeadHunterEnabled();
   const navigate = useNavigate();
   const { data: tenant } = useTenant();
   const { data: settings } = useCaptacaoSettings();
@@ -221,7 +223,7 @@ export function CaptacaoPage() {
         onClose={() => setChooserOpen(false)}
         onManual={() => setAddLeadOpen(true)}
         onAuto={() => setAutoOpen(true)}
-        canAuto={isAdmin}
+        canAuto={isAdmin && leadhunterEnabled}
       />
       {isAdmin && <AutoLeadsModal open={autoOpen} onClose={() => setAutoOpen(false)} />}
       <ImportLeadsModal open={importOpen} onClose={() => setImportOpen(false)} />
