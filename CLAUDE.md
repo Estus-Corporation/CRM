@@ -354,6 +354,7 @@ See [plan.md](./plan.md) for current progress.
 | M26 T9 | Página do lead completa (Ganhou/Perdeu/Em aguardo + Salvar, retorno com lembrete, histórico de tentativas, motivo da perda, número errado, roteiro), Acompanhamento em cards, presença online (migrations 20240042–20240044) | ✅ Done |
 | M26 T10 | Página do lead em abas (Formulário / Sobre o lead / Anotações), tudo salva sozinho, Mensagem só após "Não atendeu" (Sem resposta/Sem WhatsApp, migration 20240045), LeadHunter como abas da Captação, "Online agora" no menu | ✅ Done |
 | M26 T11 | Filtros de Meus leads e Captação (aba, período, status, busca, nicho, página, captador) não resetam ao trocar de tela | ✅ Done |
+| M26 T12 | Contatos com paginação (Anterior/Próxima) e "Trocar de conta" + seta no menu da conta (Topbar) | ✅ Done |
 
 ## Key implementation notes (context for future sessions)
 
