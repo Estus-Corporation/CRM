@@ -1,12 +1,15 @@
 import { z } from 'zod';
 
-export const CALL_STATUSES = ['pending', 'no_answer', 'callback', 'meeting', 'lost'] as const;
+// callback e lost não aparecem mais como opção (ficam pra leads antigos); answered = atendeu
+export const CALL_STATUSES = ['pending', 'no_answer', 'answered', 'callback', 'meeting', 'lost'] as const;
 
 export const updateMyLeadSchema = z.object({
   callStatus: z.enum(CALL_STATUSES).optional(),
   callNotes: z.string().max(2000).nullable().optional(),
   // true = Concluir lead; false = Editar (reabre)
   concluded: z.boolean().optional(),
+  // true = Em aguardo (salva sem concluir); false = tira do aguardo
+  onHold: z.boolean().optional(),
   // Reunião marcada: quando e como
   meetingAt: z.string().datetime({ offset: true }).nullable().optional(),
   meetingMode: z.enum(['online', 'presencial']).nullable().optional(),

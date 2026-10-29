@@ -252,6 +252,7 @@ export function MyDashboardPage() {
   const STATUS_COLOR: Record<CallStatus, string> = {
     pending: c.axisMuted,
     no_answer: c.axis,
+    answered: '#5FB3D9',
     callback: c.amber,
     meeting: c.brand,
     lost: '#E5484D',

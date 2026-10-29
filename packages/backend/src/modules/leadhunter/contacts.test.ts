@@ -56,7 +56,7 @@ const units = (s: string | undefined) => s?.length ?? 0;
 const hasLoneSurrogate = (s: string) => /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(s);
 
 describe('toContactInput', () => {
-  it('mapeia os campos e só leva o Instagram confirmado', () => {
+  it('mapeia os campos; o Instagram candidato vai marcado como não confirmado', () => {
     const lead = company({
       category: 'Moda',
       address: 'Rua X',
@@ -79,8 +79,13 @@ describe('toContactInput', () => {
     });
     const payload = toContactInput(lead, scored);
 
-    expect(payload).not.toHaveProperty('instagram');
-    expect(toContactInput({ ...lead, instagramStatus: 'confirmed' }, scored).instagram).toBe('https://instagram.com/a/');
+    expect(payload.instagram).toBe('https://instagram.com/a/');
+    expect(payload.leadContext).toContain('Instagram não confirmado');
+    const confirmed = toContactInput({ ...lead, instagramStatus: 'confirmed' }, scored);
+    expect(confirmed.instagram).toBe('https://instagram.com/a/');
+    expect(confirmed.leadContext).not.toContain('Instagram não confirmado');
+    const rejected = toContactInput({ ...lead, instagramStatus: 'rejected' }, scored);
+    expect(rejected).not.toHaveProperty('instagram');
     expect(payload.externalId).toBe('abc');
     expect(payload.leadScore).toBe(72);
     expect([payload.fullName, payload.company, payload.niche]).toEqual(['Loja A', 'Loja A', 'Moda']);

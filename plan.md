@@ -798,6 +798,15 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 
 > **Mudança de regra (28/10/2026, M26 T2):** `/solicitacoes` e `/api/v1/lead-requests` passaram a ser **só admin** (pedido do usuário). T12/T13 do M25 devem seguir essa regra — os outros papéis não pedem mais leads — a menos que o usuário diga o contrário.
 
+## M27 — Dados do LeadHunter no contato
+
+- [x] **T1** (28/10/2026) Sem migration nova:
+  - `GET /contacts/:id` devolve `address, maps_url, website, instagram, google_rating (number), google_reviews, lead_score, lead_context, external_id`
+  - `GET /contacts/:id/leadhunter` (`requireAuth`, sem flag/papel): ficha lida de `lh_companies` por `external_id` (módulo `leadhunter/contactView.ts`, `store.companyByIdentity`), só campos permitidos — nunca notas, etapa, `crm`, procedência nem custos
+  - painel "Dados de prospecção" em `ContactDetailPage` (`components/contacts/LeadHunterInfo.tsx`, `useContactLeadHunter`)
+  - **Instagram**: antes só ia ao CRM se o admin confirmasse (`confirmed`), e em pedido entregue automático ninguém confirma → nunca chegava. Agora sem confirmação vai o melhor candidato (`candidate`), com "Instagram não confirmado: conferir o perfil" no `lead_context` e no painel. `rejected`/`not_found` continuam sem enviar
+  - testes de integração novos (`contactView.int.test.ts`) escritos mas **não executados** (sem `TEST_DATABASE_URL`)
+
 ## M26 — Visual do Dashboard/Pipeline e captação
 
 - [x] **T1** Dashboard (KPIs com tendência, receita 6 meses, funil em colunas), Pipeline redesenhado, traço nos títulos, login sem travar
@@ -818,3 +827,9 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 - [x] **T4** (28/10/2026) Contatos do lead — migration **20240040** (`contacts.lead_people` jsonb `[{name,title?,phone?,email?}]`, roda sozinha no boot):
   - bloco "Contatos do lead" no Formulário (`LeadPeopleCard bare`), salva na hora (`leadPeople` no `PATCH /captacao/me/leads/:id`); card próprio quando o lead está concluído/fechado e na página do lead do admin (leitura)
   - nome capitalizado (`capitalizeName`), cargo com `JOB_TITLE_OPTIONS` + "Outro", e-mail minúsculo (`lowerEmail`, `withTransform`) no contato do lead e no Adicionar/Editar lead
+- [x] **T5** (28/10/2026) "Em aguardo" — migration **20240041** (`lead_assignments.on_hold_at`, roda sozinha no boot):
+  - botão ao lado de "Concluir lead" (no celular, os dois lado a lado embaixo do Formulário); salva resultado, anotação e agenda completa sem concluir; clicar de novo tira do aguardo
+  - `onHold` no `PATCH /captacao/me/leads/:id`; concluir limpa `on_hold_at`; selo âmbar "Em aguardo" na lista e na página
+- [x] **T6** (28/10/2026) Admins veem o aguardo: selo "Em aguardo · data" no Acompanhamento (`listAssignments` devolve `on_hold_at`/`concluded_at`) e notificação `leads.on_hold` pra cada admin ativo quando o lead entra em aguardo
+- [x] **T7** (28/10/2026) Coluna **Status** no Acompanhamento (`StatusChip`: Pendente / Em aguardo / Concluído / Encerrado); resultado `callback` ("Em aguardo") saiu de `CALL_STATUS_ORDER` (opções da ligação e filtros) — o valor segue no banco/tipos só pra leads antigos; aviso no `LeadCard` quando a resposta não traz `on_hold_at` (servidor desatualizado)
+- [x] **T8** (28/10/2026) Resultado da ligação = `CALL_RESULT_OPTIONS` (Não atendeu / **Atendeu**, novo `call_status` `answered`, sem migration — coluna sem CHECK); reunião vem só da Agenda e acende "Atendeu"; `lost`/`callback` só pra dados antigos. Mensagem: só Respondeu / Não respondeu (`waiting` = enviada, marcado ao abrir o WhatsApp), bloqueada (`PlanBlock lockedHint`) até a ligação ter resultado; selo "Obrigatório" na Ligação (`PlanBlock tag`)

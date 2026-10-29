@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil, Mail, Phone, Building2, Briefcase, Globe, UserCheck,
 import { useContact, useUpdateContact, useUploadContactPhoto, useDeleteContactPhoto } from '@/hooks/useContacts';
 import { ActivityTimeline } from '@/components/activities/ActivityTimeline';
 import { ContractSection } from '@/components/contacts/ContractSection';
+import { LeadHunterPanel } from '@/components/contacts/LeadHunterInfo';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Avatar } from '@/components/ui/Avatar';
@@ -232,6 +233,8 @@ export function ContactDetailPage() {
           <ActivityTimeline contactId={contact.id} />
         </div>
       </div>
+
+      <LeadHunterPanel contact={contact} />
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Editar contato">
         <ContactForm

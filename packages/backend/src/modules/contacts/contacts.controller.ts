@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import * as ContactsService from './contacts.service';
+import { getContactLeadHunter as getContactLeadHunterInfo } from '../leadhunter/contactView';
 
 export const csvUpload = multer({
   storage: multer.memoryStorage(),
@@ -47,6 +48,15 @@ export async function getContact(req: Request, res: Response, next: NextFunction
   try {
     const contact = await ContactsService.getContact(req.user!.tenantId, req.params.id);
     res.json({ data: contact });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getContactLeadHunter(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await getContactLeadHunterInfo(req.user!.tenantId, req.params.id);
+    res.json({ data });
   } catch (err) {
     next(err);
   }

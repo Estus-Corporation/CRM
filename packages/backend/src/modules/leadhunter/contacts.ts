@@ -37,6 +37,10 @@ export function toContactInput(company: store.Company, analysis: Analysis | null
     `Prioridade ${PRIORITY_LABELS[analysis?.priority ?? 'review']}${score === undefined ? '' : ` (${score}/100)`}`,
     ...(analysis?.reasons ?? []).map((reason) => `- ${reason.text}`),
   ];
+  // Sem confirmação do operador, vai o melhor candidato da busca (ninguém confirma nos pedidos entregues
+  // automaticamente), marcado como não confirmado para o vendedor conferir.
+  const isInstagramUnconfirmed = company.instagramStatus === 'candidate' && !!company.instagram;
+  if (isInstagramUnconfirmed) context.push('Instagram não confirmado: conferir o perfil antes de usar.');
   if (company.notes) context.push(`\nObservações: ${company.notes}`);
 
   const input: Record<string, unknown> = {
@@ -48,7 +52,7 @@ export function toContactInput(company: store.Company, analysis: Analysis | null
     phone: cutUtf16(company.phone, 50),
     website: urlWithin(company.website, 500),
     mapsUrl: urlWithin(company.mapsUrl, 1000),
-    instagram: company.instagramStatus === 'confirmed' ? company.instagram : undefined,
+    instagram: company.instagramStatus === 'confirmed' || isInstagramUnconfirmed ? company.instagram : undefined,
     googleRating: company.rating,
     googleReviews: company.reviews,
     leadScore: score === undefined ? undefined : clampScore(score),

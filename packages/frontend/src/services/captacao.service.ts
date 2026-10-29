@@ -1,6 +1,6 @@
 import { api } from './api';
 
-export type CallStatus = 'pending' | 'no_answer' | 'callback' | 'meeting' | 'lost';
+export type CallStatus = 'pending' | 'no_answer' | 'answered' | 'callback' | 'meeting' | 'lost';
 /** Plano B (WhatsApp): situação da mensagem */
 export type WhatsappStatus = 'waiting' | 'replied' | 'no_reply';
 /** Pessoa de contato conseguida na ligação (ex.: o dono, passado pelo atendente) */
@@ -25,6 +25,8 @@ export interface MyLead {
   closed_at: string | null;
   /** Captador clicou em "Concluir lead" (null = ainda a fazer / reaberto pelo Editar) */
   concluded_at: string | null;
+  /** Captador marcou "Em aguardo" (esperando o lead; não concluído) */
+  on_hold_at: string | null;
   commission_value: number | null;
   commission_paid_at: string | null;
   full_name: string;
@@ -67,6 +69,7 @@ export interface UpdateMyLeadInput {
   callStatus?: CallStatus;
   callNotes?: string | null;
   concluded?: boolean;
+  onHold?: boolean;
   meetingAt?: string | null;
   meetingMode?: MeetingMode | null;
   meetingLocation?: string | null;
@@ -175,6 +178,9 @@ export interface Assignment {
   commission_rate: number | null;
   commission_value: number | null;
   commission_paid_at: string | null;
+  concluded_at: string | null;
+  /** Captador marcou "Em aguardo" */
+  on_hold_at: string | null;
   /** Plano B: o captador abriu o WhatsApp do lead */
   whatsapp_at: string | null;
   whatsapp_count: number;

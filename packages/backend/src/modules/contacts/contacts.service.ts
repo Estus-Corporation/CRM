@@ -80,6 +80,8 @@ export async function getContact(tenantId: string, id: string) {
     .select(
       'c.id', 'c.tenant_id', 'c.type', 'c.full_name', 'c.email', 'c.phone',
       'c.company_name', 'c.job_title', 'c.source', 'c.niche', 'c.tags', 'c.owner_id',
+      'c.address', 'c.maps_url', 'c.website', 'c.instagram', 'c.google_rating', 'c.google_reviews',
+      'c.lead_score', 'c.lead_context', 'c.external_id',
       'c.custom_fields', 'c.created_at', 'c.updated_at',
       db.raw("u.full_name as owner_name"),
       db.raw("u.email as owner_email"),
@@ -88,7 +90,8 @@ export async function getContact(tenantId: string, id: string) {
     .first();
 
   if (!contact) throw Object.assign(new Error('Contact not found'), { status: 404 });
-  return contact;
+  // decimal(2,1) chega como string do driver pg
+  return { ...contact, google_rating: contact.google_rating === null ? null : Number(contact.google_rating) };
 }
 
 const FREE_CONTACT_LIMIT = 300;

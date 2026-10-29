@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { HeadLabel } from '@/components/ui/HeadLabel';
 import { motion } from 'framer-motion';
-import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Flag, Headset, PhoneCall } from 'lucide-react';
+import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Flag, Headset, Hourglass, PhoneCall } from 'lucide-react';
 import {
   useAssignments,
   useCaptadores,
@@ -21,7 +21,30 @@ import { WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { cn } from '@/lib/utils';
 
 const GRID =
-  'grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,1.4fr)_minmax(0,1.3fr)] xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,1.6fr)_minmax(0,0.6fr)_minmax(0,1.3fr)]';
+  'grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1.3fr)_minmax(0,1.3fr)] xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.5fr)_minmax(0,0.6fr)_minmax(0,1.3fr)]';
+
+const shortDate = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+/** Em que pé o captador deixou o lead: pendente, em aguardo ou concluído (encerrado = admin já decidiu) */
+function StatusChip({ a }: { a: Assignment }) {
+  const s = a.outcome
+    ? { label: 'Encerrado', className: 'bg-fg/[0.08] text-text-secondary', dot: 'bg-text-muted' }
+    : a.concluded_at
+      ? { label: 'Concluído', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green', at: a.concluded_at }
+      : a.on_hold_at
+        ? { label: 'Em aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber', at: a.on_hold_at }
+        : { label: 'Pendente', className: 'border border-dashed border-fg/[0.2] text-text-muted', dot: 'bg-text-muted' };
+  const at = 'at' in s ? s.at : undefined;
+  return (
+    <span
+      className={cn('inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', s.className)}
+      title={at ? `${s.label} em ${shortDate(at)}` : undefined}
+    >
+      <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', s.dot)} />
+      <span className="truncate">{s.label}</span>
+    </span>
+  );
+}
 
 type OutcomeFilter = 'open' | 'won' | 'lost' | '';
 
@@ -233,6 +256,7 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
           <DataListHead grid={GRID}>
             <span><HeadLabel icon={Building2}>Lead</HeadLabel></span>
             <span className="hidden md:block"><HeadLabel icon={Headset}>Captador</HeadLabel></span>
+            <span className="hidden md:block"><HeadLabel icon={Hourglass}>Status</HeadLabel></span>
             <span className="hidden md:block"><HeadLabel icon={PhoneCall}>Resultado da ligação</HeadLabel></span>
             <span className="hidden xl:block"><HeadLabel icon={CalendarDays}>Recebido</HeadLabel></span>
             <span className="text-right"><HeadLabel icon={Flag}>Fechamento</HeadLabel></span>
@@ -245,8 +269,15 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
                   <p className="truncate text-xs text-text-muted">
                     {[a.phone, a.company_name].filter(Boolean).join(' · ') || '—'}
                   </p>
+                  {/* Celular: a coluna Status não cabe, o selo vai embaixo do nome */}
+                  <span className="mt-1 block md:hidden">
+                    <StatusChip a={a} />
+                  </span>
                 </div>
                 <span className="hidden truncate text-sm text-text-secondary md:block">{a.captador_name ?? '(removido)'}</span>
+                <span className="hidden min-w-0 md:block">
+                  <StatusChip a={a} />
+                </span>
                 <div className="hidden min-w-0 md:block">
                   <span
                     className={cn(

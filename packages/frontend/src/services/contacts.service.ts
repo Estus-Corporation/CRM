@@ -34,8 +34,49 @@ export interface Contact {
   owner_name?: string;
   tenant_id: string;
   has_photo?: boolean;
+  /** Dados de prospecção (LeadHunter / planilhas); null quando ausentes */
+  address?: string | null;
+  maps_url?: string | null;
+  website?: string | null;
+  instagram?: string | null;
+  google_rating?: number | null;
+  google_reviews?: number | null;
+  lead_score?: number | null;
+  lead_context?: string | null;
+  external_id?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type LeadHunterPriority = 'high' | 'medium' | 'low' | 'review' | 'excluded';
+
+export interface LeadHunterInfo {
+  name: string;
+  category: string | null;
+  city: string | null;
+  borough: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  rating: number | null;
+  reviews: number | null;
+  mapsUrl: string | null;
+  collectedAt: string;
+  instagram: string | null;
+  instagramStatus: 'not_searched' | 'candidate' | 'not_found' | 'error' | 'confirmed' | 'rejected';
+  instagramCandidates: { url: string; title: string; description: string }[];
+  analysis: null | {
+    score: number;
+    priority: LeadHunterPriority;
+    priorityLabel: string;
+    reasons: { points: number; text: string }[];
+    completeness: number;
+    rankMedian: number | null;
+    rankSamples: number;
+    visibility: 'not_measured' | 'top' | 'middle' | 'low';
+    coverage: { appeared: number; searched: number; depth: number } | null;
+    fitChoice: 'match' | 'no_match' | 'unknown';
+  };
 }
 
 export interface CreateContactInput {
@@ -69,6 +110,8 @@ export const contactsService = {
   list: (params?: ContactsListParams) =>
     api.get('/contacts', { params }).then((r) => r.data),
   get: (id: string) => api.get(`/contacts/${id}`).then((r) => r.data.data as Contact),
+  getLeadHunter: (id: string) =>
+    api.get(`/contacts/${id}/leadhunter`).then((r) => r.data.data as LeadHunterInfo | null),
   listNiches: () => api.get('/contacts/niches').then((r) => r.data.data as string[]),
   create: (input: CreateContactInput) =>
     api.post('/contacts', input).then((r) => r.data.data as Contact),

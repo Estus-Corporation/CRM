@@ -240,7 +240,52 @@ describe('instagram', () => {
     expect(found.instagramSource).toBe('Busca pública indexada; identidade ainda não confirmada.');
     expect(reserved).toEqual([{ provider: 'dataforseo', operation: 'organic' }]);
     const body = transport.mock.calls[0][1] as any[];
-    expect(body[0]).toMatchObject({ keyword: 'site:instagram.com "Loja A" "São Carlos"', depth: 10, location_name: 'São Carlos' });
+    expect(body[0]).toMatchObject({ keyword: 'site:instagram.com "Loja A" São Carlos', depth: 10, location_name: 'São Carlos' });
+  });
+
+  it('com localidade no formato do DataForSEO a consulta usa só o nome da cidade, sem aspas', async () => {
+    const { rec } = recorder();
+    const none = { status_code: 20000, tasks: [{ status_code: 40102, status_message: 'No Search Results.' }] };
+    const transport = vi.fn<Transport>(async () => none);
+    await providersWith(transport).instagram(rec, company(), 'Sao Carlos,State of Sao Paulo,Brazil', null);
+    const body = transport.mock.calls[0][1] as any[];
+    expect(body[0]).toMatchObject({
+      keyword: 'site:instagram.com "Loja A" Sao Carlos',
+      location_name: 'Sao Carlos,State of Sao Paulo,Brazil',
+    });
+  });
+
+  it('sem resultado na consulta exata, tenta uma consulta mais solta; com resultado, faz só uma chamada', async () => {
+    const { rec } = recorder();
+    const empty = { status_code: 20000, tasks: [{ status_code: 40102 }] };
+    const hit = organic([{ type: 'organic', url: 'https://www.instagram.com/chibasc/', title: 'Chiba' }]);
+    const replies = [empty, hit];
+    const transport = vi.fn<Transport>(async () => replies.shift() ?? empty);
+    const found = await providersWith(transport).instagram(rec, company(), 'Sao Carlos,State of Sao Paulo,Brazil', null);
+    const keywords = transport.mock.calls.map((c) => (c[1] as any[])[0].keyword);
+    expect(keywords).toEqual(['site:instagram.com "Loja A" Sao Carlos', 'site:instagram.com Loja A Sao Carlos']);
+    expect([found.instagramStatus, found.instagram]).toEqual(['candidate', 'https://www.instagram.com/chibasc/']);
+
+    const once = vi.fn<Transport>(async () => hit);
+    await providersWith(once).instagram(rec, company(), 'São Carlos', null);
+    expect(once).toHaveBeenCalledTimes(1);
+
+    const none = vi.fn<Transport>(async () => empty);
+    expect((await providersWith(none).instagram(rec, company(), 'São Carlos', null)).instagramStatus).toBe('not_found');
+    expect(none).toHaveBeenCalledTimes(2);
+  });
+
+  it('post ou reel de /usuario/p/... aponta para o perfil; post sem usuário e hosts falsos são ignorados', async () => {
+    const { rec } = recorder();
+    const items = [
+      'https://www.instagram.com/chibasc/p/ABC123/',
+      'https://www.instagram.com/chibasc/reel/XYZ/',
+      'https://www.instagram.com/p/ABC123/',
+      'https://www.instagram.com/explore/tags/x/',
+      'https://instagram.com.evil.test/a/p/b/',
+    ].map((url) => ({ type: 'organic', url }));
+    const found = await providersWith(async () => organic(items)).instagram(rec, company(), 'São Carlos', null);
+    expect(found.instagramCandidates.map((c) => c.url)).toEqual(['https://www.instagram.com/chibasc/']);
   });
 
   it('sem resultados (40102) é não encontrado, não erro', async () => {
@@ -250,7 +295,8 @@ describe('instagram', () => {
     expect(found.instagramStatus).toBe('not_found');
     expect(found.instagram).toBeNull();
     expect(found.instagramCandidates).toEqual([]);
-    expect(finished.map((f) => f.state)).toEqual(['error']);
+    // consulta exata + consulta solta: cada chamada é registrada
+    expect(finished.map((f) => f.state)).toEqual(['error', 'error']);
   });
 
   it('erro do provedor traz código e mensagem', async () => {

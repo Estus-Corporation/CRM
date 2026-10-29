@@ -374,6 +374,25 @@ export async function getCompany(tenantId: string, id: string): Promise<Company 
   return row ? toCompany(row) : null;
 }
 
+/**
+ * Empresa pela identidade (a mesma gravada em `contacts.external_id`), com a análise da campanha
+ * mais recente em que foi analisada (sem análise em nenhuma, `analysis` fica ausente).
+ */
+export async function companyByIdentity(tenantId: string, identity: string): Promise<Company | null> {
+  const row = await db('lh_companies').where({ tenant_id: tenantId, identity }).first();
+  if (!row) return null;
+  const link = await db('lh_campaign_companies as cc')
+    .join('lh_campaigns as c', function join() {
+      this.on('c.id', 'cc.campaign_id').andOn('c.tenant_id', 'cc.tenant_id');
+    })
+    .where({ 'cc.tenant_id': tenantId, 'cc.company_id': row.id })
+    .orderByRaw("(cc.analysis <> '{}'::jsonb) desc")
+    .orderBy('c.created_at', 'desc')
+    .orderBy('c.id')
+    .first('cc.analysis');
+  return { ...toCompany(row), analysis: link && hasAnalysis(link.analysis) ? link.analysis : undefined };
+}
+
 export async function patchCompanyData(tenantId: string, id: string, values: Partial<CompanyData>): Promise<void> {
   const updated = await db('lh_companies')
     .where({ tenant_id: tenantId, id })

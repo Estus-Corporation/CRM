@@ -13,6 +13,7 @@ router.get('/', requireAuth, ContactsController.listContacts);
 // Antes de '/:id' pra não ser capturada como id
 router.get('/niches', requireAuth, ContactsController.listNiches);
 router.get('/:id', requireAuth, ContactsController.getContact);
+router.get('/:id/leadhunter', requireAuth, ContactsController.getContactLeadHunter);
 router.post('/', requireAuth, ContactsController.createContact);
 router.patch('/:id', requireAuth, ContactsController.updateContact);
 router.delete('/:id', requireAuth, requireRole('manager', 'admin'), ContactsController.deleteContact);
