@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useStickyState } from '@/hooks/useStickyState';
 import { AnimatePresence } from 'framer-motion';
 import { PhoneCall, CalendarCheck, Wallet, CheckCircle2, Plus } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/KpiCard';
@@ -52,8 +53,8 @@ function wonHint(won = 0) {
 
 export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
   const config = VIEWS[view];
-  const [scope, setScope] = useState<Scope>('today');
-  const [status, setStatus] = useState<CallStatus | ''>('');
+  const [scope, setScope] = useStickyState<Scope>('myLeads.scope', 'today');
+  const [status, setStatus] = useStickyState<CallStatus | ''>('myLeads.status', '');
   const [addOpen, setAddOpen] = useState(false);
   // Reuniões: todos os leads com status "meeting" (o histórico completo é o filtro "Todos" de Meus leads)
   const effectiveScope = view === 'leads' ? scope : 'all';

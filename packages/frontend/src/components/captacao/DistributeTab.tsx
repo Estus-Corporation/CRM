@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useStickyState } from '@/hooks/useStickyState';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Check, ChevronRight, Inbox, Search, Send, Shuffle, Star } from 'lucide-react';
@@ -28,9 +29,9 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
   const { data: captadores = [] } = useCaptadores();
   const activeCaptadores = captadores.filter((c) => c.is_active);
 
-  const [niche, setNiche] = useState('');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [niche, setNiche] = useStickyState('captacao.distribute.niche', '');
+  const [search, setSearch] = useStickyState('captacao.distribute.search', '');
+  const [page, setPage] = useStickyState('captacao.distribute.page', 1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [targetCaptador, setTargetCaptador] = useState('');
 
@@ -264,11 +265,11 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
 
       {data && data.meta.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm text-text-muted">
-          <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+          <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
             Anterior
           </Button>
           Página {page} de {data.meta.totalPages}
-          <Button variant="ghost" size="sm" disabled={page >= data.meta.totalPages} onClick={() => setPage((p) => p + 1)}>
+          <Button variant="ghost" size="sm" disabled={page >= data.meta.totalPages} onClick={() => setPage(page + 1)}>
             Próxima
           </Button>
         </div>

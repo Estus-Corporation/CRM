@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useStickyState } from '@/hooks/useStickyState';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Building2, FileSpreadsheet, Plus, Settings, UserPlus } from 'lucide-react';
 import { useTenant, isCompanyProfileComplete } from '@/hooks/useTenant';
@@ -125,13 +126,22 @@ export function CaptacaoPage() {
   const tabs = isAdmin && leadhunterEnabled ? [...TABS, ...LEADHUNTER_TABS] : TABS;
   // A aba fica na URL (?tab=), assim as abas do LeadHunter guardam os próprios parâmetros (?c=, ?novo=)
   const urlTab = searchParams.get('tab') as Tab | null;
-  const tab: Tab = urlTab && tabs.some((t) => t.value === urlTab) ? urlTab : 'team';
-  const setTab = (next: Tab) => setSearchParams(next === 'team' ? {} : { tab: next }, { replace: true });
+  // Sem ?tab= (ex.: veio pelo menu) volta na última aba aberta
+  const [lastTab, setLastTab] = useStickyState<Tab>('captacao.tab', 'team');
+  const wanted = urlTab ?? lastTab;
+  const tab: Tab = tabs.some((t) => t.value === wanted) ? wanted : 'team';
+  useEffect(() => {
+    if (urlTab) setLastTab(urlTab);
+  }, [urlTab, setLastTab]);
+  const setTab = (next: Tab) => {
+    setLastTab(next);
+    setSearchParams(next === 'team' ? {} : { tab: next }, { replace: true });
+  };
   const isLeadHunterTab = LEADHUNTER_TAB_VALUES.includes(tab);
   // "Adicionar lead" pergunta antes: manual (formulário) ou automático (Radar)
   const [chooserOpen, setChooserOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(isAdmin && searchParams.get('novo') === 'auto');
-  const [trackingCaptador, setTrackingCaptador] = useState('');
+  const [trackingCaptador, setTrackingCaptador] = useStickyState('captacao.tracking.captador', '');
   const [newOpen, setNewOpen] = useState(false);
   const [rateOpen, setRateOpen] = useState(false);
   const [addLeadOpen, setAddLeadOpen] = useState(false);

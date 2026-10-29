@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useStickyState } from '@/hooks/useStickyState';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -157,10 +158,10 @@ function OutcomeCell({ a, isAdmin, onWon }: { a: Assignment; isAdmin: boolean; o
 /** Tudo que os captadores registraram: o admin decide aqui se fechou e quanto */
 export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorChange }: Props) {
   const { data: captadores = [] } = useCaptadores();
-  const [outcome, setOutcome] = useState<OutcomeFilter>('open');
-  const [status, setStatus] = useState<CallStatus | ''>('');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
+  const [outcome, setOutcome] = useStickyState<OutcomeFilter>('captacao.tracking.outcome', 'open');
+  const [status, setStatus] = useStickyState<CallStatus | ''>('captacao.tracking.status', '');
+  const [search, setSearch] = useStickyState('captacao.tracking.search', '');
+  const [page, setPage] = useStickyState('captacao.tracking.page', 1);
   const [closing, setClosing] = useState<Assignment | null>(null);
   const debouncedSearch = useDebounce(search, 300);
   const navigate = useNavigate();
@@ -391,11 +392,11 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
 
       {data && data.meta.totalPages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm text-text-muted">
-          <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+          <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>
             Anterior
           </Button>
           Página {page} de {data.meta.totalPages}
-          <Button variant="ghost" size="sm" disabled={page >= data.meta.totalPages} onClick={() => setPage((p) => p + 1)}>
+          <Button variant="ghost" size="sm" disabled={page >= data.meta.totalPages} onClick={() => setPage(page + 1)}>
             Próxima
           </Button>
         </div>
