@@ -802,6 +802,14 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 
 > **Mudança de regra (28/10/2026, M26 T2):** `/solicitacoes` e `/api/v1/lead-requests` passaram a ser **só admin** (pedido do usuário). T12/T13 do M25 devem seguir essa regra — os outros papéis não pedem mais leads — a menos que o usuário diga o contrário.
 
+## M28 — Avisos em tempo real
+
+- [x] **T1** (29/10/2026) Sem migration. Quem já está conectado vê convite, mudança de papel/acesso e notificação sem F5:
+  - `GET /api/v1/realtime` (SSE, `requireAuth`, liberado ao captador) + `modules/realtime/hub.ts` (conexões em memória por usuário; `publishToUser`, `publishToTenantManagers`; ping a cada 25s)
+  - disparos: `createInvite`/`cancelInvite`/`acceptInvite`/`declineInvite`, `updateUser` e `deleteUser` (`session` + `workspaces` + `team`), `createNotification`
+  - front: `hooks/useRealtime.ts` no `AppShell` (fetch streaming com Authorization, reconecta com backoff, invalida as queries do evento); `renewSession()` em `services/api.ts` (voo único; também usada pelo 401)
+  - verificado por script contra o backend local (convite → `invites`; aceite → `invites`+`workspaces`; troca de papel → `session`)
+
 ## M27 — Dados do LeadHunter no contato
 
 - [x] **T1** (28/10/2026) Sem migration nova:
