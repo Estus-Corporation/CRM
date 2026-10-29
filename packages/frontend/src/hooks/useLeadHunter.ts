@@ -11,7 +11,7 @@ import { contactsKeys } from '@/hooks/useContacts';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useTenant } from '@/hooks/useTenant';
 
-const leadhunterKeys = {
+export const leadhunterKeys = {
   all: ['leadhunter'] as const,
   status: ['leadhunter', 'status'] as const,
   campaigns: ['leadhunter', 'campaigns'] as const,

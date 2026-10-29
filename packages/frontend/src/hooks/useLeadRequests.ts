@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { leadRequestsService, type LeadRequest, type LeadRequestListParams } from '@/services/leadRequests.service';
+import { leadhunterKeys } from '@/hooks/useLeadHunter';
+import { leadRequestsService, type LeadRequest, type LeadRequestBody, type LeadRequestListParams } from '@/services/leadRequests.service';
 
 const leadRequestKeys = {
   all: ['lead-requests'] as const,
@@ -8,9 +9,9 @@ const leadRequestKeys = {
   detail: (id: string) => ['lead-requests', 'detail', id] as const,
 };
 
-const ACTIVE = ['queued', 'claimed', 'running'];
+const ACTIVE = ['queued', 'running'];
 
-/** Erro do backend (422 de cota, 409 de estado) vem em `error`; senão usa o texto padrão */
+/** Erro do backend (400/422 de campos ou limite, 409 de estado) vem em `error`; senão usa o texto padrão */
 function errorMessage(err: unknown, fallback: string) {
   return (err as { response?: { data?: { error?: string } } }).response?.data?.error ?? fallback;
 }
@@ -41,9 +42,42 @@ export function useCreateLeadRequest() {
     mutationFn: leadRequestsService.create,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: leadRequestKeys.all });
-      toast.success('Pedido enviado. O Radar Local vai buscar as empresas.');
+      qc.invalidateQueries({ queryKey: leadhunterKeys.campaigns });
+      toast.success('Busca iniciada. Os leads entram na fila da captação quando ela terminar.');
     },
-    onError: (err) => toast.error(errorMessage(err, 'Não foi possível enviar o pedido')),
+    onError: (err) => toast.error(errorMessage(err, 'Não foi possível iniciar a busca')),
+  });
+}
+
+/** Executa um pedido na fila (cria a campanha). Se o backend recusar, o pedido segue na fila e o motivo sai em toast. */
+export function useExecuteLeadRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, edits }: { id: string; edits: Partial<LeadRequestBody> }) => leadRequestsService.execute(id, edits),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: leadRequestKeys.all });
+      qc.invalidateQueries({ queryKey: leadhunterKeys.campaigns });
+      toast.success('Busca iniciada.');
+    },
+    onError: (err) => {
+      qc.invalidateQueries({ queryKey: leadRequestKeys.all }); // 409: outro admin já decidiu
+      toast.error(errorMessage(err, 'Não foi possível executar o pedido'));
+    },
+  });
+}
+
+export function useRejectLeadRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, message }: { id: string; message: string }) => leadRequestsService.reject(id, message),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: leadRequestKeys.all });
+      toast.success('Pedido recusado');
+    },
+    onError: (err) => {
+      qc.invalidateQueries({ queryKey: leadRequestKeys.all });
+      toast.error(errorMessage(err, 'Não foi possível recusar o pedido'));
+    },
   });
 }
 

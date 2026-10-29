@@ -15,11 +15,12 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Spinner } from '@/components/ui/Spinner';
 import { DataList, DataListBody, DataListRow, DataListSkeleton } from '@/components/ui/DataList';
 import { LeadRequestForm } from '@/components/lead-requests/LeadRequestForm';
+import { ExecuteRequestDialog } from '@/components/lead-requests/ExecuteRequestDialog';
+import { RejectRequestDialog } from '@/components/lead-requests/RejectRequestDialog';
 
 const STATUS: Record<LeadRequestStatus, { label: string; variant: 'default' | 'green' | 'red' | 'blue' | 'manager' }> = {
-  queued: { label: 'Na fila', variant: 'default' },
-  claimed: { label: 'Reservado', variant: 'blue' },
-  running: { label: 'Em execução', variant: 'blue' },
+  queued: { label: 'Aguardando admin', variant: 'default' },
+  running: { label: 'Buscando', variant: 'blue' },
   done: { label: 'Concluído', variant: 'green' },
   partial: { label: 'Parcial', variant: 'manager' },
   failed: { label: 'Falhou', variant: 'red' },
@@ -56,9 +57,13 @@ interface RowProps {
   canSeeRequester: boolean;
   canCancel: boolean;
   isCaptador: boolean;
+  /** Admin: executa ou recusa pedidos na fila e abre a campanha no LeadHunter */
+  isAdmin: boolean;
+  onExecute: (r: LeadRequest) => void;
+  onReject: (r: LeadRequest) => void;
 }
 
-function RequestRow({ r, index, canSeeRequester, canCancel, isCaptador }: RowProps) {
+function RequestRow({ r, index, canSeeRequester, canCancel, isCaptador, isAdmin, onExecute, onReject }: RowProps) {
   const [open, setOpen] = useState(false);
   const cancel = useCancelLeadRequest();
   const st = STATUS[r.status];
@@ -75,19 +80,30 @@ function RequestRow({ r, index, canSeeRequester, canCancel, isCaptador }: RowPro
           {hasContacts && (
             <ChevronDown size={15} className={cn('text-text-muted transition-transform', open && 'rotate-180')} />
           )}
-          {canCancel && r.status === 'queued' && (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="ml-auto"
-              disabled={cancel.isPending}
-              onClick={(e) => {
-                e.stopPropagation();
-                cancel.mutate(r.id);
-              }}
+          {isAdmin && r.campaign_id && (
+            <Link
+              to={`/leadhunter?c=${r.campaign_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-medium text-accent-green hover:underline"
             >
-              Cancelar
-            </Button>
+              Ver campanha
+            </Link>
+          )}
+          {r.status === 'queued' && (
+            <div className="ml-auto flex gap-2">
+              {isAdmin ? (
+                <>
+                  <Button variant="secondary" size="sm" onClick={() => onReject(r)}>Recusar</Button>
+                  <Button size="sm" onClick={() => onExecute(r)}>Executar</Button>
+                </>
+              ) : (
+                canCancel && (
+                  <Button variant="secondary" size="sm" disabled={cancel.isPending} onClick={() => cancel.mutate(r.id)}>
+                    Cancelar
+                  </Button>
+                )
+              )}
+            </div>
           )}
         </div>
         <p className="text-xs text-text-muted">
@@ -135,6 +151,9 @@ export function LeadRequestsPage({ embedded = false }: { embedded?: boolean }) {
   const [userId, setUserId] = useState('');
   const { data, isLoading } = useLeadRequests(isManagerial && userId ? { userId } : {});
   const requests = data ?? [];
+  const isAdmin = role === 'admin';
+  const [executing, setExecuting] = useState<LeadRequest | null>(null);
+  const [rejecting, setRejecting] = useState<LeadRequest | null>(null);
 
   return (
     // Página solta: mobile-sections; dentro da Captação (que já tem): mobile-split, cada filho = um bloco
@@ -144,14 +163,14 @@ export function LeadRequestsPage({ embedded = false }: { embedded?: boolean }) {
           <SearchCheck size={15} className="flex-shrink-0 text-accent-green" />
           <span className="min-w-0 flex-1">
             <strong className="font-medium text-text-primary">Abasteça a fila da captação:</strong> peça empresas por nicho e cidade — o
-            Radar Local busca e os leads entram em Distribuir leads.
+            LeadHunter busca e os leads entram em Distribuir leads.
           </span>
           {isManagerial && <UserFilter value={userId} onChange={setUserId} />}
         </div>
       ) : (
         <PageHeader
           title="Solicitações de leads"
-          subtitle="Peça empresas por nicho e cidade; o Radar Local busca e entrega aqui"
+          subtitle="Peça empresas por nicho e cidade; o LeadHunter busca e entrega aqui"
           actions={isManagerial ? <UserFilter value={userId} onChange={setUserId} /> : undefined}
         />
       )}
@@ -178,12 +197,18 @@ export function LeadRequestsPage({ embedded = false }: { embedded?: boolean }) {
                   canSeeRequester={isManagerial}
                   canCancel={isManagerial || r.requested_by === user?.id}
                   isCaptador={role === 'captador'}
+                  isAdmin={isAdmin}
+                  onExecute={setExecuting}
+                  onReject={setRejecting}
                 />
               ))}
             </DataListBody>
           </DataList>
         )}
       </div>
+
+      <ExecuteRequestDialog request={executing} onClose={() => setExecuting(null)} />
+      <RejectRequestDialog request={rejecting} onClose={() => setRejecting(null)} />
     </div>
   );
 }
