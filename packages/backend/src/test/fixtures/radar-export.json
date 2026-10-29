@@ -1,0 +1,797 @@
+{
+ "format": 1,
+ "exported_at": "2026-10-29T01:33:12+00:00",
+ "campaigns": [
+  {
+   "id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "state": "completed",
+   "message": "4 empresas organizadas.",
+   "progress": 100,
+   "cancel_requested": false,
+   "warnings": [
+    "Demonstração: todas as empresas, posições e avaliações são fictícias. Nenhuma API foi consultada."
+   ],
+   "config": {
+    "niche": "Loja de moda feminina",
+    "city": "São Carlos,São Paulo,Brazil",
+    "source": "demo",
+    "service": "google",
+    "limit": 4,
+    "keywords": [
+     "Loja de moda feminina São Carlos,São Paulo,Brazil"
+    ],
+    "coordinates": [],
+    "enrich": true,
+    "use_jev": true,
+    "force_refresh": false
+   }
+  },
+  {
+   "id": "569e8674a49c4f89962ce076fad25320",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "state": "completed",
+   "message": "Importação concluída.",
+   "progress": 100,
+   "cancel_requested": false,
+   "warnings": [],
+   "config": {
+    "niche": "Moda",
+    "city": "São Carlos,São Paulo,Brazil",
+    "source": "import",
+    "service": "google",
+    "limit": 5,
+    "keywords": [
+     "Moda São Carlos,São Paulo,Brazil"
+    ],
+    "coordinates": [],
+    "enrich": false,
+    "use_jev": false,
+    "force_refresh": false
+   }
+  },
+  {
+   "id": "75286450d59a42dd90af17e11b3a2e67",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:12+00:00",
+   "state": "completed",
+   "message": "Concluída.",
+   "progress": 100,
+   "cancel_requested": false,
+   "warnings": [],
+   "config": {
+    "niche": "Moda",
+    "city": "São Carlos,São Paulo,Brazil",
+    "source": "live",
+    "service": "google",
+    "limit": 10,
+    "keywords": [
+     "moda são carlos"
+    ],
+    "coordinates": [],
+    "enrich": true,
+    "use_jev": true,
+    "force_refresh": false
+   }
+  },
+  {
+   "id": "7c6776a9d46f41a4a5b0e2cc05756777",
+   "created_at": "2026-10-29T01:33:12+00:00",
+   "updated_at": "2026-10-29T01:33:12+00:00",
+   "state": "queued",
+   "message": "",
+   "progress": 0,
+   "cancel_requested": false,
+   "warnings": [],
+   "config": {
+    "niche": "Pet",
+    "city": "Araraquara",
+    "source": "live",
+    "service": "google",
+    "limit": 5,
+    "keywords": [
+     "Pet Araraquara"
+    ],
+    "coordinates": [],
+    "enrich": true,
+    "use_jev": true,
+    "force_refresh": false
+   }
+  }
+ ],
+ "leads": [
+  {
+   "id": "c26babd3c545d085b2c5be423ef6277c",
+   "data": {
+    "name": "Ateliê Aurora · Exemplo",
+    "category": "Loja de moda feminina",
+    "city": "São Carlos,São Paulo,Brazil",
+    "address": "Endereço fictício 1 — apenas demonstração",
+    "borough": "Centro",
+    "place_id": "demo-loja de moda feminina-sao carlos sao paulo brazil-0",
+    "phone": null,
+    "website": "https://example.com",
+    "website_checked": true,
+    "rating": 4.8,
+    "reviews": 12,
+    "instagram": null,
+    "instagram_status": "not_searched",
+    "rank": 18,
+    "source_url": null,
+    "maps_url": null,
+    "collected_at": "2026-10-29T01:33:11+00:00",
+    "field_sources": {
+     "name": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "category": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "address": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "city": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "website": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "rating": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "reviews": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     }
+    },
+    "id": "c26babd3c545d085b2c5be423ef6277c",
+    "source": "demo",
+    "updated_at": "2026-10-29T01:33:11+00:00"
+   },
+   "stage": "new",
+   "notes": "",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "crm": null
+  },
+  {
+   "id": "d7217d3f599439517bd56f0ed6ffc899",
+   "data": {
+    "name": "Casa Violeta · Exemplo",
+    "category": "Loja de moda feminina",
+    "city": "São Carlos,São Paulo,Brazil",
+    "address": "Endereço fictício 2 — apenas demonstração",
+    "borough": "Vila Prado",
+    "place_id": "demo-loja de moda feminina-sao carlos sao paulo brazil-1",
+    "phone": null,
+    "website": null,
+    "website_checked": true,
+    "rating": 4.6,
+    "reviews": 8,
+    "instagram": null,
+    "instagram_status": "not_searched",
+    "rank": 23,
+    "source_url": null,
+    "maps_url": null,
+    "collected_at": "2026-10-29T01:33:11+00:00",
+    "field_sources": {
+     "name": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "category": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "address": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "city": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "rating": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "reviews": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     }
+    },
+    "id": "d7217d3f599439517bd56f0ed6ffc899",
+    "source": "demo",
+    "updated_at": "2026-10-29T01:33:11+00:00"
+   },
+   "stage": "new",
+   "notes": "",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "crm": null
+  },
+  {
+   "id": "10774d4607ce304aec7aa01bf7f54f7c",
+   "data": {
+    "name": "Flor de Rua · Exemplo",
+    "category": "Loja de moda feminina",
+    "city": "São Carlos,São Paulo,Brazil",
+    "address": "Endereço fictício 3 — apenas demonstração",
+    "borough": "Santa Felícia",
+    "place_id": "demo-loja de moda feminina-sao carlos sao paulo brazil-2",
+    "phone": null,
+    "website": null,
+    "website_checked": true,
+    "rating": 4.2,
+    "reviews": 6,
+    "instagram": null,
+    "instagram_status": "not_searched",
+    "rank": 14,
+    "source_url": null,
+    "maps_url": null,
+    "collected_at": "2026-10-29T01:33:11+00:00",
+    "field_sources": {
+     "name": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "category": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "address": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "city": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "rating": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "reviews": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     }
+    },
+    "id": "10774d4607ce304aec7aa01bf7f54f7c",
+    "source": "demo",
+    "updated_at": "2026-10-29T01:33:11+00:00"
+   },
+   "stage": "new",
+   "notes": "",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "crm": null
+  },
+  {
+   "id": "910ef54a4cffe234a7986a00083b329c",
+   "data": {
+    "name": "Linha Clara · Exemplo",
+    "category": "Loja de moda feminina",
+    "city": "São Carlos,São Paulo,Brazil",
+    "address": "Endereço fictício 4 — apenas demonstração",
+    "borough": "Centro",
+    "place_id": "demo-loja de moda feminina-sao carlos sao paulo brazil-3",
+    "phone": null,
+    "website": "https://example.com",
+    "website_checked": true,
+    "rating": 4.9,
+    "reviews": 112,
+    "instagram": null,
+    "instagram_status": "not_searched",
+    "rank": 2,
+    "source_url": null,
+    "maps_url": null,
+    "collected_at": "2026-10-29T01:33:11+00:00",
+    "field_sources": {
+     "name": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "category": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "address": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "city": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "website": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "rating": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     },
+     "reviews": {
+      "source": "demo",
+      "url": null,
+      "observed_at": "2026-10-29T01:33:11+00:00"
+     }
+    },
+    "id": "910ef54a4cffe234a7986a00083b329c",
+    "source": "demo",
+    "updated_at": "2026-10-29T01:33:11+00:00"
+   },
+   "stage": "new",
+   "notes": "",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "crm": null
+  },
+  {
+   "id": "e3d0603b6d3abf6bb47f0cb58f05782c",
+   "data": {
+    "name": "Boutique Importada",
+    "address": "Rua das Flores, 10",
+    "city": "São Carlos",
+    "category": "Moda",
+    "place_id": "ChIJimportada",
+    "phone": "(16) 99999-0000",
+    "rating": 4.5,
+    "reviews": 22,
+    "instagram": "https://www.instagram.com/boutique/",
+    "instagram_status": "confirmed",
+    "maps_url": "https://maps.google.com/?cid=1",
+    "collected_at": "2026-10-01T10:00:00+00:00",
+    "field_sources": {
+     "name": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     },
+     "category": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     },
+     "address": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     },
+     "city": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     },
+     "phone": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     },
+     "rating": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     },
+     "reviews": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     },
+     "instagram": {
+      "source": "import",
+      "url": "https://maps.google.com/?cid=1",
+      "observed_at": "2026-10-01T10:00:00+00:00"
+     }
+    },
+    "id": "e3d0603b6d3abf6bb47f0cb58f05782c",
+    "source": "import",
+    "updated_at": "2026-10-29T01:33:11+00:00",
+    "instagram_source": "Conferido pelo operador.",
+    "instagram_verified_at": "2026-10-02T10:00:00+00:00",
+    "instagram_candidates": [
+     {
+      "url": "https://www.instagram.com/boutique/",
+      "title": "Boutique",
+      "description": "x"
+     }
+    ]
+   },
+   "stage": "interested",
+   "notes": "Falar com a dona na terça.",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "crm": {
+    "status": "imported",
+    "contact_id": "11111111-1111-1111-1111-111111111111",
+    "sent_at": "2026-10-03T10:00:00+00:00",
+    "owner_email": "x@y.com"
+   }
+  },
+  {
+   "id": "5f4f28fde0e93eff04eaf1c82d14156a",
+   "data": {
+    "name": "Loja Ao Vivo",
+    "address": "Av. Central 5",
+    "city": "São Carlos",
+    "place_id": "ChIJlive",
+    "reviews": 40,
+    "rating": 4.1,
+    "website_checked": true,
+    "collected_at": "2026-10-05T10:00:00+00:00",
+    "source_url": "https://example.com/s",
+    "field_sources": {
+     "name": {
+      "source": "live",
+      "url": "https://example.com/s",
+      "observed_at": "2026-10-05T10:00:00+00:00"
+     },
+     "address": {
+      "source": "live",
+      "url": "https://example.com/s",
+      "observed_at": "2026-10-05T10:00:00+00:00"
+     },
+     "city": {
+      "source": "live",
+      "url": "https://example.com/s",
+      "observed_at": "2026-10-05T10:00:00+00:00"
+     },
+     "rating": {
+      "source": "live",
+      "url": "https://example.com/s",
+      "observed_at": "2026-10-05T10:00:00+00:00"
+     },
+     "reviews": {
+      "source": "live",
+      "url": "https://example.com/s",
+      "observed_at": "2026-10-05T10:00:00+00:00"
+     }
+    },
+    "id": "5f4f28fde0e93eff04eaf1c82d14156a",
+    "source": "live",
+    "updated_at": "2026-10-29T01:33:11+00:00"
+   },
+   "stage": "new",
+   "notes": "",
+   "created_at": "2026-10-29T01:33:11+00:00",
+   "updated_at": "2026-10-29T01:33:11+00:00",
+   "crm": null
+  }
+ ],
+ "campaign_leads": [
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "c26babd3c545d085b2c5be423ef6277c",
+   "analysis": {
+    "score": 70,
+    "priority": "high",
+    "reasons": [
+     {
+      "points": 25,
+      "text": "Categoria compatível com o nicho solicitado."
+     },
+     {
+      "points": 35,
+      "text": "Posição mediana 18 nas buscas observadas; avaliar descoberta local."
+     },
+     {
+      "points": 10,
+      "text": "Nota de pelo menos 4 com cinco ou mais avaliações."
+     }
+    ],
+    "rank_median": 18,
+    "rank_samples": 1,
+    "visibility": "low",
+    "completeness": 75,
+    "coverage": {
+     "appeared": 1,
+     "searched": 1,
+     "depth": 50
+    },
+    "fit": {
+     "choice": "match",
+     "confidence": null,
+     "method": "rules",
+     "model": null
+    },
+    "version": "v1",
+    "peer_median": null
+   }
+  },
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "d7217d3f599439517bd56f0ed6ffc899",
+   "analysis": {
+    "score": 70,
+    "priority": "high",
+    "reasons": [
+     {
+      "points": 25,
+      "text": "Categoria compatível com o nicho solicitado."
+     },
+     {
+      "points": 35,
+      "text": "Posição mediana 23 nas buscas observadas; avaliar descoberta local."
+     },
+     {
+      "points": 10,
+      "text": "Nota de pelo menos 4 com cinco ou mais avaliações."
+     }
+    ],
+    "rank_median": 23,
+    "rank_samples": 1,
+    "visibility": "low",
+    "completeness": 62,
+    "coverage": {
+     "appeared": 1,
+     "searched": 1,
+     "depth": 50
+    },
+    "fit": {
+     "choice": "match",
+     "confidence": null,
+     "method": "rules",
+     "model": null
+    },
+    "version": "v1",
+    "peer_median": null
+   }
+  },
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "10774d4607ce304aec7aa01bf7f54f7c",
+   "analysis": {
+    "score": 70,
+    "priority": "high",
+    "reasons": [
+     {
+      "points": 25,
+      "text": "Categoria compatível com o nicho solicitado."
+     },
+     {
+      "points": 35,
+      "text": "Posição mediana 14 nas buscas observadas; avaliar descoberta local."
+     },
+     {
+      "points": 10,
+      "text": "Nota de pelo menos 4 com cinco ou mais avaliações."
+     }
+    ],
+    "rank_median": 14,
+    "rank_samples": 1,
+    "visibility": "low",
+    "completeness": 62,
+    "coverage": {
+     "appeared": 1,
+     "searched": 1,
+     "depth": 50
+    },
+    "fit": {
+     "choice": "match",
+     "confidence": null,
+     "method": "rules",
+     "model": null
+    },
+    "version": "v1",
+    "peer_median": null
+   }
+  },
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "910ef54a4cffe234a7986a00083b329c",
+   "analysis": {
+    "score": 35,
+    "priority": "low",
+    "reasons": [
+     {
+      "points": 25,
+      "text": "Categoria compatível com o nicho solicitado."
+     },
+     {
+      "points": 10,
+      "text": "Nota de pelo menos 4 com cinco ou mais avaliações."
+     }
+    ],
+    "rank_median": 2,
+    "rank_samples": 1,
+    "visibility": "top",
+    "completeness": 75,
+    "coverage": {
+     "appeared": 1,
+     "searched": 1,
+     "depth": 50
+    },
+    "fit": {
+     "choice": "match",
+     "confidence": null,
+     "method": "rules",
+     "model": null
+    },
+    "version": "v1",
+    "peer_median": null
+   }
+  },
+  {
+   "campaign_id": "569e8674a49c4f89962ce076fad25320",
+   "lead_id": "e3d0603b6d3abf6bb47f0cb58f05782c",
+   "analysis": {
+    "score": 61,
+    "priority": "medium",
+    "reasons": [
+     {
+      "points": 10,
+      "text": "Tem telefone"
+     }
+    ],
+    "rank_median": null,
+    "rank_samples": 0,
+    "visibility": "not_measured",
+    "completeness": 80,
+    "coverage": null,
+    "fit": {
+     "choice": "match",
+     "method": "rules",
+     "confidence": null,
+     "model": null,
+     "niche": "moda",
+     "evaluated_at": "2026-10-01T10:00:00+00:00"
+    },
+    "version": "v1",
+    "peer_median": null
+   }
+  },
+  {
+   "campaign_id": "75286450d59a42dd90af17e11b3a2e67",
+   "lead_id": "5f4f28fde0e93eff04eaf1c82d14156a",
+   "analysis": {}
+  }
+ ],
+ "observations": [
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "c26babd3c545d085b2c5be423ef6277c",
+   "query": "Loja de moda feminina São Carlos,São Paulo,Brazil",
+   "location": "São Carlos,São Paulo,Brazil",
+   "rank": 18,
+   "depth": 50,
+   "observed_at": "2026-10-29T01:33:11+00:00",
+   "source_url": null
+  },
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "d7217d3f599439517bd56f0ed6ffc899",
+   "query": "Loja de moda feminina São Carlos,São Paulo,Brazil",
+   "location": "São Carlos,São Paulo,Brazil",
+   "rank": 23,
+   "depth": 50,
+   "observed_at": "2026-10-29T01:33:11+00:00",
+   "source_url": null
+  },
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "10774d4607ce304aec7aa01bf7f54f7c",
+   "query": "Loja de moda feminina São Carlos,São Paulo,Brazil",
+   "location": "São Carlos,São Paulo,Brazil",
+   "rank": 14,
+   "depth": 50,
+   "observed_at": "2026-10-29T01:33:11+00:00",
+   "source_url": null
+  },
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "lead_id": "910ef54a4cffe234a7986a00083b329c",
+   "query": "Loja de moda feminina São Carlos,São Paulo,Brazil",
+   "location": "São Carlos,São Paulo,Brazil",
+   "rank": 2,
+   "depth": 50,
+   "observed_at": "2026-10-29T01:33:11+00:00",
+   "source_url": null
+  },
+  {
+   "campaign_id": "75286450d59a42dd90af17e11b3a2e67",
+   "lead_id": "5f4f28fde0e93eff04eaf1c82d14156a",
+   "query": "moda são carlos",
+   "location": "São Carlos,São Paulo,Brazil",
+   "rank": 4,
+   "depth": 30,
+   "observed_at": "2026-10-05T10:00:00+00:00",
+   "source_url": null
+  }
+ ],
+ "search_coverage": [
+  {
+   "campaign_id": "78fa29f9a7f54752a79ddaa5ecb8b125",
+   "query": "Loja de moda feminina São Carlos,São Paulo,Brazil",
+   "location": "São Carlos,São Paulo,Brazil",
+   "depth": 50,
+   "observed_at": "2026-10-29T01:33:11+00:00"
+  },
+  {
+   "campaign_id": "75286450d59a42dd90af17e11b3a2e67",
+   "query": "moda são carlos",
+   "location": "São Carlos,São Paulo,Brazil",
+   "depth": 30,
+   "observed_at": "2026-10-05T10:00:00+00:00"
+  }
+ ],
+ "searches": [
+  {
+   "provider": "dataforseo",
+   "operation": "maps",
+   "cache_key": "36c1c281a7202b0441524873c94d8b69",
+   "keyword": "moda são carlos",
+   "location": "São Carlos,São Paulo,Brazil",
+   "depth": 30,
+   "campaign_id": "75286450d59a42dd90af17e11b3a2e67",
+   "executed_at": "2099-01-01T00:00:00+00:00",
+   "result_count": 1,
+   "cost": 0.0035,
+   "results": [
+    {
+     "name": "Loja Ao Vivo",
+     "place_id": "ChIJlive",
+     "maps_url": "https://maps.google.com/?cid=2",
+     "rank": 4,
+     "website_checked": true
+    }
+   ],
+   "reuse_count": 0,
+   "last_reused_at": null
+  }
+ ],
+ "api_calls": [
+  {
+   "campaign_id": "75286450d59a42dd90af17e11b3a2e67",
+   "provider": "dataforseo",
+   "operation": "maps",
+   "created_at": "2026-10-29T01:33:12+00:00",
+   "state": "success",
+   "cost": 0.0035,
+   "tokens": null,
+   "model": null
+  },
+  {
+   "campaign_id": "7c6776a9d46f41a4a5b0e2cc05756777",
+   "provider": "dataforseo",
+   "operation": "maps",
+   "created_at": "2026-10-29T01:33:12+00:00",
+   "state": "pending",
+   "cost": null,
+   "tokens": null,
+   "model": null
+  }
+ ]
+}
