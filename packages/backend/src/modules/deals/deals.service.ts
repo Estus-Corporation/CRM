@@ -97,6 +97,7 @@ export async function listDeals(tenantId: string, query: ListDealsQuery) {
   if (query.stage) base = base.where('d.stage_id', query.stage);
   if (query.status) base = base.where('d.status', query.status);
   if (query.owner) base = base.where('d.owner_id', query.owner);
+  if (query.contact) base = base.where('d.contact_id', query.contact);
   if (query.q) {
     const term = `%${query.q}%`;
     base = base.where((b) =>
@@ -111,6 +112,7 @@ export async function listDeals(tenantId: string, query: ListDealsQuery) {
   if (query.stage) countQ.where('d.stage_id', query.stage);
   if (query.status) countQ.where('d.status', query.status);
   if (query.owner) countQ.where('d.owner_id', query.owner);
+  if (query.contact) countQ.where('d.contact_id', query.contact);
   if (query.q) {
     const term = `%${query.q}%`;
     countQ.where((b) =>

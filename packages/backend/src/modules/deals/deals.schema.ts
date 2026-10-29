@@ -33,6 +33,7 @@ export const listDealsQuerySchema = z.object({
   stage: z.string().uuid().optional(),
   status: z.enum(['open', 'won', 'lost']).optional(),
   owner: z.string().uuid().optional(),
+  contact: z.string().uuid().optional(),
   q: z.string().optional(),
   page: z.coerce.number().default(1),
   limit: z.coerce.number().default(20),

@@ -82,6 +82,7 @@ export const pipelineService = {
 export interface DealsListParams {
   status?: 'open' | 'won' | 'lost';
   pipeline?: string;
+  contact?: string;
   q?: string;
   page?: number;
   limit?: number;

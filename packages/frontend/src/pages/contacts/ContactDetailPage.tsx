@@ -1,9 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useRef } from 'react';
-import { ArrowLeft, Pencil, Mail, Phone, Building2, Briefcase, Globe, UserCheck, User, Camera, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Mail, Phone, Building2, Briefcase, Globe, UserCheck, User, Camera, Trash2, Workflow } from 'lucide-react';
 import { useContact, useUpdateContact, useUploadContactPhoto, useDeleteContactPhoto } from '@/hooks/useContacts';
 import { ActivityTimeline } from '@/components/activities/ActivityTimeline';
 import { ContractSection } from '@/components/contacts/ContractSection';
+import { ContactDeals } from '@/components/contacts/ContactDeals';
+import { SendToPipelineModal } from '@/components/contacts/SendToPipelineModal';
 import { LeadHunterPanel } from '@/components/contacts/LeadHunterInfo';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -35,6 +37,7 @@ export function ContactDetailPage() {
   const deletePhoto = useDeleteContactPhoto();
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -87,6 +90,9 @@ export function ContactDetailPage() {
           <ArrowLeft size={18} />
         </button>
         <h1 className="page-title-sm flex-1">{contact.full_name}</h1>
+        <Button size="sm" onClick={() => setSendOpen(true)}>
+          <Workflow size={13} /> Enviar para o pipeline
+        </Button>
         <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
           <Pencil size={13} /> Editar
         </Button>
@@ -225,6 +231,8 @@ export function ContactDetailPage() {
             </div>
           </div>
 
+          <ContactDeals contactId={contact.id} />
+
           {contact.type === 'client' && <ContractSection contactId={contact.id} />}
         </div>
 
@@ -235,6 +243,8 @@ export function ContactDetailPage() {
       </div>
 
       <LeadHunterPanel contact={contact} />
+
+      <SendToPipelineModal open={sendOpen} onClose={() => setSendOpen(false)} contact={contact} />
 
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Editar contato">
         <ContactForm
