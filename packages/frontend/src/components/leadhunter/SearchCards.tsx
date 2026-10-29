@@ -22,10 +22,10 @@ const formatDate = (iso: string) =>
  * Os valores saem codificados por `URLSearchParams`; o consumidor lê com `useSearchParams`.
  */
 export function campaignFromSearchPath(search: SearchRow, force: boolean): string {
-  const params = new URLSearchParams({ novo: '1', keyword: search.keyword, location: search.location });
+  const params = new URLSearchParams({ tab: 'campaigns', novo: '1', keyword: search.keyword, location: search.location });
   if (force) params.set('force', '1');
   if (search.campaignId) params.set('campaign', search.campaignId);
-  return `/leadhunter?${params.toString()}`;
+  return `/captacao?${params.toString()}`;
 }
 
 /** Só a execução mais recente de cada busca (a lista vem da mais nova para a mais antiga), agrupada por local */

@@ -238,7 +238,7 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
             <option value="">Todos os captadores</option>
             {captadores.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.full_name}
+                {shortName(c.full_name)}
               </option>
             ))}
           </select>

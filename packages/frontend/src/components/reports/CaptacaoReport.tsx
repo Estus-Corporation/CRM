@@ -3,7 +3,7 @@ import { HeadLabel } from '@/components/ui/HeadLabel';
 import { useCaptadores } from '@/hooks/useCaptacao';
 import { CardHeader } from '@/components/dashboard/CardHeader';
 import { Spinner } from '@/components/ui/Spinner';
-import { cn } from '@/lib/utils';
+import { cn, shortName } from '@/lib/utils';
 
 const brl = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 const pct = (part: number, whole: number) => (whole ? Math.round((part / whole) * 100) : null);
@@ -107,7 +107,7 @@ export function CaptacaoReport() {
                 {rows.map((r) => (
                   <tr key={r.id} className={cn('border-b border-bg-border last:border-0', !r.is_active && 'opacity-60')}>
                     <td className="px-5 py-3 font-medium text-text-primary">
-                      {r.full_name}
+                      {shortName(r.full_name)}
                       {!r.is_active && <span className="ml-1.5 text-xs font-normal text-text-muted">(inativo)</span>}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums text-text-secondary">{r.total}</td>

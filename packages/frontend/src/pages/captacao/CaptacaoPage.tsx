@@ -18,14 +18,25 @@ import { AddMemberModal } from '@/components/team/AddMemberModal';
 import { AddLeadModal } from '@/components/captacao/AddLeadModal';
 import { ImportLeadsModal } from '@/components/captacao/ImportLeadsModal';
 import { AddLeadChooser, AutoLeadsModal } from '@/components/captacao/AddLeadChooser';
+import { CampaignsPage } from '@/pages/leadhunter/CampaignsPage';
+import { SearchesPage } from '@/pages/leadhunter/SearchesPage';
+import { IntegrationsPage } from '@/pages/leadhunter/IntegrationsPage';
 
-type Tab = 'team' | 'distribute' | 'tracking';
+type Tab = 'team' | 'distribute' | 'tracking' | 'campaigns' | 'searches' | 'integrations';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'team', label: 'Equipe e comissões' },
   { value: 'distribute', label: 'Distribuir leads' },
   { value: 'tracking', label: 'Acompanhamento' },
 ];
+
+// LeadHunter (antes era uma seção do menu): só admin, e só com a flag do workspace ligada
+const LEADHUNTER_TABS: { value: Tab; label: string }[] = [
+  { value: 'campaigns', label: 'Campanhas' },
+  { value: 'searches', label: 'Locais pesquisados' },
+  { value: 'integrations', label: 'Integrações' },
+];
+const LEADHUNTER_TAB_VALUES: Tab[] = ['campaigns', 'searches', 'integrations'];
 
 
 /** Engrenagem da Captação: comissão e cota diária da distribuição automática */
@@ -110,10 +121,13 @@ export function CaptacaoPage() {
   const leadsPerDay = settings?.leadsPerDay ?? 10;
 
   // ?tab=distribute abre direto na aba; ?novo=auto já abre a busca automática (o antigo /solicitacoes leva pra cá)
-  const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') as Tab | null;
-  const tabs = TABS;
-  const [tab, setTab] = useState<Tab>(initialTab && tabs.some((t) => t.value === initialTab) ? initialTab : 'team');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabs = isAdmin && leadhunterEnabled ? [...TABS, ...LEADHUNTER_TABS] : TABS;
+  // A aba fica na URL (?tab=), assim as abas do LeadHunter guardam os próprios parâmetros (?c=, ?novo=)
+  const urlTab = searchParams.get('tab') as Tab | null;
+  const tab: Tab = urlTab && tabs.some((t) => t.value === urlTab) ? urlTab : 'team';
+  const setTab = (next: Tab) => setSearchParams(next === 'team' ? {} : { tab: next }, { replace: true });
+  const isLeadHunterTab = LEADHUNTER_TAB_VALUES.includes(tab);
   // "Adicionar lead" pergunta antes: manual (formulário) ou automático (Radar)
   const [chooserOpen, setChooserOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(isAdmin && searchParams.get('novo') === 'auto');
@@ -156,7 +170,8 @@ export function CaptacaoPage() {
                 </Button>
               </>
             ) : (
-              isAdmin && (
+              isAdmin &&
+              !isLeadHunterTab && (
                 <Button size="lg" onClick={() => setNewOpen(true)} className="px-6 text-[15px]">
                   <UserPlus size={18} strokeWidth={2.25} />
                   Adicionar captador
@@ -206,6 +221,9 @@ export function CaptacaoPage() {
           onOpenSettings={isAdmin ? () => setRateOpen(true) : undefined}
         />
       )}
+      {tab === 'campaigns' && <CampaignsPage embedded />}
+      {tab === 'searches' && <SearchesPage embedded />}
+      {tab === 'integrations' && <IntegrationsPage embedded />}
       {tab === 'tracking' && (
         <TrackingTab
           isAdmin={isAdmin}

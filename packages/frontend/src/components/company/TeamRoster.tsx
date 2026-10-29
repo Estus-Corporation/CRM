@@ -3,7 +3,7 @@ import { Briefcase, Headset, Mail, Shield, ShieldCheck, UserX, Users, type Lucid
 import type { KeyPerson, TenantMember } from '@/hooks/useTenant';
 import { Avatar } from '@/components/ui/Avatar';
 import { useOnlineIds } from '@/hooks/usePresence';
-import { cn } from '@/lib/utils';
+import { cn, personName } from '@/lib/utils';
 
 export const ROLE_LABEL: Record<TenantMember['role'], string> = {
   admin: 'Admin',
@@ -103,7 +103,7 @@ export function MemberCard({ name, email, avatarUrl, title, meta, muted, actions
         <Avatar name={name} src={avatarUrl} online={online} className="h-11 w-11 flex-shrink-0" />
         <div className={cn('min-w-0 flex-1', actions && 'pr-7')}>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <p className="truncate text-sm font-semibold text-text-primary">{name}</p>
+            <p className="truncate text-sm font-semibold text-text-primary">{personName(name)}</p>
             {title && (
               <span
                 className={cn(

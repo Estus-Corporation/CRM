@@ -62,13 +62,13 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function IntegrationsPage() {
+export function IntegrationsPage({ embedded = false }: { embedded?: boolean }) {
   const { data: status, isError, refetch } = useLeadHunterStatus();
 
   return (
     // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
-    <div className="mobile-sections space-y-6 max-md:space-y-3">
-      <PageHeader title="Integrações" subtitle="Credenciais e limites do LeadHunter" />
+    <div className={embedded ? 'space-y-6' : 'mobile-sections space-y-6 max-md:space-y-3'}>
+      {!embedded && <PageHeader title="Integrações" subtitle="Credenciais e limites do LeadHunter" />}
 
       {isError && (
         <p role="alert" className="text-sm text-status-lost">

@@ -13,12 +13,11 @@ import {
   CalendarCheck,
   Wallet,
   Building2,
-  Radar,
-  MapPin,
-  Plug,
   type LucideIcon,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, personName, shortName } from '@/lib/utils';
+import { useOnlineMembers } from '@/hooks/usePresence';
+import { Avatar } from '@/components/ui/Avatar';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { useTenant } from '@/hooks/useTenant';
@@ -100,20 +99,10 @@ const captadorSections: NavSection[] = [
 // Solicitações de leads é uma aba da Captação (só admin).
 const adminSections: NavSection[] = managerSections;
 
-// LeadHunter: só admin, e só em workspace com a flag ligada
-const leadhunterSection: NavSection = {
-  title: 'LeadHunter',
-  items: [
-    { to: '/leadhunter', icon: Radar, label: 'Campanhas', end: true },
-    { to: '/leadhunter/locais', icon: MapPin, label: 'Locais pesquisados' },
-    { to: '/leadhunter/integracoes', icon: Plug, label: 'Integrações' },
-  ],
-};
-const adminSectionsWithLeadHunter: NavSection[] = [...adminSections, leadhunterSection];
-
-export function sectionsFor(role: string | undefined, leadhunterEnabled = false) {
+// LeadHunter (Campanhas, Locais pesquisados, Integrações) virou abas da Captação, não tem seção no menu
+export function sectionsFor(role: string | undefined, _leadhunterEnabled = false) {
   if (role === 'captador') return captadorSections;
-  if (role === 'admin') return leadhunterEnabled ? adminSectionsWithLeadHunter : adminSections;
+  if (role === 'admin') return adminSections;
   if (role === 'manager') return managerSections;
   return sections;
 }
@@ -202,6 +191,44 @@ function SidebarWorkspace() {
   );
 }
 
+const ONLINE_ROLE_LABEL: Record<string, string> = { admin: 'Admin', manager: 'Gerente', seller: 'Vendedor', captador: 'Captador' };
+
+/** Fim do menu: quem do espaço está online agora (sem contar você). Recolhido = só as fotos, com o nome no tooltip */
+function SidebarOnline() {
+  const { expanded } = useSidebar();
+  const { data = [] } = useOnlineMembers();
+  const userId = useAuthStore((s) => s.user?.id);
+  const others = data.filter((m) => m.id !== userId);
+
+  return (
+    <div className="mt-auto pt-2">
+      <SidebarSection title={`Online agora${others.length ? ` · ${others.length}` : ''}`}>
+        {others.length === 0 ? (
+          expanded && <p className="px-3.5 py-1.5 text-xs text-text-muted">Só você está online.</p>
+        ) : (
+          others.map((m) =>
+            expanded ? (
+              <div key={m.id} className="flex items-center gap-2.5 rounded-lg px-3 py-1.5">
+                <Avatar name={m.full_name} src={m.avatar_url} online className="h-7 w-7 text-[10px]" />
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-medium text-text-primary">{shortName(m.full_name)}</span>
+                  <span className="block text-[11px] text-text-muted">{ONLINE_ROLE_LABEL[m.role] ?? m.role}</span>
+                </span>
+              </div>
+            ) : (
+              <SidebarTooltip key={m.id} label={`${personName(m.full_name)} · online`}>
+                <div className="flex w-12 justify-center py-1">
+                  <Avatar name={m.full_name} src={m.avatar_url} online className="h-7 w-7 text-[10px]" />
+                </div>
+              </SidebarTooltip>
+            ),
+          )
+        )}
+      </SidebarSection>
+    </div>
+  );
+}
+
 function SidebarContent({ onNavigate, onToggle }: { onNavigate?: () => void; onToggle?: () => void }) {
   const role = useAuthStore((s) => s.user?.role);
   const leadhunterEnabled = useLeadHunterEnabled();
@@ -219,6 +246,7 @@ function SidebarContent({ onNavigate, onToggle }: { onNavigate?: () => void; onT
             ))}
           </SidebarSection>
         ))}
+        <SidebarOnline />
       </nav>
 
       {/* Computador: altura fixa, a faixa de vidro (SIDEBAR_FOOTER_HEIGHT) se alinha a este rodapé.

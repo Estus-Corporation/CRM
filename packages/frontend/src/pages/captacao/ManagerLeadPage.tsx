@@ -40,7 +40,7 @@ import { QuickLink } from '@/components/ui/QuickLink';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
+import { cn, shortName } from '@/lib/utils';
 
 /**
  * Página de um lead vista pelo admin/gerente (aberta pela aba Distribuir): o mesmo cabeçalho,
@@ -92,7 +92,7 @@ export function ManagerLeadPage() {
     );
   }
 
-  const company = [lead.job_title, lead.company_name].filter(Boolean).join(' · ');
+  const company = [lead.job_title, lead.company_name && lead.company_name !== lead.full_name ? lead.company_name : null].filter(Boolean).join(' · ');
   const pains = leadPains(lead);
   const free = !lead.assignment_id;
 
@@ -104,7 +104,7 @@ export function ManagerLeadPage() {
       )}
     >
       <span className={cn('h-1.5 w-1.5 rounded-full', free ? 'bg-text-muted' : 'bg-accent-green')} />
-      {free ? 'Livre' : `Com ${lead.captador_name?.split(' ')[0] ?? 'captador'}`}
+      {free ? 'Livre' : `Com ${lead.captador_name ? shortName(lead.captador_name) : 'captador'}`}
     </span>
   );
 
@@ -228,7 +228,7 @@ export function ManagerLeadPage() {
                       <option value="">Escolha um captador…</option>
                       {active.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.full_name}
+                          {shortName(c.full_name)}
                         </option>
                       ))}
                     </select>
@@ -243,7 +243,7 @@ export function ManagerLeadPage() {
                 // Andamento com o captador: situação, ligação, retorno, anotação e histórico de tentativas
                 <div className="space-y-3">
                   <p className="text-sm text-text-secondary">
-                    Com <strong className="text-text-primary">{lead.captador_name ?? 'um captador'}</strong>
+                    Com <strong className="text-text-primary">{lead.captador_name ? shortName(lead.captador_name) : 'um captador'}</strong>
                   </p>
                   <dl className="grid gap-x-4 gap-y-2 text-[13.5px] sm:grid-cols-[120px_minmax(0,1fr)]">
                     <dt className="text-text-muted">Situação</dt>

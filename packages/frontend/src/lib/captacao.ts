@@ -6,10 +6,11 @@ export const WHATSAPP_STATUS: Record<WhatsappStatus, { label: string; className:
   // 'waiting' = mensagem enviada, sem resposta registrada ainda
   waiting: { label: 'Mensagem enviada', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
   replied: { label: 'Respondeu', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' },
-  no_reply: { label: 'Não respondeu', className: 'bg-fg/[0.09] text-text-primary', dot: 'bg-text-secondary' },
+  no_reply: { label: 'Sem resposta', className: 'bg-fg/[0.09] text-text-primary', dot: 'bg-text-secondary' },
+  no_whatsapp: { label: 'Sem WhatsApp', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
 };
 // Opções do captador: só a resposta ('waiting' = enviada, marcado sozinho ao abrir o WhatsApp)
-export const WHATSAPP_STATUS_ORDER: WhatsappStatus[] = ['replied', 'no_reply'];
+export const WHATSAPP_STATUS_ORDER: WhatsappStatus[] = ['replied', 'no_reply', 'no_whatsapp'];
 
 export const CALL_STATUS: Record<CallStatus, { label: string; short: string; className: string; dot: string }> = {
   // Paleta de 3 cores (esmeralda/âmbar/vermelho): "a ligar" tracejado = ainda não ligou; "não atendeu" neutro

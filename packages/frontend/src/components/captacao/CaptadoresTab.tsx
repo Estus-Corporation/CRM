@@ -8,6 +8,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useOnlineIds } from '@/hooks/usePresence';
+import { shortName } from '@/lib/utils';
 import { DataList, DataListBody, DataListHead, DataListRow, DataListSkeleton, listSpring } from '@/components/ui/DataList';
 
 const GRID =
@@ -94,7 +95,7 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
                 <Avatar name={c.full_name} src={c.avatar_url} online={onlineIds.has(c.id)} className="h-9 w-9 flex-shrink-0 text-[13px]" />
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 truncate text-[14.5px] font-medium text-text-primary">
-                    {c.full_name}
+                    {shortName(c.full_name)}
                     {!c.is_active && <span className="text-[11px] font-normal text-text-muted">(inativo)</span>}
                   </p>
                   <p className="truncate text-xs text-text-muted">{c.email}</p>
@@ -122,7 +123,7 @@ export function CaptadoresTab({ isAdmin, onNewCaptador, onViewLeads }: Props) {
                     size="sm"
                     disabled={payAll.isPending}
                     onClick={() => {
-                      if (confirm(`Marcar ${formatBRL(c.commission_pending)} como pago para ${c.full_name}?`)) {
+                      if (confirm(`Marcar ${formatBRL(c.commission_pending)} como pago para ${shortName(c.full_name)}?`)) {
                         payAll.mutate(c.id);
                       }
                     }}

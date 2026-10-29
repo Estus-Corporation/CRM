@@ -32,7 +32,8 @@ export const updateMyLeadSchema = z.object({
     .max(20)
     .optional(),
   // Plano B (WhatsApp): situação da mensagem; null = plano B não usado
-  whatsappStatus: z.enum(['waiting', 'replied', 'no_reply']).nullable().optional(),
+  // waiting = enviada; no_reply = sem resposta (desistiu de esperar); no_whatsapp = número sem WhatsApp
+  whatsappStatus: z.enum(['waiting', 'replied', 'no_reply', 'no_whatsapp']).nullable().optional(),
   // Pessoas de contato conseguidas na ligação (lista inteira; salva na empresa)
   leadPeople: z
     .array(

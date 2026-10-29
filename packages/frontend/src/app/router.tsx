@@ -24,9 +24,6 @@ import { MyDashboardPage } from '@/pages/captacao/MyDashboardPage';
 import { CompanyPage } from '@/pages/company/CompanyPage';
 import { AccountPage } from '@/pages/account/AccountPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
-import { CampaignsPage } from '@/pages/leadhunter/CampaignsPage';
-import { SearchesPage } from '@/pages/leadhunter/SearchesPage';
-import { IntegrationsPage } from '@/pages/leadhunter/IntegrationsPage';
 import { PrivacyPage, TermsPage } from '@/pages/legal/LegalPages';
 
 export const router = createBrowserRouter([
@@ -88,9 +85,10 @@ export const router = createBrowserRouter([
       { path: '/minhas-comissoes', element: <MyCommissionsPage /> },
       // Solicitações viraram a opção "Automático" do Adicionar lead (Captação › Distribuir leads)
       { path: '/solicitacoes', element: <Navigate to="/captacao?tab=distribute&novo=auto" replace /> },
-      { path: '/leadhunter', element: <CampaignsPage /> },
-      { path: '/leadhunter/locais', element: <SearchesPage /> },
-      { path: '/leadhunter/integracoes', element: <IntegrationsPage /> },
+      // LeadHunter virou abas da Captação
+      { path: '/leadhunter', element: <Navigate to="/captacao?tab=campaigns" replace /> },
+      { path: '/leadhunter/locais', element: <Navigate to="/captacao?tab=searches" replace /> },
+      { path: '/leadhunter/integracoes', element: <Navigate to="/captacao?tab=integrations" replace /> },
       { path: '/empresa', element: <CompanyPage /> },
       { path: '/conta', element: <AccountPage /> },
     ],

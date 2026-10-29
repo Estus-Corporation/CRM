@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { capitalizeName, cn, JOB_TITLE_OPTIONS, lowerEmail, withPhoneMask, withTransform } from '@/lib/utils';
+import { capitalizeName, cn, JOB_TITLE_OPTIONS, lowerEmail, shortName, withPhoneMask, withTransform } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -324,7 +324,7 @@ export function AddLeadModal({
                   <option value="">Deixar na fila</option>
                   {active.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.full_name}
+                      {shortName(c.full_name)}
                     </option>
                   ))}
                 </select>

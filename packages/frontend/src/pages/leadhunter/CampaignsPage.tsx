@@ -56,7 +56,8 @@ function CampaignList({ campaigns, selectedId, onSelect }: { campaigns: Campaign
   );
 }
 
-export function CampaignsPage() {
+/** `embedded`: aba da Captação (sem título da página; os botões ficam numa linha à direita) */
+export function CampaignsPage({ embedded = false }: { embedded?: boolean }) {
   const [params, setParams] = useSearchParams();
   const campaigns = useCampaigns();
   const createDemo = useCreateCampaign();
@@ -101,25 +102,27 @@ export function CampaignsPage() {
   };
   const startDemo = () => createDemo.mutate(DEMO_CAMPAIGN, { onSuccess: ({ id }) => select(id) });
 
+  const actions = (
+    <>
+      <Button variant="secondary" className="max-sm:flex-1" onClick={() => setDialog('import')}>
+        <FileUp size={15} />
+        Importar lista
+      </Button>
+      <Button className="max-sm:flex-1" onClick={openNew}>
+        <Plus size={15} />
+        Nova campanha
+      </Button>
+    </>
+  );
+
   return (
     // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
-    <div className="mobile-sections space-y-6 max-md:space-y-3">
-      <PageHeader
-        title="Campanhas"
-        subtitle="Empresas locais, contatos e motivos para uma boa abordagem"
-        actions={
-          <>
-            <Button variant="secondary" className="max-sm:flex-1" onClick={() => setDialog('import')}>
-              <FileUp size={15} />
-              Importar lista
-            </Button>
-            <Button className="max-sm:flex-1" onClick={openNew}>
-              <Plus size={15} />
-              Nova campanha
-            </Button>
-          </>
-        }
-      />
+    <div className={embedded ? 'space-y-4' : 'mobile-sections space-y-6 max-md:space-y-3'}>
+      {embedded ? (
+        <div className="flex flex-wrap justify-end gap-2">{actions}</div>
+      ) : (
+        <PageHeader title="Campanhas" subtitle="Empresas locais, contatos e motivos para uma boa abordagem" actions={actions} />
+      )}
 
       {campaigns.isLoading ? (
         <div className="space-y-3">

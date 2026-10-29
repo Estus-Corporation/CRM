@@ -4,15 +4,15 @@ import { FoundCompaniesTable } from '@/components/leadhunter/FoundCompaniesTable
 import { SearchCards } from '@/components/leadhunter/SearchCards';
 import { useLeadHunterStatus, useSearches } from '@/hooks/useLeadHunter';
 
-export function SearchesPage() {
+export function SearchesPage({ embedded = false }: { embedded?: boolean }) {
   const searches = useSearches();
   const status = useLeadHunterStatus();
   const cacheDays = status.data?.searchCacheDays;
 
   return (
     // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
-    <div className="mobile-sections space-y-6 max-md:space-y-3">
-      <PageHeader title="Locais pesquisados" subtitle="Buscas já feitas e empresas encontradas" />
+    <div className={embedded ? 'space-y-6' : 'mobile-sections space-y-6 max-md:space-y-3'}>
+      {!embedded && <PageHeader title="Locais pesquisados" subtitle="Buscas já feitas e empresas encontradas" />}
 
       <section aria-label="Locais pesquisados" className="space-y-3">
         <p className="text-sm text-text-secondary">

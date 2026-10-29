@@ -9,7 +9,6 @@ import { Avatar } from '@/components/ui/Avatar';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { NotificationPanel } from '@/components/notifications/NotificationPanel';
 import { ThemeToggle } from './ThemeToggle';
-import { OnlineMembers } from './OnlineMembers';
 import { cn, shortName } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { dropdownMotion } from '@/lib/motion';
@@ -30,9 +29,6 @@ const PAGE_TITLES: [string, string][] = [
   ['/calendar', 'Calendário'],
   ['/reports', 'Relatórios'],
   ['/captacao', 'Captação'],
-  ['/leadhunter/locais', 'Locais pesquisados'],
-  ['/leadhunter/integracoes', 'Integrações'],
-  ['/leadhunter', 'LeadHunter'],
   ['/settings', 'Configurações'],
   ['/conta', 'Minha conta'],
   ['/empresa', 'Sobre a empresa'],
@@ -137,9 +133,6 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                 </span>
               )}
             </button>
-
-            {/* Quem do espaço está online agora */}
-            <OnlineMembers />
 
             {/* Separador entre os ícones e a foto */}
             <span aria-hidden className="mx-1.5 h-7 w-px bg-fg/[0.12]" />

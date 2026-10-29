@@ -3,6 +3,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { useCloseAssignment } from '@/hooks/useCaptacao';
 import type { Assignment } from '@/services/captacao.service';
+import { shortName } from '@/lib/utils';
 import { formatBRL, parseMoney } from '@/lib/captacao';
 
 interface Props {
@@ -33,7 +34,7 @@ export function CloseLeadModal({ assignment, commissionRate, onClose }: Props) {
       open={!!assignment}
       onClose={onClose}
       title="Fechou negócio"
-      description={assignment ? `${assignment.full_name} · captado por ${assignment.captador_name ?? '—'}` : undefined}
+      description={assignment ? `${assignment.full_name} · captado por ${assignment.captador_name ? shortName(assignment.captador_name) : '—'}` : undefined}
     >
       <form onSubmit={submit} className="space-y-4">
         <label className="flex flex-col gap-1">

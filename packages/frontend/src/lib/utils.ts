@@ -58,13 +58,22 @@ export const lowerEmail = (v: string) => v.toLowerCase().replace(/\s/g, '');
 // Preposições que ficam minúsculas no meio do nome ("Maria da Silva")
 const NAME_LOWER = new Set(['de', 'da', 'do', 'dos', 'das', 'e']);
 
-/** Nome com a primeira letra de cada palavra maiúscula (mantém o resto como digitado) */
-/** Primeiro e último nome ("Lucca Periotto" de "Lucca de Souza Periotto") */
+/**
+ * Nome de pessoa pra exibir: quem foi cadastrado todo em maiúsculas ("TARCISIO TOTA DA SILVA FILHO")
+ * aparece só com as iniciais maiúsculas ("Tarcisio Tota da Silva Filho"); os demais ficam como estão.
+ */
+export function personName(fullName: string) {
+  const name = fullName.trim();
+  return /\p{L}/u.test(name) && name === name.toUpperCase() ? capitalizeName(name.toLowerCase()) : name;
+}
+
+/** Primeiro e último nome ("Lucca Periotto" de "Lucca de Souza Periotto"), já com as maiúsculas certas */
 export function shortName(fullName: string) {
-  const parts = fullName.trim().split(/\s+/);
+  const parts = personName(fullName).split(/\s+/);
   return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]}` : parts[0];
 }
 
+/** Nome com a primeira letra de cada palavra maiúscula (mantém o resto como digitado) */
 export function capitalizeName(value: string): string {
   return value.replace(/(^|\s)(\S)(\S*)/g, (_m, sp: string, first: string, rest: string, offset: number) => {
     const word = (first + rest).toLowerCase();

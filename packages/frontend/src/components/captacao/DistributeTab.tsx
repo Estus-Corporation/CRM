@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { NicheFilter } from '@/components/contacts/NicheFilter';
 import { listSpring } from '@/components/ui/DataList';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { cn } from '@/lib/utils';
+import { cn, shortName } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
 
@@ -128,7 +128,7 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
             <option value="">Atribuir para…</option>
             {activeCaptadores.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.full_name}
+                {shortName(c.full_name)}
               </option>
             ))}
           </select>
@@ -181,7 +181,8 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
           <ul className="space-y-3">
             {contacts.map((c, i) => {
               const isSelected = selected.has(c.id);
-              const company = c.company_name;
+              // Empresa embaixo só quando não é o próprio nome do lead
+              const company = c.company_name && c.company_name !== c.full_name ? c.company_name : null;
               return (
                 <motion.li
                   key={c.id}
@@ -225,6 +226,11 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                       <p className="truncate text-[15.5px] font-semibold text-text-primary">{c.full_name}</p>
+                      {c.niche && (
+                        <span className="max-w-full truncate whitespace-nowrap rounded-md bg-fg/[0.06] px-2 py-0.5 text-xs font-medium text-text-secondary">
+                          {c.niche}
+                        </span>
+                      )}
                       {c.google_rating != null && (
                         <span className="flex items-center gap-1 text-xs text-text-secondary" title="Avaliação no Google">
                           <Star size={12} className="fill-accent-amber text-accent-amber" />
@@ -233,19 +239,12 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-muted">
-                      {company && (
-                        <span className="flex min-w-0 max-w-full items-center gap-1">
-                          <Building2 size={12} className="flex-shrink-0" />
-                          <span className="truncate">{company}</span>
-                        </span>
-                      )}
-                      {c.niche && (
-                        <span className="max-w-full truncate whitespace-nowrap rounded-md bg-fg/[0.05] px-2 py-0.5 font-medium text-text-secondary">
-                          {c.niche}
-                        </span>
-                      )}
-                    </div>
+                    {company && (
+                      <p className="mt-1 flex min-w-0 max-w-full items-center gap-1 text-xs text-text-muted">
+                        <Building2 size={12} className="flex-shrink-0" />
+                        <span className="truncate">{company}</span>
+                      </p>
+                    )}
                   </div>
                   {/* À direita: selo "Livre" e a seta (como em Meus leads) */}
                   <div className="flex flex-shrink-0 items-center gap-2">

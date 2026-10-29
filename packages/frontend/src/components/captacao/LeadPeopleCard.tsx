@@ -5,6 +5,7 @@ import { whatsappUrl } from '@/lib/captacao';
 import { WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { Button } from '@/components/ui/Button';
 import { capitalizeName, cn, formatPhone, JOB_TITLE_OPTIONS } from '@/lib/utils';
+import { SPLIT_CARD, SPLIT_CARD_BODY, SPLIT_CARD_HEAD } from './cardStyles';
 
 const EMPTY = { name: '', title: '', phone: '', email: '' };
 
@@ -262,8 +263,8 @@ export function LeadPeopleCard({
   if (bare) return body;
 
   return (
-    <div className="card overflow-hidden">
-      <div className="flex items-center gap-2 border-b border-fg/[0.06] px-4 py-3.5 md:px-5">
+    <div className={cn(SPLIT_CARD, SPLIT_CARD_BODY)}>
+      <div className={cn(SPLIT_CARD_HEAD, 'md:px-5')}>
         <Users size={16} className="text-accent-green" />
         <h2 className="text-sm font-semibold text-text-primary">Contatos do lead</h2>
         {people.length > 0 && <span className="text-xs text-text-muted">· {people.length}</span>}
