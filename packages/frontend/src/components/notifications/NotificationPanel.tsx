@@ -4,8 +4,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { dropdownMotion } from '@/lib/motion';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Bell, BellRing, Check, CheckCheck, Hourglass, Trophy, TrendingDown, ArrowRightLeft, PhoneCall, UserCheck, UserX, Users, X, type LucideIcon } from 'lucide-react';
+import { Bell, BellRing, Check, Hourglass, Trophy, TrendingDown, ArrowRightLeft, PhoneCall, UserCheck, UserX, Users, X, type LucideIcon } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { notificationLink } from '@/lib/notificationLink';
 import { useNotifications } from '@/hooks/useNotifications';
 import type { Notification } from '@/services/notifications.service';
 import type { WorkspaceInvite } from '@/services/invites.service';
@@ -73,15 +75,15 @@ function InviteItem({ invite }: { invite: WorkspaceInvite }) {
   );
 }
 
-function NotificationItem({ n, onRead }: { n: Notification; onRead: (id: string) => void }) {
+function NotificationItem({ n, isNew, onOpen }: { n: Notification; isNew: boolean; onOpen: (n: Notification) => void }) {
   const Icon = TYPE_ICON[n.type] ?? Bell;
   return (
     <button
       className={cn(
         'w-full flex items-start gap-3 px-4 py-3 text-left hover:bg-bg-border transition-colors',
-        !n.read && 'bg-accent-green/5',
+        isNew && 'bg-accent-green/5',
       )}
-      onClick={() => !n.read && onRead(n.id)}
+      onClick={() => onOpen(n)}
     >
       <div
         className={cn(
@@ -99,13 +101,13 @@ function NotificationItem({ n, onRead }: { n: Notification; onRead: (id: string)
         <Icon size={12} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={cn('text-sm truncate', n.read ? 'text-text-secondary' : 'text-text-primary font-medium')}>{n.title}</p>
+        <p className={cn('text-sm truncate', isNew ? 'text-text-primary font-medium' : 'text-text-secondary')}>{n.title}</p>
         {n.body && <p className="text-xs text-text-muted truncate mt-0.5">{n.body}</p>}
         <p className="text-[10px] text-text-muted mt-1">
           {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: ptBR })}
         </p>
       </div>
-      {!n.read && <span className="w-2 h-2 rounded-full bg-accent-green flex-shrink-0 mt-1.5" />}
+      {isNew && <span className="w-2 h-2 rounded-full bg-accent-green flex-shrink-0 mt-1.5" />}
     </button>
   );
 }
@@ -121,7 +123,10 @@ const PANEL_WIDTH = 320;
 
 /** Caixa de entrada. Renderiza em portal (fixed) pra escapar do overflow do menu lateral. */
 export function NotificationPanel({ open, onClose, anchorRef }: Props) {
-  const { notifications, markRead, markAllRead } = useNotifications();
+  const { notifications, markAllRead } = useNotifications();
+  const navigate = useNavigate();
+  // Abrir a caixa = ver tudo: marca como lidas, mas o destaque das novas fica até fechar
+  const seen = useRef(new Set<string>());
   const { data: invites = [] } = useMyInvites();
   const panelRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0, width: PANEL_WIDTH, origin: 'top left' });
@@ -135,6 +140,24 @@ export function NotificationPanel({ open, onClose, anchorRef }: Props) {
     // A animação "cai" a partir do botão que abriu
     setPos({ top: rect.bottom + 8, left, width, origin: `${rect.left + rect.width / 2 - left}px top` });
   }, [open, anchorRef]);
+
+  useEffect(() => {
+    if (!open) {
+      seen.current.clear();
+      return;
+    }
+    const unread = notifications.filter((n) => !n.read);
+    unread.forEach((n) => seen.current.add(n.id));
+    if (unread.length > 0 && !markAllRead.isPending) markAllRead.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, notifications]);
+
+  const openNotification = (n: Notification) => {
+    const link = notificationLink(n);
+    if (!link) return;
+    onClose();
+    navigate(link);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -162,15 +185,6 @@ export function NotificationPanel({ open, onClose, anchorRef }: Props) {
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-bg-border">
             <h3 className="text-sm font-semibold text-text-primary">Caixa de entrada</h3>
-            {notifications.some((n) => !n.read) && (
-              <button
-                onClick={() => markAllRead.mutate()}
-                className="flex items-center gap-1 text-[11px] text-accent-green hover:text-accent-green-dim transition-colors"
-              >
-                <CheckCheck size={12} />
-                Marcar todas
-              </button>
-            )}
           </div>
 
           <div className="max-h-96 overflow-y-auto divide-y divide-bg-border">
@@ -183,7 +197,9 @@ export function NotificationPanel({ open, onClose, anchorRef }: Props) {
                 <p className="text-sm text-text-muted">Nenhuma notificação</p>
               </div>
             ) : (
-              notifications.map((n) => <NotificationItem key={n.id} n={n} onRead={(id) => markRead.mutate(id)} />)
+              notifications.map((n) => (
+                <NotificationItem key={n.id} n={n} isNew={!n.read || seen.current.has(n.id)} onOpen={openNotification} />
+              ))
             )}
           </div>
         </motion.div>

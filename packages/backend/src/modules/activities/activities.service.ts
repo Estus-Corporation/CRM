@@ -48,6 +48,13 @@ export async function getActivity(tenantId: string, id: string) {
   return activity;
 }
 
+/** Para onde a notificação leva: o negócio da atividade, senão o contato, senão a própria atividade */
+function activityTarget(a: { id: string; deal_id?: string | null; contact_id?: string | null }) {
+  if (a.deal_id) return { resourceType: 'deal', resourceId: a.deal_id };
+  if (a.contact_id) return { resourceType: 'contact', resourceId: a.contact_id };
+  return { resourceType: 'activity', resourceId: a.id };
+}
+
 export async function createActivity(tenantId: string, userId: string, input: CreateActivityInput) {
   const [activity] = await db('activities')
     .insert({
@@ -71,8 +78,7 @@ export async function createActivity(tenantId: string, userId: string, input: Cr
       type: 'activity.assigned',
       title: `Nova atividade atribuída a você: ${input.title}`,
       body: input.body,
-      resourceType: 'activity',
-      resourceId: activity.id,
+      ...activityTarget(activity),
     }).catch(() => {});
   }
 
@@ -102,8 +108,7 @@ export async function updateActivity(tenantId: string, userId: string, id: strin
       userId: input.assigneeId,
       type: 'activity.assigned',
       title: `Atividade atribuída a você: ${activity.title}`,
-      resourceType: 'activity',
-      resourceId: activity.id,
+      ...activityTarget(activity),
     }).catch(() => {});
   }
 

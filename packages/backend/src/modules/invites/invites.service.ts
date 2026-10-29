@@ -169,6 +169,8 @@ export async function acceptInvite(userId: string, inviteId: string) {
       type: 'workspace.invite_accepted',
       title: `${fullName} aceitou o convite`,
       body: `Agora faz parte da equipe como ${ROLE_LABEL[invite.role] ?? invite.role}.`,
+      resourceType: 'user',
+      resourceId: userId,
     }).catch(() => {});
   }
 
@@ -192,6 +194,8 @@ export async function declineInvite(userId: string, inviteId: string) {
       userId: invite.invited_by,
       type: 'workspace.invite_declined',
       title: `${fullName} recusou o convite`,
+      resourceType: 'user',
+      resourceId: userId,
     }).catch(() => {});
   }
 }

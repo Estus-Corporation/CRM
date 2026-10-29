@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Check, MoreHorizontal, Pencil, Power, Trash2, UserPlus, Users, X } from 'lucide-react';
 import { useDeleteUser, useUpdateUser, useUsers } from '@/hooks/useUsers';
@@ -9,6 +10,7 @@ import type { TeamMember } from '@/services/users.service';
 import { MemberCard, ROLE_LABEL, TitleGroup, groupByTitle, rankOf, titleFor } from '@/components/company/TeamRoster';
 import { AddMemberModal } from './AddMemberModal';
 import { Button } from '@/components/ui/Button';
+import { cn } from '@/lib/utils';
 import { useOnlineIds } from '@/hooks/usePresence';
 import { Spinner } from '@/components/ui/Spinner';
 
@@ -219,6 +221,23 @@ export function TeamPanel() {
   const { data: invites = [] } = useTenantInvites(currentUser?.role === 'admin' || currentUser?.role === 'manager');
   const cancelInvite = useCancelInvite();
 
+  // Vindo de uma notificação (?membro=<id>): rola até a pessoa e destaca por alguns segundos
+  const [params, setParams] = useSearchParams();
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  const membroParam = params.get('membro');
+  const targetReady = !!membroParam && !!data?.data?.some((m) => m.id === membroParam);
+  useEffect(() => {
+    if (!membroParam || !targetReady) return;
+    setHighlightId(membroParam);
+    // Sem cleanup de propósito: tirar o parâmetro da URL refaz este efeito e cancelaria os timers
+    window.setTimeout(
+      () => document.getElementById(`membro-${membroParam}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+      150,
+    );
+    window.setTimeout(() => setHighlightId(null), 3500);
+    setParams((p) => { p.delete('membro'); return p; }, { replace: true });
+  }, [membroParam, targetReady, setParams]);
+
   const keyPeople = tenant?.key_people ?? [];
   // Ativos primeiro dentro de cada grupo
   const members = [...(data?.data ?? [])].sort((a, b) => Number(b.is_active) - Number(a.is_active));
@@ -274,8 +293,8 @@ export function TeamPanel() {
                   const title = titleFor(keyPeople, m.email);
                   const isSelf = m.id === currentUser?.id;
                   return (
+                    <div key={m.id} id={`membro-${m.id}`} className={cn('rounded-2xl transition-shadow duration-500', highlightId === m.id && 'ring-2 ring-accent-green/70')}>
                     <MemberCard
-                      key={m.id}
                       name={isSelf ? `${m.full_name} (você)` : m.full_name}
                       email={m.email}
                       avatarUrl={m.avatar_url}
@@ -294,6 +313,7 @@ export function TeamPanel() {
                         />
                       )}
                     </MemberCard>
+                    </div>
                   );
                 })}
             </TitleGroup>
