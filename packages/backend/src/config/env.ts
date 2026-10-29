@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
+import { assertLocalDatabase } from './assertLocalDatabase';
 
 dotenv.config();
 
@@ -34,6 +35,13 @@ const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
   console.error('Invalid environment variables:');
   console.error(parsed.error.flatten().fieldErrors);
+  process.exit(1);
+}
+
+try {
+  assertLocalDatabase(parsed.data.DATABASE_URL, parsed.data.NODE_ENV, process.env.ALLOW_REMOTE_DB);
+} catch (err) {
+  console.error(err instanceof Error ? err.message : err);
   process.exit(1);
 }
 
