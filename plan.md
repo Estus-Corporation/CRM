@@ -809,6 +809,7 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
   - disparos: `createInvite`/`cancelInvite`/`acceptInvite`/`declineInvite`, `updateUser` e `deleteUser` (`session` + `workspaces` + `team`), `createNotification`
   - front: `hooks/useRealtime.ts` no `AppShell` (fetch streaming com Authorization, reconecta com backoff, invalida as queries do evento); `renewSession()` em `services/api.ts` (voo único; também usada pelo 401)
   - verificado por script contra o backend local (convite → `invites`; aceite → `invites`+`workspaces`; troca de papel → `session`)
+- [x] **T2** (29/10/2026) Caixa de entrada: abrir marca tudo como lido (botão "Marcar todas" e clique-para-ler removidos; destaque das novas some ao fechar). Clicar leva ao recurso (`lib/notificationLink.ts`): negócio → `/deals/:id` (histórico), convite aceito/recusado → `/settings?membro=<userId>` (TeamPanel rola e destaca), `leads.followup` → `/meus-leads/lead/:id`, `leads.on_hold|reported_won` → `/captacao/lead/:contactId`, `leads.won` → comissões, `activity.assigned` → negócio/contato da atividade. Backend: convite aceito/recusado grava `resource_type='user'`; `activity.assigned` aponta pro negócio/contato.
 
 ## M27 — Dados do LeadHunter no contato
 
