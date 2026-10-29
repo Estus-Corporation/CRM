@@ -25,6 +25,13 @@ Executar **tudo isso automaticamente, sem precisar ser pedido**:
 ### Banco de dados — sem Docker
 Produção = Postgres do Railway. Local (dev e testes) = PostgreSQL 18 nativo do Windows, serviço `postgresql-x64-18` (início manual: `Start-Service postgresql-x64-18` como administrador). **Nunca** apontar backend local, script ou teste para o banco do Railway sem autorização explícita.
 
+### Migrations — nunca aplicar em produção sem commitar (incidente de 29/10/2026)
+O `.env` local do backend **aponta para o banco de produção**: `npm run dev`/`dev:backend` roda `migrate:latest` lá. Uma migration aplicada assim e **não commitada** derruba a produção: o Knex vê no banco `20240042_...` sem o arquivo no código, falha com "The migration directory is corrupt, the following files are missing" e o container do Railway entra em loop (502).
+- **Regra:** antes de rodar o backend local, confirme que `DATABASE_URL` é o banco local (`titancrm`, `localhost`). Se precisar testar uma migration nova, use `titancrm`/`titancrm_test`, nunca o `.env` de produção.
+- **Se a migration já foi aplicada em produção:** commite o arquivo na hora, no mesmo push do código que a usa. Nunca apague um arquivo de migration que já rodou em produção, nem renomeie.
+- **Sintoma/diagnóstico:** log do Railway com "migration directory is corrupt ... missing: <arquivo>". Correção: restaurar o arquivo com o mesmo nome (se o original se perdeu, um marcador sem alterações, como `20240042_add_lead_result_to_lead_assignments.ts`, que o original substitui depois).
+- Antes de criar uma migration, rode `git fetch` e confira o maior número em `origin/main` para não colidir com outra sessão.
+
 ---
 
 ## Project Overview
