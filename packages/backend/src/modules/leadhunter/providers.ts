@@ -239,6 +239,38 @@ export function createProviders(settings: Settings, transport: Transport = httpT
   const location = (city: string, coordinate: string | null) =>
     coordinate ? { location_coordinate: coordinate } : { location_name: city };
 
+  /** Perfil do Instagram; um post ou reel de `/usuario/p/...` também aponta para o perfil do usuário. */
+  const profileUrl = (value: unknown): string | null => {
+    const post = /^https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{1,30})\/(?:p|reel|reels|tv)\//i.exec(String(value ?? ''));
+    return instagramUrl(post ? `https://www.instagram.com/${post[1]}/` : value);
+  };
+
+  async function instagramCandidates(
+    recorder: Parameters<Providers['instagram']>[0],
+    keyword: string,
+    city: string,
+    coordinate: string | null,
+  ): Promise<CompanyData['instagramCandidates']> {
+    const task = { keyword, language_code: 'pt', depth: 10, ...location(city, coordinate) };
+    const result = await call(recorder, 'dataforseo', 'organic', [task]);
+    const tasks = list(result.tasks);
+    const noResults = tasks.length > 0 && rec(tasks[0]).status_code === 40102;
+    if (!noResults && (result.status_code !== 20000 || !tasks.length || rec(tasks[0]).status_code !== 20000)) {
+      throw new ProviderError(taskError(result, 'Busca de Instagram não concluída pelo provedor.'));
+    }
+    const candidates: CompanyData['instagramCandidates'] = [];
+    for (const block of list(rec(tasks[0]).result)) {
+      for (const raw of list(rec(block).items)) {
+        const item = rec(raw);
+        const url = profileUrl(item.url);
+        if (item.type === 'organic' && url && !candidates.some((c) => c.url === url)) {
+          candidates.push({ url, title: clip(item.title, 250), description: clip(item.description, 700) });
+        }
+      }
+    }
+    return candidates;
+  }
+
   return {
     async maps(recorder, keyword, city, coordinate, depth) {
       const task = { keyword, language_code: 'pt', depth, ...location(city, coordinate) };
@@ -251,27 +283,12 @@ export function createProviders(settings: Settings, transport: Transport = httpT
       // `city` pode vir no formato de localidade do DataForSEO ("Sao Carlos,State of Sao Paulo,Brazil"): entre
       // aspas ninguém casa com isso, então a consulta usa só o nome da cidade, sem aspas.
       const shortCity = city.split(',')[0].trim();
-      const task = {
-        keyword: `site:instagram.com "${lead.name}" ${shortCity}`.trim(),
-        language_code: 'pt',
-        depth: 10,
-        ...location(city, coordinate),
-      };
-      const result = await call(recorder, 'dataforseo', 'organic', [task]);
-      const tasks = list(result.tasks);
-      const noResults = tasks.length > 0 && rec(tasks[0]).status_code === 40102;
-      if (!noResults && (result.status_code !== 20000 || !tasks.length || rec(tasks[0]).status_code !== 20000)) {
-        throw new ProviderError(taskError(result, 'Busca de Instagram não concluída pelo provedor.'));
-      }
-      const candidates: CompanyData['instagramCandidates'] = [];
-      for (const block of list(rec(tasks[0]).result)) {
-        for (const raw of list(rec(block).items)) {
-          const item = rec(raw);
-          const url = instagramUrl(item.url);
-          if (item.type === 'organic' && url && !candidates.some((c) => c.url === url)) {
-            candidates.push({ url, title: clip(item.title, 250), description: clip(item.description, 700) });
-          }
-        }
+      // Nome exato primeiro; sem resultado, uma segunda consulta mais solta (o nome do Maps nem sempre é o do
+      // perfil). A segunda chamada só acontece quando a primeira volta vazia.
+      let candidates: CompanyData['instagramCandidates'] = [];
+      for (const keyword of [`site:instagram.com "${lead.name}" ${shortCity}`, `site:instagram.com ${lead.name} ${shortCity}`]) {
+        candidates = await instagramCandidates(recorder, keyword.trim(), city, coordinate);
+        if (candidates.length) break;
       }
       return {
         instagram: candidates[0]?.url ?? null,
