@@ -19,6 +19,7 @@ import {
   LOST_REASONS,
   formatBRL,
   googleUrl,
+  hasStartedContact,
   instagramHandle,
   instagramUrl,
   LEAD_PAIN_LABEL,
@@ -31,6 +32,7 @@ import {
   whatsappUrl,
 } from '@/lib/captacao';
 import { GmailIcon, InstagramIcon, GoogleIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
+import { LeadStatusIcon, leadStatus } from './LeadStatusIcon';
 import { Button } from '@/components/ui/Button';
 import { AdminAgenda, type MeetingPick } from './AdminAgenda';
 import { LeadPeopleCard } from './LeadPeopleCard';
@@ -205,7 +207,8 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   };
 
   // Situação do lead escolhida acima do "Salvar": ganhou / perdeu (salva concluído) ou em aguardo
-  type Situation = 'won' | 'lost' | 'hold';
+  // 'qualifying' = em qualificação: tira do aguardo / reabre, sem resultado (acende sozinho quando o contato começou)
+  type Situation = 'won' | 'lost' | 'hold' | 'qualifying';
   const [situationState, setSituation] = useState<Situation | null>(lead.lead_result ?? (lead.on_hold_at ? 'hold' : null));
   useEffect(() => setSituation(lead.lead_result ?? (lead.on_hold_at ? 'hold' : null)), [lead.lead_result, lead.on_hold_at]);
   const situation = situationState;
@@ -252,7 +255,9 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                 ? `${lead.full_name}: perdeu`
                 : situation === 'hold'
                   ? `${lead.full_name} em aguardo`
-                  : 'Lead salvo',
+                  : situation === 'qualifying'
+                    ? `${lead.full_name} em qualificação`
+                    : 'Lead salvo',
           );
         },
       },
@@ -374,40 +379,8 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   // Embaixo do nome só o que acrescenta: cargo e empresa quando ela não é o próprio nome do lead
   const company = [lead.job_title, lead.company_name && lead.company_name !== lead.full_name ? lead.company_name : null].filter(Boolean).join(' · ');
   const pains = leadPains(lead);
-  // Em que pé está o lead (lista e cabeçalho da página)
-  const state = locked
-    ? lead.outcome === 'won'
-      ? { label: 'Fechou negócio', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' }
-      : { label: 'Não fechou', className: 'bg-fg/[0.08] text-text-secondary', dot: 'bg-text-muted' }
-    : lead.concluded_at && lead.lead_result
-      ? lead.lead_result === 'won'
-        ? { label: 'Ganhou', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' }
-        : { label: 'Perdeu', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' }
-    : lead.on_hold_at && !lead.concluded_at
-      ? { label: 'Em aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' }
-    : lead.call_status === 'pending'
-      ? { label: 'Pendente', className: 'border border-dashed border-fg/[0.2] text-text-muted', dot: 'bg-text-muted' }
-      : CALL_STATUS[lead.call_status];
-  const stateBadge = (
-    <span
-      className={cn(
-        'inline-flex flex-shrink-0 items-center rounded-full font-medium',
-        detail ? 'h-10 gap-2 px-4 text-sm' : 'gap-1.5 px-2.5 py-1 text-xs',
-        state.className,
-      )}
-    >
-      <span className={cn('rounded-full', detail ? 'h-2 w-2' : 'h-1.5 w-1.5', state.dot)} />
-      {state.label}
-    </span>
-  );
-
-  // Versão compacta do status: na lista (celular) e no cabeçalho da página no celular
-  const stateChip = (
-    <span className={cn('inline-flex flex-shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', state.className)}>
-      <span className={cn('h-1.5 w-1.5 rounded-full', state.dot)} />
-      {state.label}
-    </span>
-  );
+  // Em que pé está o lead (lista e cabeçalho da página): um ícone só, o mesmo do Acompanhamento
+  const stateIcon = <LeadStatusIcon status={leadStatus(lead)} />;
 
   const identity = (
     <>
@@ -435,8 +408,6 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               <span className="truncate">{company}</span>
             </span>
           )}
-          {/* Lista no celular: o status vai pra cá (à direita não cabe junto do nome) */}
-          <span className="sm:hidden">{stateChip}</span>
         </div>
       </div>
     </>
@@ -473,16 +444,35 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               {format(new Date(lead.next_contact_at), "d/MM 'às' HH:mm")}
             </span>
           )}
-          <span className="max-sm:hidden">{stateBadge}</span>
+          {stateIcon}
           <ChevronRight size={18} className="text-text-muted transition-transform group-hover:translate-x-0.5" />
         </div>
       </motion.li>
     );
   }
 
-  // Ganhou / perdeu / em aguardo: salvam na hora; o botão aceso é a situação do lead
+  // Em qualificação / ganhou / perdeu / em aguardo: salvam na hora; o botão aceso é a situação do lead
+  const started = status !== 'pending' || hasStartedContact(lead);
+  const qualifying = !concluded && !lead.on_hold_at && started;
   const situationButtons = (full = false) => (
     <div className={cn('flex divide-x divide-fg/[0.08] overflow-hidden rounded-xl border border-fg/[0.1] bg-fg/[0.03]', full && 'w-full [&>button]:flex-1')}>
+      <button
+        type="button"
+        onClick={() => {
+          if (qualifying) return;
+          setSituation('qualifying');
+          save('qualifying');
+        }}
+        disabled={concludeMutation.isPending || !started}
+        title={started ? 'Em qualificação' : 'Em qualificação: começa quando você liga ou manda mensagem'}
+        aria-pressed={qualifying}
+        className={cn(
+          'flex h-10 w-11 items-center justify-center transition-colors enabled:hover:bg-fg/[0.08] enabled:hover:text-text-primary disabled:opacity-40',
+          qualifying ? 'bg-fg/[0.12] text-text-primary' : 'text-text-secondary',
+        )}
+      >
+        <PhoneCall size={18} />
+      </button>
       <button
         type="button"
         onClick={() => {
@@ -591,7 +581,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
             {locked ? (
               <>
                 <span className="mx-1 h-6 w-px bg-fg/[0.1]" />
-                {stateBadge}
+                {stateIcon}
               </>
             ) : (
               <>

@@ -3,7 +3,7 @@ import { useStickyState } from '@/hooks/useStickyState';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Search, Trophy, XCircle, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Headset, Phone, BellRing } from 'lucide-react';
+import { Search, Undo2, Trash2, ClipboardList, CheckCircle2, Circle, Building2, CalendarDays, Headset, Phone, BellRing } from 'lucide-react';
 import {
   useAssignments,
   useCaptadores,
@@ -15,12 +15,13 @@ import { toast } from 'sonner';
 import { contactsService } from '@/services/contacts.service';
 import { useDebounce } from '@/hooks/useDebounce';
 import type { Assignment, CallStatus } from '@/services/captacao.service';
-import { CALL_STATUS, CALL_STATUS_ORDER, formatBRL, formatDay, LOST_REASON_LABEL, WHATSAPP_STATUS } from '@/lib/captacao';
+import { CALL_STATUS, CALL_STATUS_ORDER, formatBRL, formatDay, WHATSAPP_STATUS } from '@/lib/captacao';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { DataListSkeleton, listSpring } from '@/components/ui/DataList';
 import { CloseLeadModal } from './CloseLeadModal';
+import { LeadStatusIcon, leadStatus, statusTitle } from './LeadStatusIcon';
 import { WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { cn, shortName } from '@/lib/utils';
 
@@ -28,31 +29,6 @@ const GRID =
   'grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.7fr)_minmax(0,0.8fr)_minmax(0,1.3fr)_minmax(0,1.3fr)] xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.5fr)_minmax(0,0.6fr)_minmax(0,1.3fr)]';
 
 const shortDate = (d: string) => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-
-/** Em que pé o captador deixou o lead: pendente, em aguardo, ganhou/perdeu (encerrado = admin já decidiu) */
-function StatusChip({ a }: { a: Assignment }) {
-  const s = a.outcome
-    ? { label: 'Encerrado', className: 'bg-fg/[0.08] text-text-secondary', dot: 'bg-text-muted' }
-    : a.concluded_at && a.lead_result === 'won'
-      ? { label: 'Ganhou', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green', at: a.concluded_at }
-    : a.concluded_at && a.lead_result === 'lost'
-      ? { label: a.lost_reason ? `Perdeu · ${LOST_REASON_LABEL[a.lost_reason]}` : 'Perdeu', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost', at: a.concluded_at }
-    : a.concluded_at
-      ? { label: 'Concluído', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green', at: a.concluded_at }
-      : a.on_hold_at
-        ? { label: 'Em aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber', at: a.on_hold_at }
-        : { label: 'Pendente', className: 'border border-dashed border-fg/[0.2] text-text-muted', dot: 'bg-text-muted' };
-  const at = 'at' in s ? s.at : undefined;
-  return (
-    <span
-      className={cn('inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium', s.className)}
-      title={at ? `${s.label} em ${shortDate(at)}` : undefined}
-    >
-      <span className={cn('h-1.5 w-1.5 flex-shrink-0 rounded-full', s.dot)} />
-      <span className="truncate">{s.label}</span>
-    </span>
-  );
-}
 
 type OutcomeFilter = 'open' | 'won' | 'lost' | '';
 
@@ -133,24 +109,19 @@ function OutcomeCell({ a, isAdmin, onWon }: { a: Assignment; isAdmin: boolean; o
     );
   }
 
-  // Lead em aberto: Fechou / Não fechou num bloco só (remover do captador = botão direito no card)
-  const iconBtn = 'flex h-10 w-11 items-center justify-center text-text-secondary transition-colors';
+  // Lead em aberto: um ícone só, com o status que o captador definiu (remover do captador = botão direito no card).
+  // Quando o captador marcou "Ganhou", o admin clica no troféu pra registrar o valor do negócio e a comissão.
+  const s = leadStatus(a);
+  const canClose = isAdmin && s.label === 'Ganhou';
   return (
     <div className="flex justify-end">
-      <div className="flex divide-x divide-fg/[0.08] overflow-hidden rounded-xl border border-fg/[0.1] bg-fg/[0.03]">
-        <button type="button" onClick={onWon} title="Fechou negócio" className={cn(iconBtn, 'hover:bg-accent-green/10 hover:text-accent-green')}>
-          <Trophy size={19} />
+      {canClose ? (
+        <button type="button" onClick={onWon} className="rounded-xl transition-opacity hover:opacity-80">
+          <LeadStatusIcon status={s} title={`${statusTitle(s)} — clique para registrar o valor do negócio`} />
         </button>
-        <button
-          type="button"
-          onClick={() => close.mutate({ id: a.id, outcome: 'lost' })}
-          disabled={close.isPending}
-          title="Não fechou"
-          className={cn(iconBtn, 'hover:bg-status-lost/10 hover:text-status-lost')}
-        >
-          <XCircle size={19} />
-        </button>
-      </div>
+      ) : (
+        <LeadStatusIcon status={s} />
+      )}
     </div>
   );
 }
@@ -323,9 +294,8 @@ export function TrackingTab({ isAdmin, commissionRate, captadorId, onCaptadorCha
                 )}
               </div>
 
-              {/* Situação: só o status em destaque; ligação e mensagem numa linha discreta embaixo */}
+              {/* Ligação e mensagem numa linha discreta (o status do captador é o ícone à direita) */}
               <div className="flex min-w-0 flex-shrink-0 flex-col items-start gap-1.5 max-md:w-full md:w-[200px]">
-                <StatusChip a={a} />
                 <div className="flex min-w-0 max-w-full items-center gap-3 text-xs text-text-muted">
                   <span className="flex min-w-0 items-center gap-1" title="Ligação">
                     <Phone size={12} className="flex-shrink-0" />

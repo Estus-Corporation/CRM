@@ -41,6 +41,14 @@ export const LOST_REASON_LABEL: Record<LostReason, string> = {
 };
 export const LOST_REASONS = Object.keys(LOST_REASON_LABEL) as LostReason[];
 
+/**
+ * Em qualificação: o captador tem um resultado de ligação ou de mensagem marcado agora.
+ * Só o que está marcado conta (não o histórico): desmarcar tudo volta o lead para Pendente.
+ */
+export function hasStartedContact(lead: { call_status: CallStatus; whatsapp_status: WhatsappStatus | null }) {
+  return lead.call_status !== 'pending' || !!lead.whatsapp_status;
+}
+
 export function formatBRL(value: number | null | undefined) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0);
 }
