@@ -812,6 +812,13 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 - [x] **T2** (29/10/2026) Caixa de entrada: abrir marca tudo como lido (botão "Marcar todas" e clique-para-ler removidos; destaque das novas some ao fechar). Clicar leva ao recurso (`lib/notificationLink.ts`): negócio → `/deals/:id` (histórico), convite aceito/recusado → `/settings?membro=<userId>` (TeamPanel rola e destaca), `leads.followup` → `/meus-leads/lead/:id`, `leads.on_hold|reported_won` → `/captacao/lead/:contactId`, `leads.won` → comissões, `activity.assigned` → negócio/contato da atividade. Backend: convite aceito/recusado grava `resource_type='user'`; `activity.assigned` aponta pro negócio/contato.
 - [x] **T3** (29/10/2026) Enviar contato/lead para o pipeline: botão "Enviar para o pipeline" em `ContactDetailPage` abre `SendToPipelineModal` (título padrão `Empresa — Nome`, pipeline, etapa, responsável, valor, previsão) e cria o negócio via `POST /deals` com `contactId`; `GET /deals?contact=<id>` (o card de negócios do contato foi removido depois). Sem migration.
 
+> **Pendências / ideias abertas depois do M28 (29/10/2026):**
+> - Notificação de negócio movido leva à página do negócio (histórico); se preferir o kanban da etapa, gravar `pipeline_id` na notificação.
+> - Nada impede enviar o mesmo contato ao pipeline mais de uma vez (o card de negócios do contato foi removido a pedido); considerar aviso de duplicidade no `SendToPipelineModal`.
+> - `SendToPipelineModal` só está na página do contato; pode entrar na lista de Contatos e na página do lead do admin (`ManagerLeadPage`).
+> - Avisos em tempo real assumem 1 instância do backend (Railway); com mais de uma, trocar o `hub.ts` por Postgres `LISTEN/NOTIFY` ou Redis.
+> - Seguem valendo as pendências anteriores: corte do LeadHunter (M25 T15), testes de integração do M25 não executados, Z-API, webhook Stripe e Google OAuth em produção.
+
 ## M27 — Dados do LeadHunter no contato
 
 - [x] **T1** (28/10/2026) Sem migration nova:
