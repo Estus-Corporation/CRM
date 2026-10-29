@@ -782,19 +782,23 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 
 - [x] **T1** Base: `vitest` no backend, env do LeadHunter, migração `20240037` (flag + tabelas `lh_*`), `requireLeadHunter` — commit `5d45a03` (27/10/2026). Andamento e rulings em `docs/superpowers/progress/2026-10-27-m25-andamento.md`; continuar com `docs/superpowers/prompts/2026-10-27-continuar-m25.md`
 - [x] **T2** Domínio (port de `radar/domain.py`): validação, pontuação, chaves de cache, identidade — commit `fe78a77` (27/10/2026)
-- [ ] **T3** CSV: importação e exportação (22 colunas, proteção contra fórmula)
-- [ ] **T4** Provedores DataForSEO e Jev (reserva antes da chamada, sem repetição)
-- [ ] **T5** Store em Postgres (reserva com trava global no limite diário)
-- [ ] **T6** Engine e worker (`FOR UPDATE SKIP LOCKED`, `recover()` no boot, flag desligada não executa)
-- [ ] **T7** API `/api/v1/leadhunter` (só admin) + "Criar contatos"
-- [ ] **T8** Frontend: serviço, hooks, menu "LeadHunter", rotas e guarda
-- [ ] **T9** Tela de campanhas
-- [ ] **T10** Ficha da empresa
-- [ ] **T11** Locais pesquisados, Empresas já encontradas e Integrações
-- [ ] **T12** Pedidos de leads no backend: admin executa/recusa, entrega automática, migração `20240038`, remoção de `/public/lead-requests`
-- [ ] **T13** Pedidos de leads no frontend (campos do LeadHunter; `/solicitacoes` liberado ao captador no `AppShell`)
-- [ ] **T14** Importação do histórico do Radar Local (export Python só leitura + import TS só inserção)
+- [x] **T3** CSV: importação e exportação (22 colunas, proteção contra fórmula)
+- [x] **T4** Provedores DataForSEO e Jev (reserva antes da chamada, sem repetição)
+- [x] **T5** Store em Postgres (reserva com trava global no limite diário)
+- [x] **T6** Engine e worker (`FOR UPDATE SKIP LOCKED`, `recover()` no boot, flag desligada não executa)
+- [x] **T7** API `/api/v1/leadhunter` (só admin) + "Criar contatos"
+- [x] **T8** Frontend: serviço, hooks, menu "LeadHunter", rotas e guarda
+- [x] **T9** Tela de campanhas
+- [x] **T10** Ficha da empresa
+- [x] **T11** Locais pesquisados, Empresas já encontradas e Integrações
+- [x] **T12** Pedidos de leads no backend: admin executa/recusa, entrega automática, migração `20240038`, remoção de `/public/lead-requests`
+- [x] **T13** Pedidos de leads no frontend (campos do LeadHunter; `/solicitacoes` liberado ao captador no `AppShell`)
+- [x] **T14** Importação do histórico do Radar Local (export Python só leitura + import TS só inserção)
 - [ ] **T15** Remoção de `/public/leads/bulk` e corte em produção (com autorização do usuário em cada passo)
+
+> **Estado em 29/10/2026:** T1–T14 publicadas na `main` (merge `2061110`) e no ar. Em produção: migrations `20240038` e `20240042` aplicadas, `DATAFORSEO_LOGIN/PASSWORD` no Railway (`TYPESAFE_API_KEY` ainda não: classificação só por regras locais) e `tenants.leadhunter_enabled = true` **só** para `estus-corporation` (SQL no painel do Railway). O Radar Local Python foi fechado: as rotas `/public/lead-requests` não existem mais.
+> **Falta do T15:** importar o histórico (`packages/backend/scripts/import-leadhunter.ts --tenant <uuid> --file <json> --confirm`, com `ALLOW_REMOTE_DB=1` em produção; exportar antes com `LeadHunter/scripts/export_for_crm.py`) e remover `POST /public/leads/bulk`.
+> **Pendências conhecidas (revisão de 29/10):** testes de integração do M25 (T5–T7, T12, T14, `contactView`) escritos mas **nunca executados** (sem `TEST_DATABASE_URL`); T8–T13 não vistos no navegador; sem teste de entrega concorrente nem de entrega com campanha de outro tenant; `recover()` supõe uma instância no Railway (parar a antiga antes de subir deploys); um pedido `running` não pode ser cancelado pela UI.
 
 > **Mudança de regra (28/10/2026, M26 T2):** `/solicitacoes` e `/api/v1/lead-requests` passaram a ser **só admin** (pedido do usuário). T12/T13 do M25 devem seguir essa regra — os outros papéis não pedem mais leads — a menos que o usuário diga o contrário.
 
