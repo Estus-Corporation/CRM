@@ -240,7 +240,19 @@ describe('instagram', () => {
     expect(found.instagramSource).toBe('Busca pública indexada; identidade ainda não confirmada.');
     expect(reserved).toEqual([{ provider: 'dataforseo', operation: 'organic' }]);
     const body = transport.mock.calls[0][1] as any[];
-    expect(body[0]).toMatchObject({ keyword: 'site:instagram.com "Loja A" "São Carlos"', depth: 10, location_name: 'São Carlos' });
+    expect(body[0]).toMatchObject({ keyword: 'site:instagram.com "Loja A" São Carlos', depth: 10, location_name: 'São Carlos' });
+  });
+
+  it('com localidade no formato do DataForSEO a consulta usa só o nome da cidade, sem aspas', async () => {
+    const { rec } = recorder();
+    const none = { status_code: 20000, tasks: [{ status_code: 40102, status_message: 'No Search Results.' }] };
+    const transport = vi.fn<Transport>(async () => none);
+    await providersWith(transport).instagram(rec, company(), 'Sao Carlos,State of Sao Paulo,Brazil', null);
+    const body = transport.mock.calls[0][1] as any[];
+    expect(body[0]).toMatchObject({
+      keyword: 'site:instagram.com "Loja A" Sao Carlos',
+      location_name: 'Sao Carlos,State of Sao Paulo,Brazil',
+    });
   });
 
   it('sem resultados (40102) é não encontrado, não erro', async () => {

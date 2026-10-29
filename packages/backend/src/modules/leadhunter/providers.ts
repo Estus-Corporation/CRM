@@ -248,8 +248,11 @@ export function createProviders(settings: Settings, transport: Transport = httpT
     },
 
     async instagram(recorder, lead, city, coordinate) {
+      // `city` pode vir no formato de localidade do DataForSEO ("Sao Carlos,State of Sao Paulo,Brazil"): entre
+      // aspas ninguém casa com isso, então a consulta usa só o nome da cidade, sem aspas.
+      const shortCity = city.split(',')[0].trim();
       const task = {
-        keyword: `site:instagram.com "${lead.name}" "${city}"`,
+        keyword: `site:instagram.com "${lead.name}" ${shortCity}`.trim(),
         language_code: 'pt',
         depth: 10,
         ...location(city, coordinate),
