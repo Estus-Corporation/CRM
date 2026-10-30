@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Building2, ClipboardPen, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, CheckCircle2, ChevronDown, ChevronRight, Globe, Hourglass, MessageSquareOff, NotebookPen, X, PhoneOff, History, BellRing, Save, Send, PhoneIncoming, Instagram, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
+  Kanban,
 } from 'lucide-react';
 import { useRecordWhatsapp, useUpdateMyLead } from '@/hooks/useCaptacao';
 import type { CallStatus, LeadAttempt, LostReason, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
@@ -522,6 +523,30 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
       </button>
     </div>  );
 
+  // Enviar para o pipeline do captador (entra em "Qualificando"; clicar de novo tira)
+  const inPipeline = !!lead.pipeline_stage;
+  const pipelineButton = (
+    <button
+      type="button"
+      disabled={update.isPending}
+      onClick={() =>
+        update.mutate(
+          { id: lead.id, pipelineStage: inPipeline ? null : 'qualifying' },
+          { onSuccess: () => toast.success(inPipeline ? 'Lead fora do pipeline' : 'Lead enviado para o pipeline') },
+        )
+      }
+      className={cn(
+        'flex h-10 items-center gap-2 rounded-xl border px-3.5 text-sm font-medium transition-colors max-sm:w-full max-sm:justify-center',
+        inPipeline
+          ? 'border-accent-green/30 bg-accent-green/10 text-accent-green hover:bg-accent-green/15'
+          : 'border-fg/[0.12] bg-fg/[0.04] text-text-primary hover:bg-fg/[0.09]',
+      )}
+    >
+      <Kanban size={16} />
+      {inPipeline ? 'No pipeline · remover' : 'Enviar para o pipeline'}
+    </button>
+  );
+
   // Atalhos de um clique (cabeçalho da página)
   const quickLinks = (
     <>
@@ -590,6 +615,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               </>
             )}
           </div>
+          {pipelineButton}
         </div>
       </div>
 

@@ -77,7 +77,7 @@ const MY_LEAD_COLUMNS = [
   'a.meeting_at', 'a.meeting_mode', 'a.meeting_location',
   'a.meeting_duration', 'a.meeting_attendee_ids', 'a.meeting_guests',
   'a.whatsapp_at', 'a.whatsapp_count', 'a.whatsapp_status',
-  'a.next_contact_at', 'a.lost_reason',
+  'a.next_contact_at', 'a.lost_reason', 'a.pipeline_stage', 'a.pipeline_at',
   // Histórico: quantas tentativas e quando foi a última
   db.raw('(SELECT count(*) FROM lead_contact_attempts t WHERE t.assignment_id = a.id)::int AS attempts_count'),
   db.raw('(SELECT max(t.created_at) FROM lead_contact_attempts t WHERE t.assignment_id = a.id) AS last_attempt_at'),
@@ -307,6 +307,11 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
   }
   // "Em aguardo" não conclui: só marca que o captador espera o lead
   if (input.onHold !== undefined && input.concluded !== true) updates.on_hold_at = input.onHold ? new Date() : null;
+  // Pipeline do captador: fase escolhida por ele (null = tira do pipeline)
+  if (input.pipelineStage !== undefined) {
+    updates.pipeline_stage = input.pipelineStage;
+    updates.pipeline_at = input.pipelineStage ? new Date() : null;
+  }
 
   await db('lead_assignments').where({ id, tenant_id: tenantId, captador_id: userId }).update(updates);
   // Pessoas de contato ficam na empresa (o admin também vê); só a do lead deste captador

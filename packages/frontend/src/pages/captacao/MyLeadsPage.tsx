@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStickyState } from '@/hooks/useStickyState';
 import { AnimatePresence } from 'framer-motion';
-import { PhoneCall, CalendarCheck, Wallet, CheckCircle2, Plus } from 'lucide-react';
+import { PhoneCall, CalendarCheck, Wallet, CheckCircle2, Plus, Search } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { AddLeadModal } from '@/components/captacao/AddLeadModal';
 import { Button } from '@/components/ui/Button';
@@ -56,12 +56,17 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
   const [scope, setScope] = useStickyState<Scope>('myLeads.scope', 'today');
   const [status, setStatus] = useStickyState<CallStatus | ''>('myLeads.status', '');
   const [addOpen, setAddOpen] = useState(false);
+  const [search, setSearch] = useStickyState<string>('myLeads.search', '');
   // Reuniões: todos os leads com status "meeting" (o histórico completo é o filtro "Todos" de Meus leads)
   const effectiveScope = view === 'leads' ? scope : 'all';
   const effectiveStatus = view === 'meetings' ? 'meeting' : status || undefined;
-  const { data: leads, isLoading } = useMyLeads(effectiveScope, effectiveStatus);
+  const { data: allLeads, isLoading } = useMyLeads(effectiveScope, effectiveStatus);
+  const term = view === 'leads' ? search.trim().toLowerCase() : '';
+  const leads = term
+    ? allLeads?.filter((l) => `${l.full_name} ${l.company_name ?? ''}`.toLowerCase().includes(term))
+    : allLeads;
   const { data: summary } = useMySummary();
-  const filtered = view === 'leads' ? scope !== 'today' || !!status : !!status;
+  const filtered = view === 'leads' ? scope !== 'today' || !!status || !!term : !!status;
 
   return (
     // mobile-sections: no celular 3 blocos separados — cabeçalho, resumo e a lista (ver globals.css)
@@ -123,13 +128,26 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
           </div>
         )}
 
-        {/* Dois botões: período (só em Meus leads) e status da ligação */}
+        {/* Esquerda: busca; direita: período (só em Meus leads) e status da ligação */}
         {view !== 'meetings' && (
         <div className="flex flex-wrap items-center gap-2">
           {view === 'leads' && (
-            <SelectDropdown title="Período" options={SCOPE_OPTIONS} value={scope} onChange={setScope} className="w-40 max-sm:flex-1" />
+            <div className="relative min-w-0 max-sm:order-last max-sm:w-full sm:w-64">
+              <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar lead…"
+                className="h-11 w-full rounded-xl border border-fg/[0.12] bg-field pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-green/50 focus:outline-none"
+              />
+            </div>
           )}
-          <SelectDropdown title="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} className="w-52 max-sm:flex-1" />
+          <div className="flex items-center gap-2 max-sm:w-full sm:ml-auto">
+            {view === 'leads' && (
+              <SelectDropdown title="Período" options={SCOPE_OPTIONS} value={scope} onChange={setScope} className="w-40 max-sm:flex-1" />
+            )}
+            <SelectDropdown title="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} className="w-52 max-sm:flex-1" />
+          </div>
         </div>
         )}
 

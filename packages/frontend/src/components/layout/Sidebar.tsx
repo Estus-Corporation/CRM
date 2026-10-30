@@ -89,6 +89,7 @@ const captadorSections: NavSection[] = [
     items: [
       { to: '/meus-leads', icon: PhoneCall, label: 'Meus leads', end: true },
       { to: '/meus-leads/reunioes', icon: CalendarCheck, label: 'Reuniões' },
+      { to: '/meu-pipeline', icon: Kanban, label: 'Pipeline' },
       // O material de venda que ele consulta antes de ligar
       company,
     ],

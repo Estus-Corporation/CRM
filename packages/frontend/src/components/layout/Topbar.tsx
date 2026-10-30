@@ -20,6 +20,7 @@ const iconButton =
 const PAGE_TITLES: [string, string][] = [
   ['/meus-leads/reunioes', 'Reuniões'],
   ['/meus-leads', 'Meus leads'],
+  ['/meu-pipeline', 'Pipeline'],
   ['/meu-painel', 'Painel'],
   ['/minhas-comissoes', 'Minhas comissões'],
   ['/dashboard', 'Dashboard'],

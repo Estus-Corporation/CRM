@@ -17,6 +17,7 @@ import { ReportsPage } from '@/pages/reports/ReportsPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { CaptacaoPage } from '@/pages/captacao/CaptacaoPage';
 import { MyLeadsPage } from '@/pages/captacao/MyLeadsPage';
+import { MyPipelinePage } from '@/pages/captacao/MyPipelinePage';
 import { MyLeadDetailPage } from '@/pages/captacao/MyLeadDetailPage';
 import { ManagerLeadPage } from '@/pages/captacao/ManagerLeadPage';
 import { MyCommissionsPage } from '@/pages/captacao/MyCommissionsPage';
@@ -81,6 +82,7 @@ export const router = createBrowserRouter([
       { path: '/meu-painel', element: <MyDashboardPage /> },
       { path: '/meus-leads', element: <MyLeadsPage key="leads" /> },
       { path: '/meus-leads/reunioes', element: <MyLeadsPage key="meetings" view="meetings" /> },
+      { path: '/meu-pipeline', element: <MyPipelinePage /> },
       { path: '/meus-leads/lead/:id', element: <MyLeadDetailPage /> },
       { path: '/minhas-comissoes', element: <MyCommissionsPage /> },
       // Solicitações viraram a opção "Automático" do Adicionar lead (Captação › Distribuir leads)

@@ -75,7 +75,12 @@ export interface MyLead {
   whatsapp_count: number;
   whatsapp_status: WhatsappStatus | null;
   lead_people: LeadPerson[];
+  /** Pipeline do captador (null = fora do pipeline) */
+  pipeline_stage: PipelineStage | null;
+  pipeline_at: string | null;
 }
+
+export type PipelineStage = 'qualifying' | 'treating' | 'meeting';
 
 export interface MeetingGuest {
   name: string;
@@ -91,6 +96,7 @@ export interface UpdateMyLeadInput {
   callNotes?: string | null;
   concluded?: boolean;
   onHold?: boolean;
+  pipelineStage?: PipelineStage | null;
   leadResult?: LeadResult | null;
   lostReason?: LostReason | null;
   nextContactAt?: string | null;

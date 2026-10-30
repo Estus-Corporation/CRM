@@ -16,7 +16,7 @@ import { useRealtime } from '@/hooks/useRealtime';
 import { applyTheme, useTheme } from '@/store/themeStore';
 import { useAuthStore } from '@/store/authStore';
 
-const CAPTADOR_PATHS = ['/meu-painel', '/conta', '/empresa', '/meus-leads', '/meus-leads/reunioes','/minhas-comissoes'];
+const CAPTADOR_PATHS = ['/meu-painel', '/conta', '/empresa', '/meus-leads', '/meus-leads/reunioes', '/meu-pipeline', '/minhas-comissoes'];
 
 /** Para onde cada papel pode ir; fora disso redireciona (o backend também bloqueia) */
 function roleRedirect(role: string | undefined, pathname: string, leadhunterEnabled: boolean) {

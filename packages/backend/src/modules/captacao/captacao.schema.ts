@@ -12,6 +12,8 @@ export const updateMyLeadSchema = z.object({
   concluded: z.boolean().optional(),
   // true = Em aguardo (salva sem concluir); false = tira do aguardo
   onHold: z.boolean().optional(),
+  // Pipeline do captador: fase (null = fora do pipeline)
+  pipelineStage: z.enum(['qualifying', 'treating', 'meeting']).nullable().optional(),
   // Situação informada pelo captador ao salvar: ganhou / perdeu (null = sem situação)
   leadResult: z.enum(['won', 'lost']).nullable().optional(),
   // Motivo da perda (com leadResult = lost)
