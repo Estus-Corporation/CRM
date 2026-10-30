@@ -3,6 +3,8 @@ import { Info } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { ExpensesTab } from './ExpensesTab';
+import { PartnersTab } from './PartnersTab';
+import { TaxesTab } from './TaxesTab';
 
 type Tab = 'expenses' | 'taxes' | 'partners';
 
@@ -27,8 +29,8 @@ export function FinanceSettingsModal({ open, onClose }: { open: boolean; onClose
       </div>
       <div className="max-h-[60vh] overflow-y-auto pr-1">
         {tab === 'expenses' && <ExpensesTab />}
-        {tab === 'taxes' && <p className="py-6 text-center text-[13.5px] text-text-muted">Impostos em breve.</p>}
-        {tab === 'partners' && <p className="py-6 text-center text-[13.5px] text-text-muted">Sócios em breve.</p>}
+        {tab === 'taxes' && <TaxesTab />}
+        {tab === 'partners' && <PartnersTab />}
       </div>
     </Modal>
   );
