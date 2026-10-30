@@ -1,6 +1,6 @@
 # Dashboard financeiro (lucro líquido, contas a pagar, divisão entre sócios) — Design
 
-Data: 2026-10-29 · Status: aguardando revisão · Milestone sugerido: M30
+Data: 2026-10-29 · Status: implementado (M30 T1, 29/10/2026) · Milestone: M30
 
 ## Objetivo
 

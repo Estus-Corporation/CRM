@@ -807,6 +807,7 @@ Backend de teste: Postgres 18 descartável (`initdb` em pasta temporária, porta
 Spec: `docs/superpowers/specs/2026-10-29-dashboard-financeiro-design.md` · Plano: `docs/superpowers/plans/2026-10-29-dashboard-financeiro.md`
 
 - [x] **T1** (29/10/2026) Botão **Financeiro** no Dashboard (só admin; filtros de período um pouco mais à esquerda) que troca o conteúdo por: Receita, Impostos, Gastos + pró-labore e **Lucro líquido** do mês, "Para onde vai a receita", **Contas a pagar** (marcar paga/pendente/atrasada) e **Divisão do lucro** entre sócios. Configuração em modal (Gastos mensais/avulsos, Impostos em % da receita, Sócios com % e pró-labore). Backend `modules/finance` (rotas só admin), cálculo puro em `finance.calc.ts`, migration **20240048**. Limitação: alterar a configuração recalcula meses passados.
+- [ ] **Pendente (M30 T1)**: publicar no Railway ("Deploy Latest Commit"; a migration `20240048` roda no boot) e conferir a tela no navegador (desktop e celular) — a verificação feita foi só pela API local.
 - [ ] **Evolução**: fechamento de mês (snapshot), comissões dos captadores como custo automático, tendência de 6 meses, lembretes de vencimento, exportação CSV, outros tipos de imposto (ver seção final do spec).
 
 ## M28 — Avisos em tempo real

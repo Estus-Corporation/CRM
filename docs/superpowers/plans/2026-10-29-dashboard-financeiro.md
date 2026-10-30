@@ -10,6 +10,8 @@
 
 **Spec:** [docs/superpowers/specs/2026-10-29-dashboard-financeiro-design.md](../specs/2026-10-29-dashboard-financeiro-design.md)
 
+**Status: executado em 29/10/2026 (Tasks 1–9, commits `feat(M30-T1)` na `main`).** Desvios do plano: o botão "Configurar" ficou no cabeçalho do Dashboard (ao lado do navegador de mês) e não dentro de `FinanceView`; impostos e sócios são listados em ordem alfabética (sem coluna de posição); `DELETE /expenses/:id` responde 204; `KpiCard` ganhou `valueClassName`. Pendências: publicar no Railway ("Deploy Latest Commit"; a migration `20240048` roda no boot) e conferir visualmente no navegador (desktop e celular).
+
 ## Global Constraints
 
 - **Só `admin`**: toda rota `/api/v1/finance/*` usa `requireAuth` → `requireRole('admin')` (403 para os demais); o botão só renderiza para `user.role === 'admin'`.
@@ -55,7 +57,7 @@
   - `calcMonth(input: CalcInput): MonthSummary`
   - `summaryToReais(s: MonthSummary): MonthSummaryDto` — mesmo formato com todo campo em centavos dividido por 100 (`MonthSummaryDto` exportado, estruturalmente igual a `MonthSummary` com valores em reais)
 
-- [ ] **Step 1: Escrever os testes (falhando)** em `finance.calc.test.ts` (sem banco), com estes casos e valores:
+- [x] **Step 1: Escrever os testes (falhando)** em `finance.calc.test.ts` (sem banco), com estes casos e valores:
   - `expenseOccurrence`: recorrente `dueDay 31` em `'2027-02'` → `'2027-02-28'`; recorrente `dueDay 5, startsOn '2026-10-15'` → `null` em `'2026-09'` e `'2026-10-05'` em `'2026-10'`; recorrente com `endsOn '2026-09-30'` → ocorre em `'2026-09'`, `null` em `'2026-10'`; avulsa `dueDate '2026-10-20'` → `'2026-10-20'` em `'2026-10'`, `null` em `'2026-11'`.
   - `calcMonth` cenário base: receita `1_000_000`; impostos 6% e 2%; um gasto recorrente de `300_000`; sócios A (60%, pró-labore `100_000`) e B (40%, `50_000`) → `taxesTotal 80_000`, `expensesTotal 300_000`, `proLaboreTotal 150_000`, `netProfit 470_000`, distribuição A `282_000` e B `188_000`.
   - Arredondamento: `netProfit 100` com sócios 33.33 / 33.33 / 33.34 → partes `[33, 33, 34]` (sobra para o maior %). Imposto: receita `333` × 6% → `20`.
@@ -64,10 +66,10 @@
   - `warnings`: sócios somando 90% → `partnersShareInvalid: true` e nenhuma distribuição (`profitShare 0`); nada cadastrado (sem gastos, impostos e sócios) → `noConfig: true`; receita `0` sem configuração → sem `NaN` em nenhum campo.
   - `lines`: ordem `revenue` (`key 'revenue'`), um `tax` por imposto (`tax:<id>`), um `expense` por categoria (`expense:<category>`), `payroll` (`key 'pro_labore'`, só se `proLaboreTotal > 0`).
   - `summaryToReais`: `470_000` → `4700`.
-- [ ] **Step 2:** Rodar `npx vitest run src/modules/finance/finance.calc.test.ts` (em `packages/backend`) → FALHA (módulo inexistente).
-- [ ] **Step 3: Implementar `finance.calc.ts`** com as assinaturas acima. Algoritmo não óbvio: divisão do lucro em pontos-base (`Math.round(sharePercent*100)`); cada parte `floor(netProfit × bp / 10000)`; a sobra (`netProfit − Σ partes`) vai para o sócio de maior %. Vencimento recorrente = `min(dueDay, último dia do mês)`. Soma dos % válida quando `Math.round(Σ sharePercent × 100) === 10000`; sem sócios, `partnersShareInvalid` é `false`. `netProfit ≤ 0` ou % inválido → todas as partes `0`.
-- [ ] **Step 4:** Rodar o mesmo comando → PASSA.
-- [ ] **Step 5: Commit** — `git add packages/backend/src/modules/finance && git commit -m "feat(M30-T1): núcleo de cálculo do financeiro (puro, testado)"` (+ trailer) e `git push origin main`.
+- [x] **Step 2:** Rodar `npx vitest run src/modules/finance/finance.calc.test.ts` (em `packages/backend`) → FALHA (módulo inexistente).
+- [x] **Step 3: Implementar `finance.calc.ts`** com as assinaturas acima. Algoritmo não óbvio: divisão do lucro em pontos-base (`Math.round(sharePercent*100)`); cada parte `floor(netProfit × bp / 10000)`; a sobra (`netProfit − Σ partes`) vai para o sócio de maior %. Vencimento recorrente = `min(dueDay, último dia do mês)`. Soma dos % válida quando `Math.round(Σ sharePercent × 100) === 10000`; sem sócios, `partnersShareInvalid` é `false`. `netProfit ≤ 0` ou % inválido → todas as partes `0`.
+- [x] **Step 4:** Rodar o mesmo comando → PASSA.
+- [x] **Step 5: Commit** — `git add packages/backend/src/modules/finance && git commit -m "feat(M30-T1): núcleo de cálculo do financeiro (puro, testado)"` (+ trailer) e `git push origin main`.
 
 ---
 
@@ -90,18 +92,18 @@
   - `listTaxes(tenantId)`, `replaceTaxes(tenantId, taxes)`; `listPartners(tenantId)`, `replacePartners(tenantId, partners)` (transação; soma dos % ≠ 100 com lista não vazia → 422 `code: 'invalid_shares'`)
 - Rotas: `GET/POST /expenses`, `PATCH/DELETE /expenses/:id`, `PUT /expenses/:id/payments/:month` (body `{ paid: boolean }`), `GET/PUT /taxes` (body `{ taxes: [{ name, rate, isActive? }] }`), `GET/PUT /partners` (body `{ partners: [{ name, sharePercent, proLabore }] }`).
 
-- [ ] **Step 1: Escrever `finance.int.test.ts`** seguindo o padrão de `lead-requests.int.test.ts` (Express em porta efêmera com as rotas + `errorHandler`, JWT assinado com `jose`, `describe.skipIf(!hasTestDb)`, `migrateTestDb()` em `beforeAll`, tenant novo por teste com `makeTenant()`/`makeUser`). Casos:
+- [x] **Step 1: Escrever `finance.int.test.ts`** seguindo o padrão de `lead-requests.int.test.ts` (Express em porta efêmera com as rotas + `errorHandler`, JWT assinado com `jose`, `describe.skipIf(!hasTestDb)`, `migrateTestDb()` em `beforeAll`, tenant novo por teste com `makeTenant()`/`makeUser`). Casos:
   - manager, seller e captador recebem **403** em `GET /expenses`, `GET /taxes`, `GET /partners` (e sem token, 401).
   - Admin cria despesa recorrente e avulsa, lista, edita o `amount`, apaga; payload inválido (ex.: recorrente sem `dueDay`) → 422.
   - **Isolamento:** admin do tenant B recebe **404** ao `PATCH`, `DELETE` e `PUT …/payments/2026-10` de despesa do tenant A; `GET /expenses` de B não lista a de A.
   - **Idempotência:** `PUT payments` com `paid: true` duas vezes deixa **1** linha em `finance_payments`; `paid: false` sem pagamento existente responde 200 `{ data: { paid: false } }`; `month` `'2026-13'` → 422.
   - `PUT /partners` com 60+30 → 422 `code: 'invalid_shares'`; 60+40 → 200; `PUT` com lista vazia → 200; `PUT /taxes` substitui a lista (a antiga some).
-- [ ] **Step 2:** Rodar `npx vitest run src/modules/finance/finance.int.test.ts` → FALHA (ou "pulado" se não houver `TEST_DATABASE_URL`; nesse caso seguir e registrar que não pôde ser executado).
-- [ ] **Step 3: Migration** `20240048_create_finance_tables` com as quatro tabelas exatamente como na seção "Modelo de dados" do spec (`finance_expenses` com os `CHECK` por `kind`, `finance_payments` com `UNIQUE (expense_id, month)`, `finance_taxes.kind` default `'percent_revenue'`, `finance_partners`); `down` derruba na ordem inversa. `tenant_id` com FK e `ON DELETE CASCADE`.
-- [ ] **Step 4: Schemas Zod** (`finance.schemas.ts`): `createExpenseSchema` (união discriminada por `kind`: recorrente exige `dueDay` 1–31 e `startsOn`; avulsa exige `dueDate`; `amount >= 0`), `updateExpenseSchema` (parcial, **sem** `kind`), `setPaymentSchema`, `monthParamSchema` (regex `^\d{4}-(0[1-9]|1[0-2])$`), `replaceTaxesSchema`, `replacePartnersSchema`.
-- [ ] **Step 5: Serviço + controller + rotas** com as assinaturas acima; `router.use(requireAuth, requireRole('admin'))` no topo de `finance.routes.ts`; montar em `server.ts`. Conversão reais↔`numeric` na borda do serviço; datas lidas com `to_char`.
-- [ ] **Step 6:** `npx tsc --noEmit -p packages/backend` (da raiz) sem erros; rodar o teste de integração se houver `TEST_DATABASE_URL` → PASSA.
-- [ ] **Step 7: Commit** — `git add` da migration, do módulo, do `server.ts` e do teste; `git commit -m "feat(M30-T1): tabelas e API de gastos, impostos e sócios (admin)"`; `git push origin main`.
+- [x] **Step 2:** Rodar `npx vitest run src/modules/finance/finance.int.test.ts` → FALHA (ou "pulado" se não houver `TEST_DATABASE_URL`; nesse caso seguir e registrar que não pôde ser executado).
+- [x] **Step 3: Migration** `20240048_create_finance_tables` com as quatro tabelas exatamente como na seção "Modelo de dados" do spec (`finance_expenses` com os `CHECK` por `kind`, `finance_payments` com `UNIQUE (expense_id, month)`, `finance_taxes.kind` default `'percent_revenue'`, `finance_partners`); `down` derruba na ordem inversa. `tenant_id` com FK e `ON DELETE CASCADE`.
+- [x] **Step 4: Schemas Zod** (`finance.schemas.ts`): `createExpenseSchema` (união discriminada por `kind`: recorrente exige `dueDay` 1–31 e `startsOn`; avulsa exige `dueDate`; `amount >= 0`), `updateExpenseSchema` (parcial, **sem** `kind`), `setPaymentSchema`, `monthParamSchema` (regex `^\d{4}-(0[1-9]|1[0-2])$`), `replaceTaxesSchema`, `replacePartnersSchema`.
+- [x] **Step 5: Serviço + controller + rotas** com as assinaturas acima; `router.use(requireAuth, requireRole('admin'))` no topo de `finance.routes.ts`; montar em `server.ts`. Conversão reais↔`numeric` na borda do serviço; datas lidas com `to_char`.
+- [x] **Step 6:** `npx tsc --noEmit -p packages/backend` (da raiz) sem erros; rodar o teste de integração se houver `TEST_DATABASE_URL` → PASSA.
+- [x] **Step 7: Commit** — `git add` da migration, do módulo, do `server.ts` e do teste; `git commit -m "feat(M30-T1): tabelas e API de gastos, impostos e sócios (admin)"`; `git push origin main`.
 
 ---
 
@@ -115,11 +117,11 @@
 - Consumes (Task 1): `calcMonth`, `summaryToReais`, `MonthSummaryDto`, `CalcInput`. (Task 2): leituras de despesas/impostos/sócios.
 - Produces: `getSummary(tenantId: string, month: string): Promise<MonthSummaryDto>`; rota `GET /api/v1/finance/summary?month=YYYY-MM` → `{ data: MonthSummaryDto }` (sem `month` = mês atual em `America/Sao_Paulo`).
 
-- [ ] **Step 1: Escrever os testes de integração:** tenant com 2 negócios `won` fechados em `2026-10` (R$ 6.000 e R$ 4.000), 1 `won` em `2026-09`, 1 `open`, e um `won` de **outro tenant** em `2026-10`; imposto 10%; gasto recorrente R$ 1.000; sócio único 100% com pró-labore R$ 500 → `GET /summary?month=2026-10` devolve `revenue 10000`, `taxesTotal 1000`, `expensesTotal 1000`, `proLaboreTotal 500`, `netProfit 7500`, distribuição `[7500]`; marcar o gasto pago zera `pendingTotal` **sem** alterar `netProfit`; `month=2026-9` → 422; manager → 403.
-- [ ] **Step 2:** Rodar o teste → FALHA.
-- [ ] **Step 3: Implementar `getSummary`:** receita = `SUM(value)` de `deals` do tenant com `status='won'` e `date_trunc('month', closed_at AT TIME ZONE 'America/Sao_Paulo')` igual ao mês; pagamentos do mês em `finance_payments` → `paidExpenseIds`; `today` em `America/Sao_Paulo`; só impostos `is_active`; monta o `CalcInput` em centavos, chama `calcMonth` e `summaryToReais`.
-- [ ] **Step 4:** `npx tsc --noEmit -p packages/backend` e `npx vitest run src/modules/finance` (calc + integração se houver banco) → PASSA.
-- [ ] **Step 5: Commit** — `feat(M30-T1): resumo mensal do financeiro (GET /finance/summary)`; `git push origin main`.
+- [x] **Step 1: Escrever os testes de integração:** tenant com 2 negócios `won` fechados em `2026-10` (R$ 6.000 e R$ 4.000), 1 `won` em `2026-09`, 1 `open`, e um `won` de **outro tenant** em `2026-10`; imposto 10%; gasto recorrente R$ 1.000; sócio único 100% com pró-labore R$ 500 → `GET /summary?month=2026-10` devolve `revenue 10000`, `taxesTotal 1000`, `expensesTotal 1000`, `proLaboreTotal 500`, `netProfit 7500`, distribuição `[7500]`; marcar o gasto pago zera `pendingTotal` **sem** alterar `netProfit`; `month=2026-9` → 422; manager → 403.
+- [x] **Step 2:** Rodar o teste → FALHA.
+- [x] **Step 3: Implementar `getSummary`:** receita = `SUM(value)` de `deals` do tenant com `status='won'` e `date_trunc('month', closed_at AT TIME ZONE 'America/Sao_Paulo')` igual ao mês; pagamentos do mês em `finance_payments` → `paidExpenseIds`; `today` em `America/Sao_Paulo`; só impostos `is_active`; monta o `CalcInput` em centavos, chama `calcMonth` e `summaryToReais`.
+- [x] **Step 4:** `npx tsc --noEmit -p packages/backend` e `npx vitest run src/modules/finance` (calc + integração se houver banco) → PASSA.
+- [x] **Step 5: Commit** — `feat(M30-T1): resumo mensal do financeiro (GET /finance/summary)`; `git push origin main`.
 
 ---
 
@@ -135,10 +137,10 @@
   - `finance.service.ts`: tipos `ExpenseDto`, `TaxDto`, `PartnerDto`, `MonthSummaryDto` (espelham o backend; `MonthSummaryDto.payables[].status`, `lines[].kind`, `warnings`) e `financeService` com `getSummary(month)`, `listExpenses()`, `createExpense(input)`, `updateExpense(id, patch)`, `deleteExpense(id)`, `setPayment(id, month, paid)`, `getTaxes()`, `saveTaxes(taxes)`, `getPartners()`, `savePartners(partners)`.
   - `hooks/useFinance.ts`: `financeKeys` (raiz `['finance']`), `useFinanceSummary(month)` (`placeholderData: keepPreviousData`), `useExpenses()`, `useTaxes()`, `usePartners()`, `useSaveExpense()` (cria ou atualiza conforme `id`), `useDeleteExpense()`, `useSetPayment()`, `useSaveTaxes()`, `useSavePartners()`; toda mutação invalida `financeKeys.all`.
 
-- [ ] **Step 1:** Criar os três arquivos com as assinaturas acima (padrão de `reports.service.ts` / `useReports.ts`).
-- [ ] **Step 2:** Verificar `shiftMonth('2026-01', -1) === '2025-12'`, `shiftMonth('2026-12', 1) === '2027-01'` e `formatMonth('2026-10') === 'Out/2026'` com um `node -e` descartável (sem arquivo de teste: o frontend não tem vitest).
-- [ ] **Step 3:** `npm run build --workspace=packages/frontend` → sem erros TS.
-- [ ] **Step 4: Commit** — `feat(M30-T1): serviço e hooks do financeiro no frontend`; `git push origin main`.
+- [x] **Step 1:** Criar os três arquivos com as assinaturas acima (padrão de `reports.service.ts` / `useReports.ts`).
+- [x] **Step 2:** Verificar `shiftMonth('2026-01', -1) === '2025-12'`, `shiftMonth('2026-12', 1) === '2027-01'` e `formatMonth('2026-10') === 'Out/2026'` com um `node -e` descartável (sem arquivo de teste: o frontend não tem vitest).
+- [x] **Step 3:** `npm run build --workspace=packages/frontend` → sem erros TS.
+- [x] **Step 4: Commit** — `feat(M30-T1): serviço e hooks do financeiro no frontend`; `git push origin main`.
 
 ---
 
@@ -153,12 +155,12 @@
   - `MonthNavigator({ month, onChange }: { month: string; onChange: (m: string) => void })` — `‹ Out/2026 ›`, o botão `›` fica desabilitado no mês atual.
   - `FinanceView({ month, onOpenSettings }: { month: string; onOpenSettings: () => void })`.
 
-- [ ] **Step 1:** `FinanceView`: carregando → `Spinner`; `warnings.noConfig` e receita 0 → `EmptyState` com ação "Configurar" (`onOpenSettings`); caso normal, grade de 4 `KpiCard` (`sparkline={false}`): **Receita**, **Impostos**, **Gastos + pró-labore** (`expensesTotal + proLaboreTotal`), **Lucro líquido** (`highlight`; negativo em vermelho com sub "Prejuízo no mês"), cada um com `icon` do lucide; botão **Configurar** (`CardAction`) no topo. Abaixo, `grid lg:grid-cols-2` com `ProfitFlowCard` e `PartnersSplitCard`, e `PayablesCard` em largura total. Cada card dentro de `div` (regra `.mobile-sections`), usando `.card p-5` + `CardHeader`.
-- [ ] **Step 2:** `ProfitFlowCard` ("Para onde vai a receita"): uma linha por `summary.lines` com rótulo, valor e barra proporcional à receita (largura `min(100, amount/revenue*100)%`; receita 0 → barras vazias, sem divisão por zero), mais linha final "Lucro líquido".
-- [ ] **Step 3:** `PayablesCard` ("Contas a pagar"): lista de `payables` ordenada por vencimento (`dd/MM`), selo `Paga` (verde) / `Pendente` (âmbar) / `Atrasada` (vermelho), checkbox que chama `useSetPayment` (`{ id, month, paid }`) com estado otimista via invalidação; rodapé "A pagar: {pendingTotal}". Lista vazia → texto "Nenhuma conta neste mês".
-- [ ] **Step 4:** `PartnersSplitCard` ("Divisão do lucro"): por sócio, nome, %, pró-labore e `profitShare`; aviso âmbar se `warnings.partnersShareInvalid` ("Os percentuais dos sócios não somam 100%"); lucro ≤ 0 → "Sem lucro a distribuir"; sem sócios → texto com link "Cadastrar sócios" que chama `onOpenSettings` (passar como prop).
-- [ ] **Step 5:** `npm run build --workspace=packages/frontend` → sem erros.
-- [ ] **Step 6: Commit** — `feat(M30-T1): painel financeiro (KPIs, contas a pagar, divisão do lucro)`; `git push origin main`.
+- [x] **Step 1:** `FinanceView`: carregando → `Spinner`; `warnings.noConfig` e receita 0 → `EmptyState` com ação "Configurar" (`onOpenSettings`); caso normal, grade de 4 `KpiCard` (`sparkline={false}`): **Receita**, **Impostos**, **Gastos + pró-labore** (`expensesTotal + proLaboreTotal`), **Lucro líquido** (`highlight`; negativo em vermelho com sub "Prejuízo no mês"), cada um com `icon` do lucide; botão **Configurar** (`CardAction`) no topo. Abaixo, `grid lg:grid-cols-2` com `ProfitFlowCard` e `PartnersSplitCard`, e `PayablesCard` em largura total. Cada card dentro de `div` (regra `.mobile-sections`), usando `.card p-5` + `CardHeader`.
+- [x] **Step 2:** `ProfitFlowCard` ("Para onde vai a receita"): uma linha por `summary.lines` com rótulo, valor e barra proporcional à receita (largura `min(100, amount/revenue*100)%`; receita 0 → barras vazias, sem divisão por zero), mais linha final "Lucro líquido".
+- [x] **Step 3:** `PayablesCard` ("Contas a pagar"): lista de `payables` ordenada por vencimento (`dd/MM`), selo `Paga` (verde) / `Pendente` (âmbar) / `Atrasada` (vermelho), checkbox que chama `useSetPayment` (`{ id, month, paid }`) com estado otimista via invalidação; rodapé "A pagar: {pendingTotal}". Lista vazia → texto "Nenhuma conta neste mês".
+- [x] **Step 4:** `PartnersSplitCard` ("Divisão do lucro"): por sócio, nome, %, pró-labore e `profitShare`; aviso âmbar se `warnings.partnersShareInvalid` ("Os percentuais dos sócios não somam 100%"); lucro ≤ 0 → "Sem lucro a distribuir"; sem sócios → texto com link "Cadastrar sócios" que chama `onOpenSettings` (passar como prop).
+- [x] **Step 5:** `npm run build --workspace=packages/frontend` → sem erros.
+- [x] **Step 6: Commit** — `feat(M30-T1): painel financeiro (KPIs, contas a pagar, divisão do lucro)`; `git push origin main`.
 
 ---
 
@@ -171,9 +173,9 @@
 - Consumes: `Modal`, `Input`, `Button`, `useExpenses`, `useSaveExpense`, `useDeleteExpense`.
 - Produces: `FinanceSettingsModal({ open, onClose }: { open: boolean; onClose: () => void })` com abas `Gastos` | `Impostos` | `Sócios` (`SegmentedControl`, `layoutId="finance-settings-tab"`); nesta task só `Gastos` funciona e as outras duas mostram um componente provisório vazio que a Task 7 substitui. Aviso fixo no topo: "Alterações valem para todos os meses, inclusive os já passados."
 
-- [ ] **Step 1:** `ExpensesTab`: lista de gastos (descrição, categoria, valor, tipo "Mensal dia X" / "Avulso dd/MM/aaaa") com editar e excluir (confirmação inline "Excluir? Sim/Não"); formulário com React Hook Form + Zod: descrição, categoria (input com `datalist`: Aluguel, Software, Marketing, Folha, Impostos/guias, Outros), valor, tipo (`SegmentedControl` Mensal/Avulso), e conforme o tipo `dueDay` + `startsOn` (+ `endsOn` opcional) ou `dueDate`. Valor digitado em reais com vírgula aceito (`"1.234,56"` → `1234.56`).
-- [ ] **Step 2:** `npm run build --workspace=packages/frontend` → sem erros.
-- [ ] **Step 3: Commit** — `feat(M30-T1): configuração de gastos do financeiro`; `git push origin main`.
+- [x] **Step 1:** `ExpensesTab`: lista de gastos (descrição, categoria, valor, tipo "Mensal dia X" / "Avulso dd/MM/aaaa") com editar e excluir (confirmação inline "Excluir? Sim/Não"); formulário com React Hook Form + Zod: descrição, categoria (input com `datalist`: Aluguel, Software, Marketing, Folha, Impostos/guias, Outros), valor, tipo (`SegmentedControl` Mensal/Avulso), e conforme o tipo `dueDay` + `startsOn` (+ `endsOn` opcional) ou `dueDate`. Valor digitado em reais com vírgula aceito (`"1.234,56"` → `1234.56`).
+- [x] **Step 2:** `npm run build --workspace=packages/frontend` → sem erros.
+- [x] **Step 3: Commit** — `feat(M30-T1): configuração de gastos do financeiro`; `git push origin main`.
 
 ---
 
@@ -186,10 +188,10 @@
 **Interfaces:**
 - Consumes: `useTaxes`, `useSaveTaxes`, `usePartners`, `useSavePartners`.
 
-- [ ] **Step 1:** `TaxesTab`: linhas editáveis (nome, alíquota %, ativo) com adicionar/remover e botão "Salvar" (`useSaveTaxes`, substitui a lista); alíquota entre 0 e 100; mostra "Total sobre a receita: X%".
-- [ ] **Step 2:** `PartnersTab`: linhas (nome, % de participação, pró-labore mensal) com adicionar/remover; mostra a soma dos % em tempo real (verde em 100, âmbar caso contrário) e **desabilita "Salvar"** enquanto a lista não vazia não somar 100; erro 422 `invalid_shares` do servidor exibido sob o botão.
-- [ ] **Step 3:** `npm run build --workspace=packages/frontend` → sem erros.
-- [ ] **Step 4: Commit** — `feat(M30-T1): configuração de impostos e sócios do financeiro`; `git push origin main`.
+- [x] **Step 1:** `TaxesTab`: linhas editáveis (nome, alíquota %, ativo) com adicionar/remover e botão "Salvar" (`useSaveTaxes`, substitui a lista); alíquota entre 0 e 100; mostra "Total sobre a receita: X%".
+- [x] **Step 2:** `PartnersTab`: linhas (nome, % de participação, pró-labore mensal) com adicionar/remover; mostra a soma dos % em tempo real (verde em 100, âmbar caso contrário) e **desabilita "Salvar"** enquanto a lista não vazia não somar 100; erro 422 `invalid_shares` do servidor exibido sob o botão.
+- [x] **Step 3:** `npm run build --workspace=packages/frontend` → sem erros.
+- [x] **Step 4: Commit** — `feat(M30-T1): configuração de impostos e sócios do financeiro`; `git push origin main`.
 
 ---
 
@@ -201,12 +203,12 @@
 **Interfaces:**
 - Consumes: `FinanceView`, `MonthNavigator`, `FinanceSettingsModal`, `currentMonth`, `useStickyState`, `useAuthStore`, `pageMotion` (`lib/motion.ts`).
 
-- [ ] **Step 1:** Estado `view` via `useStickyState<'overview' | 'finance'>('dashboard.view', 'overview')` e `financeMonth` via `useStickyState('dashboard.financeMonth', currentMonth())`; `isAdmin = user?.role === 'admin'`; `activeView = isAdmin ? view : 'overview'`.
-- [ ] **Step 2:** Cabeçalho (`flex flex-wrap items-end justify-between gap-4`): à esquerda título/subtítulo (no modo financeiro: "Resultado real do mês"); à direita um grupo `flex items-center gap-3` com, no modo geral, o `SegmentedControl` de períodos (com `mr-2`/`md:mr-4` para afastar da borda) e, no modo financeiro, o `MonthNavigator`; ao final, **só para admin**, o botão (`Button`, ícone `Landmark`/`LayoutDashboard`) "Financeiro" ↔ "Visão geral".
-- [ ] **Step 3:** Corpo envolvido em `AnimatePresence mode="wait"` com `motion.div` (`key={activeView}` e `{...pageMotion}`); `overview` mantém **exatamente** o conteúdo atual (barra do plano Free, KPIs, gráficos, atividades); `finance` renderiza `FinanceView`. `FinanceSettingsModal` montado uma vez, aberto por `settingsOpen`.
-- [ ] **Step 4:** `npm run build --workspace=packages/frontend` → sem erros TS.
-- [ ] **Step 5: Verificação manual** no banco **local** (confirmar `DATABASE_URL` = `localhost` antes de subir o backend): logar como `admin.teste@titanflow.local` (workspace `demo-titanflow`, senha `Demo@1234`) → botão visível, transição suave, cadastrar gasto/imposto/sócios, conferir o lucro; logar como `vendedor.teste@titanflow.local` e `captador.teste@titanflow.local` → botão ausente e `GET /api/v1/finance/summary` → 403. Se o ambiente local não puder subir, dizer isso explicitamente em vez de afirmar que funciona.
-- [ ] **Step 6: Commit** — `feat(M30-T1): botão Financeiro no Dashboard com transição`; `git push origin main`.
+- [x] **Step 1:** Estado `view` via `useStickyState<'overview' | 'finance'>('dashboard.view', 'overview')` e `financeMonth` via `useStickyState('dashboard.financeMonth', currentMonth())`; `isAdmin = user?.role === 'admin'`; `activeView = isAdmin ? view : 'overview'`.
+- [x] **Step 2:** Cabeçalho (`flex flex-wrap items-end justify-between gap-4`): à esquerda título/subtítulo (no modo financeiro: "Resultado real do mês"); à direita um grupo `flex items-center gap-3` com, no modo geral, o `SegmentedControl` de períodos (com `mr-2`/`md:mr-4` para afastar da borda) e, no modo financeiro, o `MonthNavigator`; ao final, **só para admin**, o botão (`Button`, ícone `Landmark`/`LayoutDashboard`) "Financeiro" ↔ "Visão geral".
+- [x] **Step 3:** Corpo envolvido em `AnimatePresence mode="wait"` com `motion.div` (`key={activeView}` e `{...pageMotion}`); `overview` mantém **exatamente** o conteúdo atual (barra do plano Free, KPIs, gráficos, atividades); `finance` renderiza `FinanceView`. `FinanceSettingsModal` montado uma vez, aberto por `settingsOpen`.
+- [x] **Step 4:** `npm run build --workspace=packages/frontend` → sem erros TS.
+- [x] **Step 5: Verificação manual** _(feita só pela API local: admin 200, vendedor/captador 403, gasto criado e apagado; a tela não foi conferida em navegador)_ no banco **local** (confirmar `DATABASE_URL` = `localhost` antes de subir o backend): logar como `admin.teste@titanflow.local` (workspace `demo-titanflow`, senha `Demo@1234`) → botão visível, transição suave, cadastrar gasto/imposto/sócios, conferir o lucro; logar como `vendedor.teste@titanflow.local` e `captador.teste@titanflow.local` → botão ausente e `GET /api/v1/finance/summary` → 403. Se o ambiente local não puder subir, dizer isso explicitamente em vez de afirmar que funciona.
+- [x] **Step 6: Commit** — `feat(M30-T1): botão Financeiro no Dashboard com transição`; `git push origin main`.
 
 ---
 
@@ -215,8 +217,8 @@
 **Files:**
 - Modify: `CLAUDE.md` (tabela de milestones, seção **Next**, **Key implementation notes**), `plan.md`
 
-- [ ] **Step 1:** Em `CLAUDE.md`: linha `M30 T1 | Dashboard financeiro (lucro líquido, contas a pagar, divisão entre sócios), migration 20240048 | ✅ Done`; nota nova no topo de **Key implementation notes** (módulo `modules/finance`, cálculo puro em `finance.calc.ts` em centavos, regime de competência, só admin, configuração vale para o presente — fechamento de mês é a próxima evolução, link para o spec); remover/encurtar notas obsoletas só se contradisserem. Espelhar em `plan.md`.
-- [ ] **Step 2: Commit** — `docs: atualiza CLAUDE.md pós M30-T1`; `git push origin main`.
+- [x] **Step 1:** Em `CLAUDE.md`: linha `M30 T1 | Dashboard financeiro (lucro líquido, contas a pagar, divisão entre sócios), migration 20240048 | ✅ Done`; nota nova no topo de **Key implementation notes** (módulo `modules/finance`, cálculo puro em `finance.calc.ts` em centavos, regime de competência, só admin, configuração vale para o presente — fechamento de mês é a próxima evolução, link para o spec); remover/encurtar notas obsoletas só se contradisserem. Espelhar em `plan.md`.
+- [x] **Step 2: Commit** — `docs: atualiza CLAUDE.md pós M30-T1`; `git push origin main`.
 
 ---
 
