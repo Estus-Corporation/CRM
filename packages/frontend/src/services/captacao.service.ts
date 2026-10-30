@@ -82,6 +82,19 @@ export interface MyLead {
 
 export type PipelineStage = 'qualifying' | 'treating' | 'meeting';
 
+/** Lead na pré-venda do Pipeline (visão do admin/gerente) */
+export interface PipelineLead {
+  id: string;
+  contact_id: string;
+  captador_id: string | null;
+  captador_name: string | null;
+  pipeline_stage: PipelineStage;
+  pipeline_at: string | null;
+  full_name: string;
+  company_name: string | null;
+  niche: string | null;
+}
+
 export interface MeetingGuest {
   name: string;
   title?: string;
@@ -375,6 +388,16 @@ export const captacaoService = {
 
   async unassign(id: string): Promise<void> {
     await api.delete(`/captacao/assignments/${id}`);
+  },
+
+  /** Pré-venda do Pipeline: leads de todos os captadores no pipeline que ainda não viraram negócio */
+  async pipelineLeads(): Promise<PipelineLead[]> {
+    const { data } = await api.get<{ data: PipelineLead[] }>('/captacao/pipeline-leads');
+    return data.data;
+  },
+
+  async setPipelineStage(id: string, pipelineStage: PipelineStage | null): Promise<void> {
+    await api.patch(`/captacao/assignments/${id}/pipeline`, { pipelineStage });
   },
 
   async settings(): Promise<CaptacaoSettings> {

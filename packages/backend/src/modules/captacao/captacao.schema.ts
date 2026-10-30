@@ -57,6 +57,10 @@ export const myLeadsQuerySchema = z.object({
   scope: z.enum(['today', 'open', 'all', 'won', 'followup']).default('open'),
 });
 
+export const pipelineStageSchema = z.object({
+  pipelineStage: z.enum(['qualifying', 'treating', 'meeting']).nullable(),
+});
+
 export const assignLeadsSchema = z.object({
   captadorId: z.string().uuid(),
   contactIds: z.array(z.string().uuid()).min(1).max(200),

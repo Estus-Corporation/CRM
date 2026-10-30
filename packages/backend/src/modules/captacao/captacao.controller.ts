@@ -4,6 +4,7 @@ import {
   updateMyLeadSchema,
   myLeadsQuerySchema,
   assignLeadsSchema,
+  pipelineStageSchema,
   availableContactsQuerySchema,
   assignmentsQuerySchema,
   closeAssignmentSchema,
@@ -102,6 +103,16 @@ export const assignLeads = wrap(async (req, res) => {
   const input = assignLeadsSchema.parse(req.body);
   const data = await CaptacaoService.assignLeads(req.user!.tenantId, req.user!.id, input);
   res.status(201).json({ data });
+});
+
+export const listPipelineLeads = wrap(async (req, res) => {
+  res.json({ data: await CaptacaoService.listPipelineLeads(req.user!.tenantId) });
+});
+
+export const setPipelineStage = wrap(async (req, res) => {
+  const { pipelineStage } = pipelineStageSchema.parse(req.body);
+  await CaptacaoService.setPipelineStage(req.user!.tenantId, req.params.id, pipelineStage);
+  res.json({ data: { id: req.params.id, pipeline_stage: pipelineStage } });
 });
 
 export const listAssignments = wrap(async (req, res) => {

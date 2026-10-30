@@ -6,9 +6,10 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Building2, ClipboardPen, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, CheckCircle2, ChevronDown, ChevronRight, Globe, MessageSquareOff, NotebookPen, X, PhoneOff, History, BellRing, Save, Send, PhoneIncoming, Instagram, Lock, Mail, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
-  Kanban,
+  Kanban, ExternalLink, Link2,
 } from 'lucide-react';
 import { useRecordWhatsapp, useUpdateMyLead } from '@/hooks/useCaptacao';
+import { useAuthStore } from '@/store/authStore';
 import type { CallStatus, LeadAttempt, LostReason, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Modal } from '@/components/ui/Modal';
@@ -95,6 +96,117 @@ function formatMeeting(iso: string) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+/** 60 → "1h", 30 → "30 min", 90 → "1h30" */
+function formatDuration(min: number) {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
+}
+
+/** Link da chamada (online) ou o endereço no Google Maps (presencial); texto que não é link fica sem href */
+function meetingHref(mode: MeetingMode | null, location: string) {
+  if (mode !== 'online') return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+  if (/^https?:\/\//i.test(location)) return location;
+  return /^\S+\.\S+$/.test(location) ? `https://${location}` : null;
+}
+
+/** Lead ganho (reunião confirmada): quando, formato e onde — sem o histórico de ligação/mensagem */
+function WonSummary({ lead, onEdit, disabled }: { lead: MyLead; onEdit: () => void; disabled: boolean }) {
+  const at = lead.meeting_at ? new Date(lead.meeting_at) : null;
+  const online = lead.meeting_mode === 'online';
+  const location = lead.meeting_location?.trim() ?? '';
+  const href = location ? meetingHref(lead.meeting_mode, location) : null;
+  const tile = 'min-w-0 rounded-xl border border-fg/[0.08] bg-black/[0.18] p-3.5';
+  const tileLabel = 'flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted';
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-accent-green/25 bg-gradient-to-br from-accent-green/[0.13] via-accent-green/[0.04] to-transparent p-4 md:p-5">
+      <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-accent-green/20 blur-3xl" />
+      <div className="relative flex items-start gap-4">
+        <motion.div
+          initial={{ scale: 0.6, rotate: -12, opacity: 0 }}
+          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-accent-green text-[rgb(var(--on-accent))] shadow-[0_10px_28px_-10px_rgb(var(--accent-green)/0.8)]"
+        >
+          <Trophy size={22} strokeWidth={2.25} />
+        </motion.div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-accent-green">Lead ganho</p>
+          <h3 className="mt-0.5 text-[17px] font-semibold leading-snug text-text-primary">Reunião marcada</h3>
+          {lead.concluded_at && (
+            <p className="mt-0.5 text-xs text-text-muted">
+              Salvo em {new Date(lead.concluded_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
+        </div>
+        <Button variant="secondary" size="sm" onClick={onEdit} disabled={disabled} className="flex-shrink-0">
+          <Pencil size={13} />
+          Editar
+        </Button>
+      </div>
+
+      <div className="relative mt-5 grid gap-2.5 sm:grid-cols-3">
+        <div className={tile}>
+          <p className={tileLabel}>
+            <CalendarClock size={13} className="text-accent-green" />
+            Quando
+          </p>
+          <p className="mt-1.5 truncate text-[15px] font-semibold capitalize text-text-primary">
+            {at ? format(at, "EEE, d 'de' MMM", { locale: ptBR }) : '—'}
+          </p>
+          {at && (
+            <p className="mt-0.5 truncate text-xs text-text-secondary">
+              às {format(at, 'HH:mm')}
+              {lead.meeting_duration ? ` · ${formatDuration(lead.meeting_duration)}` : ''}
+            </p>
+          )}
+        </div>
+        <div className={tile}>
+          <p className={tileLabel}>
+            {online ? <Video size={13} className="text-accent-green" /> : <MapPin size={13} className="text-accent-green" />}
+            Formato
+          </p>
+          <p className="mt-1.5 text-[15px] font-semibold text-text-primary">{online ? 'Online' : 'Presencial'}</p>
+          <p className="mt-0.5 text-xs text-text-secondary">{online ? 'Chamada de vídeo' : 'Encontro no local'}</p>
+        </div>
+        <div className={tile}>
+          <p className={tileLabel}>
+            {online ? <Link2 size={13} className="text-accent-green" /> : <MapPin size={13} className="text-accent-green" />}
+            {online ? 'Link' : 'Endereço'}
+          </p>
+          {location && href ? (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              title={location}
+              className="mt-1.5 flex items-center gap-1.5 text-[15px] font-semibold text-accent-green hover:underline"
+            >
+              <span className="truncate">{online ? location.replace(/^https?:\/\//i, '') : location}</span>
+              <ExternalLink size={13} className="flex-shrink-0" />
+            </a>
+          ) : (
+            <p className={cn('mt-1.5 truncate text-[15px] font-semibold', location ? 'text-text-primary' : 'text-text-muted')} title={location || undefined}>
+              {location || 'A combinar'}
+            </p>
+          )}
+          <p className="mt-0.5 truncate text-xs text-text-secondary">
+            {!location ? 'Use Editar para incluir' : href ? (online ? 'Abrir a chamada' : 'Ver no mapa') : 'Combinado com o lead'}
+          </p>
+        </div>
+      </div>
+
+      {lead.call_notes && (
+        <p className="relative mt-2.5 flex gap-2 rounded-xl border border-fg/[0.08] bg-black/[0.18] p-3.5 text-sm text-text-secondary">
+          <NotebookPen size={14} className="mt-0.5 flex-shrink-0 text-text-muted" />
+          <span className="min-w-0 whitespace-pre-line">{lead.call_notes}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: CallStatus }) {
   return (
     <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium', CALL_STATUS[status].className)}>
@@ -115,6 +227,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   ref,
 ) {
   const navigate = useNavigate();
+  const isCaptador = useAuthStore((st) => st.user?.role) === 'captador';
   const update = useUpdateMyLead();
   // Plano B: abrir o WhatsApp fica registrado (os admins veem quando o captador partiu pra mensagem)
   const recordWhatsapp = useRecordWhatsapp();
@@ -238,9 +351,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   };
   const attempts: LeadAttempt[] = lead.attempts ?? [];
 
-  // Montou a reunião na agenda → o resultado vira "Reunião marcada"
-  // Salva sozinho: a reunião vai pro servidor assim que tiver data e formato (resultado vira "Reunião marcada")
-  // Reunião agendada = lead ganho: conclui como "Ganhou" junto (e o evento entra no calendário dos admins)
+  // Reunião confirmada = lead ganho: conclui como "Ganhou" junto (e o evento entra no calendário dos admins)
   const persistMeeting = (m: { at: string; mode: MeetingMode | null; location: string; duration: number; attendeeIds: string[]; guests: MeetingGuest[] }) => {
     if (locked || !m.at || !m.mode) return;
     update.mutate({
@@ -263,8 +374,10 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     setMeetingAttendeeIds(pick.attendeeIds);
     setMeetingGuests(pick.guests);
     setStatus('meeting');
-    persistMeeting({ at: pick.at, mode: meetingMode, location: meetingLocation, duration: pick.duration, attendeeIds: pick.attendeeIds, guests: pick.guests });
   };
+  // Grava a reunião (e o lead vira Ganhou) só no "Confirmar reunião": antes dá pra preencher o endereço/link
+  const confirmMeeting = () =>
+    persistMeeting({ at: meetingAt, mode: meetingMode, location: meetingLocation, duration: meetingDuration, attendeeIds: meetingAttendeeIds, guests: meetingGuests });
   // Excluir a reunião: limpa a agenda (o lead continua como "atendeu"); grava na hora se já estava salva
   const removeMeeting = () => {
     setMeetingAt('');
@@ -295,7 +408,6 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   const pickMeetingMode = (m: MeetingMode) => {
     setMeetingMode(m);
     setStatus('meeting');
-    persistMeeting({ at: meetingAt, mode: m, location: meetingLocation, duration: meetingDuration, attendeeIds: meetingAttendeeIds, guests: meetingGuests });
   };
   // Outro resultado → a reunião preenchida sai na hora
   // Clicar de novo no resultado já marcado desmarca (volta a "a ligar")
@@ -430,8 +542,17 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
       disabled={update.isPending}
       onClick={() =>
         update.mutate(
-          { id: lead.id, pipelineStage: inPipeline ? null : 'qualifying' },
-          { onSuccess: () => toast.success(inPipeline ? 'Lead fora do pipeline' : 'Lead enviado para o pipeline') },
+          // Lead já ganho (reunião confirmada) entra direto em "Reunião marcada"
+          { id: lead.id, pipelineStage: inPipeline ? null : lead.lead_result === 'won' ? 'meeting' : 'qualifying' },
+          {
+            onSuccess: () =>
+              inPipeline
+                ? toast.success('Lead fora do pipeline')
+                : // Captador: o pipeline dele; admin/gerente: a pré-venda dentro do Pipeline de negócios
+                  toast.success('Lead enviado para o pipeline', {
+                    action: { label: 'Ver pipeline', onClick: () => navigate(isCaptador ? '/meu-pipeline' : '/pipeline') },
+                  }),
+          },
         )
       }
       className={cn(
@@ -553,6 +674,8 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               <span>Encerrado pelo administrador: não fechou.</span>
             )}
           </div>
+        ) : concluded && lead.lead_result === 'won' ? (
+          <WonSummary lead={lead} onEdit={reopen} disabled={update.isPending} />
         ) : concluded ? (
           // Resumo do que houve; "Editar" reabre
           <div className="flex flex-wrap items-center gap-3">
@@ -584,9 +707,13 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                 {whatsappSent && <span className="font-normal text-text-muted">· {whatsappSent}</span>}
               </span>
             )}
-            <p className="min-w-0 flex-1 truncate text-sm text-text-secondary" title={lead.call_notes ?? undefined}>
-              {lead.call_notes || <span className="text-text-muted">Sem anotações</span>}
-            </p>
+            {lead.call_notes ? (
+              <p className="min-w-0 flex-1 truncate text-sm text-text-secondary" title={lead.call_notes}>
+                {lead.call_notes}
+              </p>
+            ) : (
+              <span className="flex-1" />
+            )}
             <span className="text-xs text-text-muted">
               Salvo {new Date(lead.concluded_at!).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
             </span>
@@ -708,6 +835,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                   tag={
                     <span className={cn('text-[13px]', meetingAt ? 'text-accent-green' : 'text-text-muted')}>
                       {meetingAt ? formatMeeting(new Date(meetingAt).toISOString()) : 'Sem reunião marcada'}
+                      {meetingAt && !lead.concluded_at && <span className="text-accent-amber"> · falta confirmar</span>}
                     </span>
                   }
                   done={!!meetingAt && !!meetingMode}
@@ -754,16 +882,23 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                         <input
                           value={meetingLocation}
                           onChange={(e) => setMeetingLocation(e.target.value)}
-                          onBlur={() =>
-                            meetingLocation.trim() !== (lead.meeting_location ?? '') &&
-                            persistMeeting({ at: meetingAt, mode: meetingMode, location: meetingLocation, duration: meetingDuration, attendeeIds: meetingAttendeeIds, guests: meetingGuests })
-                          }
                           maxLength={500}
-                          placeholder={meetingMode === 'online' ? 'Meet, Zoom, WhatsApp… (opcional)' : 'Onde vai ser (opcional)'}
+                          placeholder={meetingMode === 'online' ? 'Cole o link do Meet, Zoom, WhatsApp…' : 'Rua, número, bairro, cidade'}
                           className="input-base h-10 w-full text-sm"
                         />
                       </StepRow>
                     )}
+                    <div className="space-y-2 border-t border-fg/[0.06] pt-4">
+                      <Button className="w-full" onClick={confirmMeeting} disabled={!meetingAt || !meetingMode || update.isPending}>
+                        <Trophy size={15} />
+                        {update.isPending ? 'Salvando…' : 'Confirmar reunião'}
+                      </Button>
+                      <p className="text-center text-xs text-text-muted">
+                        {!meetingAt || !meetingMode
+                          ? 'Escolha a data e o formato para confirmar.'
+                          : 'A reunião entra no calendário dos admins e o lead fica como Ganhou.'}
+                      </p>
+                    </div>
                   </div>
                 </PlanBlock>
 

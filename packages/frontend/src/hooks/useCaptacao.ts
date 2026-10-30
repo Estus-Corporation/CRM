@@ -10,6 +10,8 @@ import {
   type CallStatus,
   type MyLead,
   type MyLeadsScope,
+  type PipelineLead,
+  type PipelineStage,
   type UpdateMyLeadInput,
 } from '@/services/captacao.service';
 
@@ -124,6 +126,31 @@ export function useLeadAssignees({ enabled = true }: { enabled?: boolean } = {})
       .map((m) => ({ value: m.id, label: m.id === me ? 'Eu (admin)' : `${shortName(m.full_name)} (admin)` })),
     ...captadores.filter((c) => c.is_active).map((c) => ({ value: c.id, label: shortName(c.full_name) })),
   ];
+}
+
+export function usePipelineLeads({ enabled = true }: { enabled?: boolean } = {}) {
+  return useQuery({ queryKey: ['captacao', 'pipeline-leads'], queryFn: captacaoService.pipelineLeads, enabled });
+}
+
+/** Move o lead entre as fases da pré-venda: aplica no cache na hora e confirma no servidor */
+export function useSetPipelineStage() {
+  const qc = useQueryClient();
+  const key = ['captacao', 'pipeline-leads'];
+  return useMutation({
+    mutationFn: ({ id, stage }: { id: string; stage: PipelineStage | null }) => captacaoService.setPipelineStage(id, stage),
+    onMutate: ({ id, stage }) => {
+      const previous = qc.getQueryData<PipelineLead[]>(key);
+      qc.setQueryData<PipelineLead[]>(key, (old) =>
+        stage ? old?.map((l) => (l.id === id ? { ...l, pipeline_stage: stage, pipeline_at: new Date().toISOString() } : l)) : old?.filter((l) => l.id !== id),
+      );
+      return { previous };
+    },
+    onError: (_e, _v, ctx) => {
+      qc.setQueryData(key, ctx?.previous);
+      toast.error('Não foi possível mover o lead');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['captacao'] }),
+  });
 }
 
 export function useManagerLead(id: string) {

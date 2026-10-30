@@ -12,6 +12,7 @@ import type {
   CreateLeadInput,
 } from './captacao.schema';
 import { createContact } from '../contacts/contacts.service';
+import { createDeal } from '../deals/deals.service';
 
 // "Hoje" no fuso do Brasil — o servidor e o banco rodam em UTC
 const TODAY = db.raw("(now() AT TIME ZONE 'America/Sao_Paulo')::date");
@@ -256,6 +257,70 @@ async function notifyAdmins(tenantId: string, captadorId: string, contactId: str
   );
 }
 
+/**
+ * Lead ganho → negócio na 1ª etapa do pipeline padrão (ou do mais antigo). Não duplica: se o contato já
+ * tem negócio em aberto, nada muda. Dono = quem distribuiu o lead (se ainda trabalha com negócios),
+ * senão o admin mais antigo — o captador não vê o pipeline de vendas.
+ */
+async function createDealFromLead(tenantId: string, userId: string, assignmentId: string) {
+  const a = await db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .where({ 'a.id': assignmentId, 'a.tenant_id': tenantId })
+    .first('a.contact_id', 'a.assigned_by', 'c.full_name', 'c.company_name');
+  if (!a) return;
+  const open = await db('deals').where({ tenant_id: tenantId, contact_id: a.contact_id, status: 'open' }).first('id');
+  if (open) return;
+
+  const pipeline = await db('pipelines').where({ tenant_id: tenantId }).orderBy('is_default', 'desc').orderBy('created_at', 'asc').first('id');
+  if (!pipeline) return;
+  const stage = await db('pipeline_stages').where({ tenant_id: tenantId, pipeline_id: pipeline.id }).orderBy('position', 'asc').first('id');
+  if (!stage) return;
+
+  const owners = await db('user_tenants')
+    .where({ tenant_id: tenantId, is_active: true })
+    .whereIn('role', ['admin', 'manager', 'seller'])
+    .orderBy('created_at', 'asc')
+    .select('user_id', 'role');
+  const ownerId = owners.find((o) => o.user_id === a.assigned_by)?.user_id ?? owners.find((o) => o.role === 'admin')?.user_id ?? null;
+
+  await createDeal(tenantId, userId, {
+    pipelineId: pipeline.id,
+    stageId: stage.id,
+    contactId: a.contact_id,
+    ownerId: ownerId ?? undefined,
+    title: a.company_name || a.full_name,
+    value: 0,
+  });
+}
+
+/** Pré-venda do pipeline (admin/gerente): leads de todos os captadores que estão no pipeline e ainda não viraram negócio */
+export async function listPipelineLeads(tenantId: string) {
+  return db('lead_assignments as a')
+    .join('contacts as c', 'a.contact_id', 'c.id')
+    .leftJoin('users as u', 'a.captador_id', 'u.id')
+    .where({ 'a.tenant_id': tenantId })
+    .whereNotNull('a.pipeline_stage')
+    .whereNull('a.outcome')
+    // Já virou negócio → aparece só nas etapas de negócio. Lead ganho antes da conversão automática
+    // (sem negócio) continua aqui, em "Reunião marcada"
+    .whereNotExists(db('deals as d').whereRaw('d.contact_id = a.contact_id').andWhere('d.tenant_id', tenantId))
+    .orderBy('a.pipeline_at', 'desc')
+    .limit(500)
+    .select(
+      'a.id', 'a.contact_id', 'a.captador_id', 'a.pipeline_stage', 'a.pipeline_at',
+      'c.full_name', 'c.company_name', 'c.niche', db.raw('u.full_name as captador_name'),
+    );
+}
+
+/** Admin/gerente move um lead entre as fases da pré-venda (de qualquer captador) */
+export async function setPipelineStage(tenantId: string, id: string, stage: 'qualifying' | 'treating' | 'meeting' | null) {
+  const updated = await db('lead_assignments')
+    .where({ id, tenant_id: tenantId })
+    .whereNull('outcome')
+    .update({ pipeline_stage: stage, pipeline_at: stage ? new Date() : null, updated_at: new Date() });
+  if (!updated) throw httpError('Lead not found', 404);
+}
+
 export async function updateMyLead(tenantId: string, userId: string, id: string, input: UpdateMyLeadInput) {
   const lead = await db('lead_assignments')
     .where({ id, tenant_id: tenantId, captador_id: userId })
@@ -338,6 +403,9 @@ export async function updateMyLead(tenantId: string, userId: string, id: string,
   // Captador salvou como ganho → avisa os admins (que registram o fechamento com valor)
   if (input.concluded === true && input.leadResult === 'won' && !(lead.concluded_at && lead.lead_result === 'won')) {
     await notifyAdmins(tenantId, userId, lead.contact_id, 'won');
+    // Fim da pré-venda: o lead vira negócio no pipeline de vendas e, no pipeline do captador, fica em "Reunião marcada"
+    await db('lead_assignments').where({ id, tenant_id: tenantId }).update({ pipeline_stage: 'meeting', pipeline_at: new Date() });
+    await createDealFromLead(tenantId, userId, id);
   }
 
   const saved = await db('lead_assignments as a')

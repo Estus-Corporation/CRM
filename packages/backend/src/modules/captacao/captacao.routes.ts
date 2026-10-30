@@ -24,6 +24,9 @@ router.post('/captadores/:captadorId/pay-all', requireRole('admin'), CaptacaoCon
 router.get('/available-contacts', manage, CaptacaoController.listAvailableContacts);
 router.get('/leads/:id', manage, CaptacaoController.getLeadForManager);
 router.post('/leads', manage, CaptacaoController.createLead);
+// Pré-venda no Pipeline (antes das etapas de negócio)
+router.get('/pipeline-leads', manage, CaptacaoController.listPipelineLeads);
+router.patch('/assignments/:id/pipeline', manage, CaptacaoController.setPipelineStage);
 router.get('/assignments', manage, CaptacaoController.listAssignments);
 router.post('/assignments', manage, CaptacaoController.assignLeads);
 router.patch('/assignments/:id/close', manage, CaptacaoController.closeAssignment);

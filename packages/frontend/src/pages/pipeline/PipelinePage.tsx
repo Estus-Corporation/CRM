@@ -46,6 +46,10 @@ import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
 import { usePageSubtitle } from '@/store/pageStore';
+import { useAuthStore } from '@/store/authStore';
+import { usePipelineLeads } from '@/hooks/useCaptacao';
+import { PreSaleColumns, PRE_SALE_PHASES } from '@/components/captacao/PreSaleColumns';
+import type { PipelineStage } from '@/services/captacao.service';
 
 // Ao soltar, a cópia desliza até o encaixe; o card original reaparece no fim
 const dropAnimation: DropAnimation = {
@@ -78,7 +82,17 @@ const kanbanCollision: CollisionDetection = (args) => {
 };
 
 export function PipelinePage() {
-  usePageSubtitle('Arraste os negócios entre as etapas para acompanhar cada venda');
+  // Admin/gerente vê a pré-venda (leads dos captadores) antes das etapas de negócio: um pipeline só
+  const role = useAuthStore((s) => s.user?.role);
+  const showPreSale = role === 'admin' || role === 'manager';
+  const { data: preSaleLeads = [] } = usePipelineLeads({ enabled: showPreSale });
+  // Celular: fase da pré-venda aberta (null = etapa de negócio)
+  const [mobilePhase, setMobilePhase] = useState<PipelineStage | null>(null);
+  usePageSubtitle(
+    showPreSale
+      ? 'Da captação ao fechamento: leads em pré-venda e, depois, os negócios'
+      : 'Arraste os negócios entre as etapas para acompanhar cada venda',
+  );
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: pipelines, isLoading: loadingPipelines } = usePipelines();
@@ -411,13 +425,40 @@ export function PipelinePage() {
       {/* Celular: todas as etapas visíveis numa grade; tocar mostra os negócios daquela etapa */}
       {isMobile && localStages.length > 0 && (
         <div className="grid flex-shrink-0 grid-cols-2 gap-2">
+          {showPreSale &&
+            PRE_SALE_PHASES.map((p) => {
+              const active = mobilePhase === p.key;
+              return (
+                <button
+                  key={p.key}
+                  type="button"
+                  onClick={() => setMobilePhase(p.key)}
+                  className={cn(
+                    'flex min-w-0 items-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-left transition-colors',
+                    active ? 'border-transparent bg-fg/[0.08]' : 'border-fg/[0.12] hover:bg-fg/[0.04]',
+                  )}
+                  style={active ? { boxShadow: `inset 0 0 0 1.5px ${p.color}` } : undefined}
+                >
+                  <p.icon size={13} className="flex-shrink-0" style={{ color: p.color }} />
+                  <span className={cn('min-w-0 flex-1 truncate text-[13px] font-medium', active ? 'text-text-primary' : 'text-text-secondary')}>
+                    {p.label}
+                  </span>
+                  <span className="flex-shrink-0 rounded-md bg-fg/[0.06] px-1.5 text-[11px] tabular-nums text-text-muted">
+                    {preSaleLeads.filter((l) => l.pipeline_stage === p.key).length}
+                  </span>
+                </button>
+              );
+            })}
           {localStages.map((s) => {
-            const active = s.id === mobileStage?.id;
+            const active = !mobilePhase && s.id === mobileStage?.id;
             return (
               <button
                 key={s.id}
                 type="button"
-                onClick={() => setMobileStageId(s.id)}
+                onClick={() => {
+                  setMobilePhase(null);
+                  setMobileStageId(s.id);
+                }}
                 className={cn(
                   'flex min-w-0 items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-colors',
                   active ? 'border-transparent bg-fg/[0.08]' : 'border-fg/[0.07] hover:bg-fg/[0.04]',
@@ -435,9 +476,25 @@ export function PipelinePage() {
         </div>
       )}
 
-      {loadingKanban ? (
+      {isMobile && mobilePhase ? (
+        <PreSaleColumns phase={mobilePhase} />
+      ) : loadingKanban ? (
         <KanbanSkeleton columns={localStages.length || 3} />
       ) : (
+        // Pré-venda e negócios na mesma faixa com rolagem; cada um tem o próprio arrastar (DndContext não cria elemento)
+        <div className="flex gap-7 overflow-x-auto px-1.5 pb-4 flex-1 max-md:overflow-visible max-md:[&>*]:!w-full">
+          {showPreSale && !isMobile && (
+            <>
+              <PreSaleColumns />
+              {/* Fim da pré-venda: daqui pra frente são negócios (lead ganho entra na 1ª etapa sozinho) */}
+              <div className="-mx-3 flex w-6 flex-shrink-0 flex-col items-center gap-2 pt-1">
+                <span className="rounded-full bg-accent-green/15 px-1.5 py-2 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-accent-green [writing-mode:vertical-rl]">
+                  Negócios
+                </span>
+                <div className="w-px flex-1 bg-gradient-to-b from-accent-green/40 to-transparent" />
+              </div>
+            </>
+          )}
         <DndContext
           sensors={sensors}
           collisionDetection={kanbanCollision}
@@ -447,7 +504,6 @@ export function PipelinePage() {
           onDragCancel={handleDragCancel}
         >
           {/* gap-7: a "cabeça" de cada etapa passa 6px pra fora, então o vão visível fica ~16px */}
-          <div className="flex gap-7 overflow-x-auto px-1.5 pb-4 flex-1 max-md:overflow-visible max-md:[&>*]:!w-full">
             <SortableContext items={visibleStages.map((s) => s.id)} strategy={horizontalListSortingStrategy}>
               {visibleStages.map((stage) => (
                 <KanbanColumn
@@ -471,7 +527,6 @@ export function PipelinePage() {
                 </Button>
               </div>
             )}
-          </div>
 
           {/* Portal no body: a área principal tem backdrop-filter, que vira referência de position:fixed
               e deixava a cópia deslocada do mouse */}
@@ -495,6 +550,7 @@ export function PipelinePage() {
             document.body,
           )}
         </DndContext>
+        </div>
       )}
 
       <Modal open={dealModalOpen} onClose={() => setDealModalOpen(false)} title="Novo negócio">
