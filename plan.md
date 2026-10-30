@@ -875,3 +875,10 @@ Spec: `docs/superpowers/specs/2026-10-29-dashboard-financeiro-design.md` · Plan
 
 - [x] Toast de erro ao atribuir mostra o motivo; "Entregar para" do Adicionar lead inclui admins
 - [ ] **Pendente**: conferir se o Railway publicou o M26-T16/T17 ("Deploy Latest Commit") — sem o backend do T16, atribuir a admin dá 404
+
+## M29 T4 — Pipeline único
+
+- [x] Pré-venda (Qualificando/Tratando/Reunião marcada) antes das etapas de negócio no Pipeline do admin/gerente
+- [x] Lead ganho vira negócio na 1ª etapa automaticamente; "Confirmar reunião" com endereço/link; card de lead ganho
+- [ ] **Pendente**: "Deploy Latest Commit" no Railway e conferir a tela (não foi vista no navegador)
+- [ ] Ideias: arrastar lead da pré-venda direto para uma etapa de negócio; converter leads ganhos antigos
