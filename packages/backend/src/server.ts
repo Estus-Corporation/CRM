@@ -28,6 +28,7 @@ import contractRoutes from './modules/contracts/contracts.routes';
 import captacaoRoutes from './modules/captacao/captacao.routes';
 import notesRoutes from './modules/notes/notes.routes';
 import leadhunterRoutes from './modules/leadhunter/leadhunter.routes';
+import financeRoutes from './modules/finance/finance.routes';
 import { onCampaignFinished, recover, startWorker } from './modules/leadhunter/engine';
 import { deliverFinishedCampaigns, deliverForCampaign } from './modules/leadhunter/delivery';
 import { tierRateLimiter } from './shared/middleware/rateLimiter';
@@ -68,6 +69,7 @@ app.use('/api/v1/contacts/:contactId/contracts', contractRoutes);
 app.use('/api/v1/captacao', captacaoRoutes);
 app.use('/api/v1/notes', notesRoutes);
 app.use('/api/v1/leadhunter', leadhunterRoutes);
+app.use('/api/v1/finance', financeRoutes);
 
 app.use(errorHandler);
 
