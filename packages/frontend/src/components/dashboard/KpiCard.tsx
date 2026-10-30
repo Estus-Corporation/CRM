@@ -19,6 +19,8 @@ interface KpiCardProps {
   changeLabel?: string;
   /** false = só a etiqueta de variação, sem a linha de tendência (Relatórios) */
   sparkline?: boolean;
+  /** Classe extra do número (ex.: vermelho no lucro negativo do financeiro) */
+  valueClassName?: string;
 }
 
 /** Variação do último ponto vs o anterior, em %. null = sem base (mês anterior zerado). */
@@ -34,7 +36,7 @@ function variation(trend?: number[]) {
  * Card de indicador: ícone num quadrado arredondado à esquerda, e ao lado rótulo, valor e descrição.
  * Celular (2 colunas estreitas): o ícone sobe e o texto usa a largura toda.
  */
-export function KpiCard({ label, value, sub, icon: Icon, highlight, trend, lowerIsBetter, change, changeLabel, sparkline = true }: KpiCardProps) {
+export function KpiCard({ label, value, sub, icon: Icon, highlight, trend, lowerIsBetter, change, changeLabel, sparkline = true, valueClassName }: KpiCardProps) {
   const delta = change !== undefined ? change : variation(trend);
   const up = (delta ?? 0) >= 0;
   const good = lowerIsBetter ? !up || delta === 0 : up;
@@ -69,7 +71,7 @@ export function KpiCard({ label, value, sub, icon: Icon, highlight, trend, lower
         </p>
         {/* Número e linha de tendência na mesma linha */}
         <div className="mt-1.5 flex items-end justify-between gap-2">
-          <p className="truncate text-[24px] font-semibold leading-none tracking-[-0.02em] text-text-primary sm:text-[28px]">
+          <p className={cn('truncate text-[24px] font-semibold leading-none tracking-[-0.02em] text-text-primary sm:text-[28px]', valueClassName)}>
             {value}
           </p>
           {trend && sparkline && (
