@@ -1,4 +1,4 @@
-import type { CallStatus, LostReason, WhatsappStatus } from '@/services/captacao.service';
+import type { CallStatus, LostReason, PipelineStage, WhatsappStatus } from '@/services/captacao.service';
 
 /** Resultados da ligação, na ordem em que aparecem para o captador */
 /** Plano B (WhatsApp): situação da mensagem */
@@ -47,6 +47,13 @@ export const LOST_REASONS = Object.keys(LOST_REASON_LABEL) as LostReason[];
  * Em qualificação: o captador tem um resultado de ligação ou de mensagem marcado agora.
  * Só o que está marcado conta (não o histórico): desmarcar tudo volta o lead para Pendente.
  */
+/** Fases do pipeline do captador (mesmas cores da tela /meu-pipeline) */
+export const PIPELINE_STAGE_LABEL: Record<PipelineStage, { label: string; className: string }> = {
+  qualifying: { label: 'Qualificando', className: 'border-fg/[0.22] bg-fg/[0.07] text-text-primary' },
+  treating: { label: 'Tratando', className: 'border-accent-amber/30 bg-accent-amber/10 text-accent-amber' },
+  meeting: { label: 'Reunião marcada', className: 'border-accent-green/30 bg-accent-green/10 text-accent-green' },
+};
+
 export function hasStartedContact(lead: { call_status: CallStatus; whatsapp_status: WhatsappStatus | null }) {
   return lead.call_status !== 'pending' || !!lead.whatsapp_status;
 }

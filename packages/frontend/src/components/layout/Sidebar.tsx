@@ -15,9 +15,10 @@ import {
   Building2,
   type LucideIcon,
 } from 'lucide-react';
-import { cn, personName, shortName } from '@/lib/utils';
+import { cn, personName } from '@/lib/utils';
 import { useOnlineMembers } from '@/hooks/usePresence';
 import { Avatar } from '@/components/ui/Avatar';
+import { AvatarCircles } from '@/components/ui/AvatarCircles';
 import { useUIStore } from '@/store/uiStore';
 import { useAuthStore } from '@/store/authStore';
 import { useTenant } from '@/hooks/useTenant';
@@ -88,8 +89,8 @@ const captadorSections: NavSection[] = [
     title: 'Captação',
     items: [
       { to: '/meus-leads', icon: PhoneCall, label: 'Meus leads', end: true },
-      { to: '/meus-leads/reunioes', icon: CalendarCheck, label: 'Reuniões' },
       { to: '/meu-pipeline', icon: Kanban, label: 'Pipeline' },
+      { to: '/meus-leads/reunioes', icon: CalendarCheck, label: 'Reuniões' },
       // O material de venda que ele consulta antes de ligar
       company,
     ],
@@ -206,24 +207,24 @@ function SidebarOnline() {
       <SidebarSection title={`Online agora${others.length ? ` · ${others.length}` : ''}`}>
         {others.length === 0 ? (
           expanded && <p className="px-3.5 py-1.5 text-xs text-text-muted">Só você está online.</p>
+        ) : expanded ? (
+          // Aberto: esteira de fotos que corre; passar o mouse pausa e mostra quem é
+          <AvatarCircles
+            people={others.map((m) => ({
+              id: m.id,
+              name: personName(m.full_name),
+              src: m.avatar_url,
+              subtitle: ONLINE_ROLE_LABEL[m.role] ?? m.role,
+            }))}
+          />
         ) : (
-          others.map((m) =>
-            expanded ? (
-              <div key={m.id} className="flex items-center gap-2.5 rounded-lg px-3 py-1.5">
+          others.map((m) => (
+            <SidebarTooltip key={m.id} label={`${personName(m.full_name)} · online`}>
+              <div className="flex w-12 justify-center py-1">
                 <Avatar name={m.full_name} src={m.avatar_url} online className="h-7 w-7 text-[10px]" />
-                <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-medium text-text-primary">{shortName(m.full_name)}</span>
-                  <span className="block text-[11px] text-text-muted">{ONLINE_ROLE_LABEL[m.role] ?? m.role}</span>
-                </span>
               </div>
-            ) : (
-              <SidebarTooltip key={m.id} label={`${personName(m.full_name)} · online`}>
-                <div className="flex w-12 justify-center py-1">
-                  <Avatar name={m.full_name} src={m.avatar_url} online className="h-7 w-7 text-[10px]" />
-                </div>
-              </SidebarTooltip>
-            ),
-          )
+            </SidebarTooltip>
+          ))
         )}
       </SidebarSection>
     </div>

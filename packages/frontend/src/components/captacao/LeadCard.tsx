@@ -30,6 +30,7 @@ import {
   WHATSAPP_STATUS,
   WHATSAPP_STATUS_ORDER,
   whatsappUrl,
+  PIPELINE_STAGE_LABEL,
 } from '@/lib/captacao';
 import { GmailIcon, InstagramIcon, GoogleIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { LeadStatusIcon, leadStatus } from './LeadStatusIcon';
@@ -349,6 +350,17 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
           <p className={cn('truncate text-text-primary', detail ? 'page-title-sm' : 'text-[15.5px] font-semibold')}>{lead.full_name}</p>
+          {detail && lead.pipeline_stage && (
+            // Fase do pipeline do captador, na cor da fase
+            <span
+              className={cn(
+                'whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-semibold',
+                PIPELINE_STAGE_LABEL[lead.pipeline_stage].className,
+              )}
+            >
+              {PIPELINE_STAGE_LABEL[lead.pipeline_stage].label}
+            </span>
+          )}
           {lead.niche && (
             <span className="max-w-full truncate whitespace-nowrap rounded-md bg-fg/[0.06] px-2 py-0.5 text-xs font-medium text-text-secondary">{lead.niche}</span>
           )}
