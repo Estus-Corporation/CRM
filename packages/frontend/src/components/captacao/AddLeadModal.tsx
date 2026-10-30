@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { capitalizeName, cn, JOB_TITLE_OPTIONS, lowerEmail, shortName, withPhoneMask, withTransform } from '@/lib/utils';
+import { capitalizeName, cn, JOB_TITLE_OPTIONS, lowerEmail, withPhoneMask, withTransform } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { captacaoService, type ManagerLead } from '@/services/captacao.service';
 import { contactsService } from '@/services/contacts.service';
-import { useCaptadores } from '@/hooks/useCaptacao';
+import { useLeadAssignees } from '@/hooks/useCaptacao';
 import { useContactNiches } from '@/hooks/useContacts';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -72,11 +72,11 @@ export function AddLeadModal({
 }) {
   const qc = useQueryClient();
   // Lista de captadores e nichos são rotas de admin/gerente: o captador não consulta
-  const { data: captadores = [] } = useCaptadores({ enabled: !self });
   const { data: niches = [] } = useContactNiches({ enabled: !self });
   const [added, setAdded] = useState(0);
   const [saving, setSaving] = useState(false);
-  const active = captadores.filter((c) => c.is_active);
+  // Captadores e admins (o admin também pode receber leads), igual à aba Distribuir
+  const assignees = useLeadAssignees({ enabled: !self });
 
   const {
     register,
@@ -169,12 +169,12 @@ export function AddLeadModal({
           : await captacaoService.createLead({ ...fields, captadorId: data.captadorId || undefined });
         qc.invalidateQueries({ queryKey: ['captacao'] });
         if (!self) qc.invalidateQueries({ queryKey: ['contacts'] });
-        const captador = active.find((c) => c.id === data.captadorId);
+        const captador = assignees.find((a) => a.value === data.captadorId);
         toast.success(
           self
             ? `${lead.full_name} entrou nos seus leads`
             : captador
-              ? `${lead.full_name} entregue para ${captador.full_name}`
+              ? `${lead.full_name} entregue para ${captador.label}`
               : `${lead.full_name} entrou na fila`,
         );
         if (another) {
@@ -322,9 +322,9 @@ export function AddLeadModal({
               <Field icon={Send} id="lead-captador" label="Entregar para" className="sm:col-span-2">
                 <select id="lead-captador" {...register('captadorId')} className={fieldClass()}>
                   <option value="">Deixar na fila</option>
-                  {active.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {shortName(c.full_name)}
+                  {assignees.map((a) => (
+                    <option key={a.value} value={a.value}>
+                      {a.label}
                     </option>
                   ))}
                 </select>

@@ -112,8 +112,8 @@ export function useCaptadores({ enabled = true }: { enabled?: boolean } = {}) {
  * Quem pode receber leads livres: captadores ativos e admins (o admin trata os próprios leads na aba
  * "Meus leads" da Captação). Você mesmo aparece como "Eu".
  */
-export function useLeadAssignees() {
-  const { data: captadores = [] } = useCaptadores();
+export function useLeadAssignees({ enabled = true }: { enabled?: boolean } = {}) {
+  const { data: captadores = [] } = useCaptadores({ enabled });
   const { data: tenant } = useTenant();
   const me = useAuthStore((s) => s.user?.id);
   const admins = (tenant?.members ?? []).filter((m) => m.role === 'admin');
@@ -149,7 +149,7 @@ export function useAssignments(params: AssignmentFilters) {
 /** Toda ação do admin mexe em fila, acompanhamento e números — invalida o módulo inteiro */
 function useCaptacaoMutation<TVars, TResult>(
   fn: (vars: TVars) => Promise<TResult>,
-  messages: { success?: string | ((r: TResult) => string); error: string },
+  messages: { success?: string | ((r: TResult) => string); error: string | ((e: unknown) => string) },
 ) {
   const qc = useQueryClient();
   return useMutation({
@@ -159,7 +159,7 @@ function useCaptacaoMutation<TVars, TResult>(
       const msg = typeof messages.success === 'function' ? messages.success(result) : messages.success;
       if (msg) toast.success(msg);
     },
-    onError: () => toast.error(messages.error),
+    onError: (e) => toast.error(typeof messages.error === 'function' ? messages.error(e) : messages.error),
   });
 }
 
@@ -169,7 +169,14 @@ export function useAssignLeads() {
       captacaoService.assign(captadorId, contactIds),
     {
       success: (r) => `${r.assigned} lead${r.assigned !== 1 ? 's' : ''} atribuído${r.assigned !== 1 ? 's' : ''}`,
-      error: 'Erro ao atribuir leads',
+      // Mostra o motivo: antes todo erro virava a mesma mensagem e não dava pra saber o que falhou
+      error: (e) => {
+        const res = (e as { response?: { status?: number; data?: { error?: string } } }).response;
+        if (!res) return 'Erro ao atribuir leads: sem resposta do servidor';
+        if (res.status === 404) return 'Erro ao atribuir leads: essa pessoa não pode receber leads neste espaço';
+        if (res.status === 403) return 'Erro ao atribuir leads: só admin ou gerente pode atribuir';
+        return `Erro ao atribuir leads${res.data?.error ? `: ${res.data.error}` : ''}`;
+      },
     },
   );
 }
