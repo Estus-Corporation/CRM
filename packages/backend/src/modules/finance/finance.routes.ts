@@ -8,6 +8,8 @@ const router = Router();
 // Dados de lucro, sócios e pró-labore: só o admin do workspace
 router.use(requireAuth, requireRole('admin'));
 
+router.get('/summary', FinanceController.getSummary);
+
 router.get('/expenses', FinanceController.listExpenses);
 router.post('/expenses', FinanceController.createExpense);
 router.patch('/expenses/:id', FinanceController.updateExpense);

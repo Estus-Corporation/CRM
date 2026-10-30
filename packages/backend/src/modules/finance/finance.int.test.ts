@@ -187,4 +187,65 @@ describe.skipIf(!hasTestDb)('financeiro (M30)', () => {
       expect(empty.body.data).toEqual([]);
     });
   });
+
+  describe('resumo do mês', () => {
+    /** Negócio direto no banco (pipeline e etapa mínimos do tenant) */
+    async function makeDeal(tenantId: string, value: number, status: 'won' | 'open', closedAt: string | null) {
+      const [pipeline] = await db('pipelines').insert({ tenant_id: tenantId, name: 'P' }).returning('id');
+      const [stage] = await db('pipeline_stages').insert({ tenant_id: tenantId, pipeline_id: pipeline.id, name: 'S' }).returning('id');
+      await db('deals').insert({ tenant_id: tenantId, pipeline_id: pipeline.id, stage_id: stage.id, title: 'Negócio', value, status, closed_at: closedAt });
+    }
+
+    it('soma só os negócios ganhos do mês deste tenant e fecha o lucro líquido', async () => {
+      const admin = await newAdmin();
+      const other = await newAdmin();
+      await makeDeal(admin.tenantId, 6000, 'won', '2026-10-15T15:00:00Z');
+      await makeDeal(admin.tenantId, 4000, 'won', '2026-10-02T15:00:00Z');
+      await makeDeal(admin.tenantId, 9000, 'won', '2026-09-30T15:00:00Z');
+      await makeDeal(admin.tenantId, 777, 'open', null);
+      await makeDeal(other.tenantId, 5000, 'won', '2026-10-15T15:00:00Z');
+
+      await api(admin, 'PUT', '/taxes', { taxes: [{ name: 'Simples', rate: 10 }] });
+      const expense = (await api(admin, 'POST', '/expenses', { ...RECURRING, amount: 1000 })).body.data.id as string;
+      await api(admin, 'PUT', '/partners', { partners: [{ name: 'A', sharePercent: 100, proLabore: 500 }] });
+
+      const res = await api(admin, 'GET', '/summary?month=2026-10');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject({
+        month: '2026-10',
+        revenue: 10000,
+        taxesTotal: 1000,
+        expensesTotal: 1000,
+        proLaboreTotal: 500,
+        netProfit: 7500,
+        pendingTotal: 1000,
+      });
+      expect(res.body.data.distribution).toMatchObject([{ name: 'A', profitShare: 7500 }]);
+
+      await api(admin, 'PUT', `/expenses/${expense}/payments/2026-10`, { paid: true });
+      const paid = (await api(admin, 'GET', '/summary?month=2026-10')).body.data;
+      expect(paid.pendingTotal).toBe(0);
+      expect(paid.netProfit).toBe(7500);
+      expect(paid.payables[0].status).toBe('paid');
+    });
+
+    it('o mês do negócio é o de Brasília: 22h de 31/10 em BRT é outubro, não novembro', async () => {
+      const admin = await newAdmin();
+      await makeDeal(admin.tenantId, 3000, 'won', '2026-11-01T01:00:00Z');
+      expect((await api(admin, 'GET', '/summary?month=2026-10')).body.data.revenue).toBe(3000);
+      expect((await api(admin, 'GET', '/summary?month=2026-11')).body.data.revenue).toBe(0);
+    });
+
+    it('sem month usa o mês atual; month inválido dá 422; não-admin dá 403', async () => {
+      const admin = await newAdmin();
+      const current = await api(admin, 'GET', '/summary');
+      expect(current.status).toBe(200);
+      expect(current.body.data.month).toMatch(/^\d{4}-\d{2}$/);
+      expect(current.body.data.warnings.noConfig).toBe(true);
+
+      expect((await api(admin, 'GET', '/summary?month=2026-9')).status).toBe(422);
+      const manager = await actorFor(admin.tenantId, 'manager');
+      expect((await api(manager, 'GET', '/summary?month=2026-10')).status).toBe(403);
+    });
+  });
 });

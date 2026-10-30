@@ -91,3 +91,12 @@ export async function replacePartners(req: Request, res: Response, next: NextFun
     next(err);
   }
 }
+
+export async function getSummary(req: Request, res: Response, next: NextFunction) {
+  try {
+    const month = req.query.month === undefined ? undefined : monthParam.parse(req.query.month);
+    res.json({ data: await FinanceService.getSummary(req.user!.tenantId, month) });
+  } catch (err) {
+    next(err);
+  }
+}

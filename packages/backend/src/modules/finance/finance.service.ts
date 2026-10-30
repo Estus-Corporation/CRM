@@ -1,4 +1,5 @@
 import { db } from '../../db';
+import { calcMonth, summaryToReais, type MonthSummaryDto } from './finance.calc';
 import type { CreateExpenseInput, ReplacePartnersInput, ReplaceTaxesInput, UpdateExpenseInput } from './finance.schemas';
 
 // Datas `date` saem como texto (to_char) para não sofrerem deslocamento de fuso ao virar Date.
@@ -172,4 +173,36 @@ export async function replacePartners(tenantId: string, partners: ReplacePartner
     }
   });
   return listPartners(tenantId);
+}
+
+const toCents = (reais: number) => Math.round(reais * 100);
+
+/** Data de hoje (YYYY-MM-DD) no fuso de Brasília — é nele que "mês" e "atrasada" são medidos */
+const todayInSaoPaulo = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+
+/** Resultado do mês (YYYY-MM; padrão = mês atual): receita dos negócios ganhos menos impostos, gastos e pró-labore */
+export async function getSummary(tenantId: string, month: string = todayInSaoPaulo().slice(0, 7)): Promise<MonthSummaryDto> {
+  const [{ total }] = await db('deals')
+    .where({ tenant_id: tenantId, status: 'won' })
+    .whereRaw("to_char(closed_at AT TIME ZONE 'America/Sao_Paulo', 'YYYY-MM') = ?", [month])
+    .sum({ total: 'value' });
+
+  const [expenses, taxes, partners, paidIds] = await Promise.all([
+    listExpenses(tenantId),
+    listTaxes(tenantId),
+    listPartners(tenantId),
+    db('finance_payments').where({ tenant_id: tenantId, month: `${month}-01` }).pluck('expense_id'),
+  ]);
+
+  return summaryToReais(
+    calcMonth({
+      month,
+      today: todayInSaoPaulo(),
+      revenue: toCents(Number(total ?? 0)),
+      expenses: expenses.map((e) => ({ ...e, amount: toCents(e.amount) })),
+      paidExpenseIds: new Set<string>(paidIds),
+      taxes: taxes.filter((t) => t.isActive).map((t) => ({ id: t.id, name: t.name, rate: t.rate })),
+      partners: partners.map((p) => ({ id: p.id, name: p.name, sharePercent: p.sharePercent, proLabore: toCents(p.proLabore) })),
+    }),
+  );
 }
