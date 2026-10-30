@@ -31,10 +31,11 @@ function availableContactsBase(tenantId: string) {
 }
 
 async function getActiveCaptador(tenantId: string, captadorId: string) {
-  // Captador = vínculo ativo com papel captador neste workspace
+  // Quem pode receber leads: captador ou admin (o admin também trata leads, na aba "Meus leads" da Captação)
   const captador = await db('user_tenants as ut')
     .join('users as u', 'ut.user_id', 'u.id')
-    .where({ 'ut.user_id': captadorId, 'ut.tenant_id': tenantId, 'ut.role': 'captador', 'ut.is_active': true })
+    .where({ 'ut.user_id': captadorId, 'ut.tenant_id': tenantId, 'ut.is_active': true })
+    .whereIn('ut.role', ['captador', 'admin'])
     .first('u.id', 'u.full_name');
   if (!captador) throw httpError('Captador not found', 404);
   return captador;
@@ -237,7 +238,8 @@ async function notifyAdmins(tenantId: string, captadorId: string, contactId: str
   ]);
   const leadName = contact?.company_name || contact?.full_name || 'um lead';
   await Promise.all(
-    (admins as string[]).map((adminId) =>
+    // Quem tratou o lead não avisa a si mesmo (admin tratando os próprios leads)
+    (admins as string[]).filter((adminId) => adminId !== captadorId).map((adminId) =>
       createNotification({
         tenantId,
         userId: adminId,
@@ -559,7 +561,7 @@ export async function assignLeads(tenantId: string, adminId: string, input: Assi
         .returning('id')
     : [];
 
-  await notifyAssigned(tenantId, input.captadorId, inserted.length);
+  if (input.captadorId !== adminId) await notifyAssigned(tenantId, input.captadorId, inserted.length);
   return { assigned: inserted.length, skipped: ids.length - inserted.length };
 }
 

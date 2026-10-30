@@ -20,16 +20,20 @@ import { AddLeadModal } from '@/components/captacao/AddLeadModal';
 import { ImportLeadsModal } from '@/components/captacao/ImportLeadsModal';
 import { AddLeadChooser, AutoLeadsModal } from '@/components/captacao/AddLeadChooser';
 import { CampaignsPage } from '@/pages/leadhunter/CampaignsPage';
+import { MyLeadsPage } from '@/pages/captacao/MyLeadsPage';
 import { SearchesPage } from '@/pages/leadhunter/SearchesPage';
 import { IntegrationsPage } from '@/pages/leadhunter/IntegrationsPage';
 
-type Tab = 'team' | 'distribute' | 'tracking' | 'campaigns' | 'searches' | 'integrations';
+type Tab = 'team' | 'distribute' | 'tracking' | 'mine' | 'campaigns' | 'searches' | 'integrations';
 
 const TABS: { value: Tab; label: string }[] = [
   { value: 'team', label: 'Equipe e comissões' },
   { value: 'distribute', label: 'Distribuir leads' },
   { value: 'tracking', label: 'Acompanhamento' },
 ];
+
+// Admin também trata leads: os que ele atribuiu a si mesmo (mesma tela de Meus leads do captador)
+const MINE_TAB: { value: Tab; label: string } = { value: 'mine', label: 'Meus leads' };
 
 // LeadHunter (antes era uma seção do menu): só admin, e só com a flag do workspace ligada
 const LEADHUNTER_TABS: { value: Tab; label: string }[] = [
@@ -123,7 +127,8 @@ export function CaptacaoPage() {
 
   // ?tab=distribute abre direto na aba; ?novo=auto já abre a busca automática (o antigo /solicitacoes leva pra cá)
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabs = isAdmin && leadhunterEnabled ? [...TABS, ...LEADHUNTER_TABS] : TABS;
+  const baseTabs = isAdmin ? [...TABS, MINE_TAB] : TABS;
+  const tabs = isAdmin && leadhunterEnabled ? [...baseTabs, ...LEADHUNTER_TABS] : baseTabs;
   // A aba fica na URL (?tab=), assim as abas do LeadHunter guardam os próprios parâmetros (?c=, ?novo=)
   const urlTab = searchParams.get('tab') as Tab | null;
   // Sem ?tab= (ex.: veio pelo menu) volta na última aba aberta
@@ -181,7 +186,8 @@ export function CaptacaoPage() {
               </>
             ) : (
               isAdmin &&
-              !isLeadHunterTab && (
+              !isLeadHunterTab &&
+              tab !== 'mine' && (
                 <Button size="lg" onClick={() => setNewOpen(true)} className="px-6 text-[15px]">
                   <UserPlus size={18} strokeWidth={2.25} />
                   Adicionar captador
@@ -210,7 +216,13 @@ export function CaptacaoPage() {
 
       {/* Abas: segmentado no desktop, dropdown no celular (sem rolagem lateral) */}
       <div>
-        <SegmentedControl layoutId="captacao-tabs" options={tabs} value={tab} onChange={setTab} className="max-md:hidden" />
+        {/* Computador: abas da captação à esquerda e as do LeadHunter na extrema direita (a pílula desliza entre os dois grupos) */}
+        <div className="flex items-center justify-between gap-3 max-md:hidden">
+          <SegmentedControl layoutId="captacao-tabs" options={baseTabs} value={tab} onChange={setTab} />
+          {isAdmin && leadhunterEnabled && (
+            <SegmentedControl layoutId="captacao-tabs" options={LEADHUNTER_TABS} value={tab} onChange={setTab} />
+          )}
+        </div>
         <SelectDropdown title="Seção" options={tabs} value={tab} onChange={setTab} className="w-full md:hidden" />
       </div>
 
@@ -231,6 +243,7 @@ export function CaptacaoPage() {
           onOpenSettings={isAdmin ? () => setRateOpen(true) : undefined}
         />
       )}
+      {tab === 'mine' && <MyLeadsPage embedded />}
       {tab === 'campaigns' && <CampaignsPage embedded />}
       {tab === 'searches' && <SearchesPage embedded />}
       {tab === 'integrations' && <IntegrationsPage embedded />}

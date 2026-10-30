@@ -13,6 +13,7 @@ import { LeadCard } from '@/components/captacao/LeadCard';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { cn } from '@/lib/utils';
 
 type Scope = 'today' | 'followup' | 'open' | 'all';
 
@@ -51,7 +52,8 @@ function wonHint(won = 0) {
   return won === 1 ? '1 fechou negócio' : `${won} fecharam negócio`;
 }
 
-export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
+/** embedded: aba "Meus leads" da Captação (admin tratando os próprios leads) — sem título e sem comissão */
+export function MyLeadsPage({ view = 'leads', embedded = false }: { view?: View; embedded?: boolean }) {
   const config = VIEWS[view];
   const [scope, setScope] = useStickyState<Scope>('myLeads.scope', 'today');
   const [status, setStatus] = useStickyState<CallStatus | ''>('myLeads.status', '');
@@ -71,6 +73,7 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
   return (
     // mobile-sections: no celular 3 blocos separados — cabeçalho, resumo e a lista (ver globals.css)
     <div className="mobile-sections space-y-5 max-md:space-y-3">
+      {!embedded && (
       <PageHeader
         title={config.title}
         subtitle={config.subtitle}
@@ -84,11 +87,12 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
           )
         }
       />
+      )}
       <AddLeadModal open={addOpen} onClose={() => setAddOpen(false)} self />
 
       {view === 'leads' && (
         // Mesmo card de KPI do Dashboard (ícone no quadrado verde, hover com elevação)
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
+        <div className={cn('grid grid-cols-2 gap-3 sm:gap-4', !embedded && 'sm:grid-cols-3 max-sm:[&>*:last-child]:col-span-2')}>
           <KpiCard
             icon={PhoneCall}
             highlight
@@ -97,12 +101,14 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
             sub={`${Math.max((summary?.today_total ?? 0) - (summary?.today_concluded ?? 0), 0)} a concluir`}
           />
           <KpiCard icon={CalendarCheck} label="Reuniões" value={summary?.meetings ?? 0} sub={wonHint(summary?.won)} />
-          <KpiCard
-            icon={Wallet}
-            label="Comissão a receber"
-            value={formatBRL(summary?.commission_pending)}
-            sub={`${formatBRL(summary?.commission_paid)} já recebido`}
-          />
+          {!embedded && (
+            <KpiCard
+              icon={Wallet}
+              label="Comissão a receber"
+              value={formatBRL(summary?.commission_pending)}
+              sub={`${formatBRL(summary?.commission_paid)} já recebido`}
+            />
+          )}
         </div>
       )}
 
@@ -147,6 +153,13 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
               <SelectDropdown title="Período" options={SCOPE_OPTIONS} value={scope} onChange={setScope} className="w-40 max-sm:flex-1" />
             )}
             <SelectDropdown title="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} className="w-52 max-sm:flex-1" />
+            {/* Na aba da Captação não há título com o botão: o "Adicionar lead" (pra você mesmo) vem pra cá */}
+            {embedded && (
+              <Button onClick={() => setAddOpen(true)} className="h-10 flex-shrink-0">
+                <Plus size={16} strokeWidth={2.25} />
+                Adicionar lead
+              </Button>
+            )}
           </div>
         </div>
         )}
@@ -162,7 +175,9 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
             <EmptyState
               icon={view === 'meetings' ? CalendarCheck : PhoneCall}
               title={filtered ? 'Nenhum lead aqui' : config.emptyTitle}
-              description={filtered ? 'Tente outro filtro.' : config.emptyText}
+              description={
+                filtered ? 'Tente outro filtro.' : embedded ? 'Atribua leads livres a você na aba Distribuir leads (opção "Eu").' : config.emptyText
+              }
             />
           </div>
         ) : (

@@ -22,7 +22,7 @@ import {
   User,
   UserCheck,
 } from 'lucide-react';
-import { useAssignLeads, useCaptadores, useManagerLead } from '@/hooks/useCaptacao';
+import { useAssignLeads, useLeadAssignees, useManagerLead } from '@/hooks/useCaptacao';
 import {
   CALL_STATUS,
   googleUrl,
@@ -56,8 +56,8 @@ export function ManagerLeadPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const { data: lead, isLoading, isError } = useManagerLead(id);
-  const { data: captadores = [] } = useCaptadores();
-  const active = captadores.filter((c) => c.is_active);
+  // Captadores e admins (o admin também pode receber leads livres)
+  const assignees = useLeadAssignees();
   const assign = useAssignLeads();
   const [target, setTarget] = useState('');
   const [editOpen, setEditOpen] = useState(false);
@@ -300,12 +300,12 @@ export function ManagerLeadPage() {
                     <SelectDropdown
                       value={target}
                       onChange={setTarget}
-                      placeholder="Escolha um captador…"
-                      title="Captador"
-                      options={active.map((c) => ({ value: c.id, label: shortName(c.full_name) }))}
+                      placeholder="Escolha quem vai tratar…"
+                      title="Entregar para"
+                      options={assignees}
                       className="w-full"
                     />
-                    <p className="mt-2 text-xs text-text-muted">O lead sai da fila e entra nos leads de hoje do captador.</p>
+                    <p className="mt-2 text-xs text-text-muted">O lead sai da fila e entra nos leads de hoje de quem receber.</p>
                     <Button size="lg" onClick={handleAssign} disabled={!target || assign.isPending} className="mt-4 w-full">
                       <Send size={15} />
                       {assign.isPending ? 'Atribuindo…' : 'Atribuir'}

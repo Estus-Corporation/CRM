@@ -1,5 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useTenant } from '@/hooks/useTenant';
+import { useAuthStore } from '@/store/authStore';
+import { shortName } from '@/lib/utils';
 import {
   captacaoService,
   type AssignmentFilters,
@@ -103,6 +106,24 @@ export function useRecordWhatsapp() {
 
 export function useCaptadores({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({ queryKey: captacaoKeys.captadores, queryFn: captacaoService.captadores, enabled });
+}
+
+/**
+ * Quem pode receber leads livres: captadores ativos e admins (o admin trata os próprios leads na aba
+ * "Meus leads" da Captação). Você mesmo aparece como "Eu".
+ */
+export function useLeadAssignees() {
+  const { data: captadores = [] } = useCaptadores();
+  const { data: tenant } = useTenant();
+  const me = useAuthStore((s) => s.user?.id);
+  const admins = (tenant?.members ?? []).filter((m) => m.role === 'admin');
+  return [
+    ...admins
+      .slice()
+      .sort((a, b) => (a.id === me ? -1 : b.id === me ? 1 : 0))
+      .map((m) => ({ value: m.id, label: m.id === me ? 'Eu (admin)' : `${shortName(m.full_name)} (admin)` })),
+    ...captadores.filter((c) => c.is_active).map((c) => ({ value: c.id, label: shortName(c.full_name) })),
+  ];
 }
 
 export function useManagerLead(id: string) {

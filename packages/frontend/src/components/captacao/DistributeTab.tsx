@@ -3,14 +3,14 @@ import { useStickyState } from '@/hooks/useStickyState';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Check, ChevronRight, Inbox, Search, Send, Shuffle, Star } from 'lucide-react';
-import { useAssignLeads, useAvailableContacts, useCaptadores } from '@/hooks/useCaptacao';
+import { useAssignLeads, useAvailableContacts, useLeadAssignees } from '@/hooks/useCaptacao';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { NicheFilter } from '@/components/contacts/NicheFilter';
 import { listSpring } from '@/components/ui/DataList';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { cn, shortName } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const PAGE_SIZE = 50;
 
@@ -26,8 +26,8 @@ interface Props {
 /** Fila de leads livres. A entrega diária é automática (cota por captador); aqui também dá pra atribuir à mão. */
 export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props) {
   const navigate = useNavigate();
-  const { data: captadores = [] } = useCaptadores();
-  const activeCaptadores = captadores.filter((c) => c.is_active);
+  // Captadores e admins (o admin também pode receber leads livres)
+  const assignees = useLeadAssignees();
 
   const [niche, setNiche] = useStickyState('captacao.distribute.niche', '');
   const [search, setSearch] = useStickyState('captacao.distribute.search', '');
@@ -127,9 +127,9 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
             className="input-base h-10 w-48"
           >
             <option value="">Atribuir para…</option>
-            {activeCaptadores.map((c) => (
-              <option key={c.id} value={c.id}>
-                {shortName(c.full_name)}
+            {assignees.map((a) => (
+              <option key={a.value} value={a.value}>
+                {a.label}
               </option>
             ))}
           </select>
