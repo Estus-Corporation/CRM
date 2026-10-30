@@ -89,8 +89,8 @@ export function TopbarSearch({ autoFocus }: { autoFocus?: boolean } = {}) {
           'flex h-10 items-center gap-2.5 rounded-xl border-[1.5px] px-3.5 transition-[border-color,background-color,box-shadow] duration-200',
           focused
             // Brilho de foco difuso (blur grande, sem anel duro)
-            ? 'border-accent-green bg-field shadow-[0_0_18px_1px_rgb(var(--accent-green)/0.28)]'
-            : 'border-accent-green/70 bg-field hover:border-accent-green',
+            ? 'border-accent-green bg-fg/[0.04] backdrop-blur-md shadow-[0_0_18px_1px_rgb(var(--accent-green)/0.28)]'
+            : 'border-accent-green/70 bg-fg/[0.04] backdrop-blur-md hover:border-accent-green',
         )}
       >
         {isFetching ? (

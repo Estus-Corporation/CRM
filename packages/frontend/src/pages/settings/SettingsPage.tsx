@@ -11,6 +11,7 @@ import { LeadRequestQuotaForm } from '@/components/lead-requests/LeadRequestQuot
 import { TeamPanel } from '@/components/team/TeamPanel';
 import { useTenant } from '@/hooks/useTenant';
 import { Spinner } from '@/components/ui/Spinner';
+import { usePageSubtitle } from '@/store/pageStore';
 
 const PLAN_LABEL: Record<string, string> = {
   free: 'FREE',
@@ -114,6 +115,7 @@ function BillingSection({ isAdmin }: { isAdmin: boolean }) {
 }
 
 export function SettingsPage() {
+  usePageSubtitle('Configurações deste workspace: empresa, plano e equipe');
   const currentUser = useAuthStore((s) => s.user);
   const isAdmin = currentUser?.role === 'admin';
   const { data: tenant } = useTenant();
@@ -134,7 +136,6 @@ export function SettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="page-title">Configurações</h1>
-          <p className="text-sm text-text-secondary mt-0.5">Configurações deste workspace: empresa, plano e equipe</p>
         </div>
         {/* Perfil pessoal (foto, nome, senha, workspaces) fica em Minha conta */}
         <Button variant="secondary" size="sm" onClick={() => navigate('/conta')}>

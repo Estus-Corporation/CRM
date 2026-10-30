@@ -39,7 +39,7 @@ export function NicheFilter({ value, onChange }: NicheFilterProps) {
     <div ref={rootRef} className="relative">
       <div
         className={cn(
-          'flex h-10 items-center rounded-xl border bg-field shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-colors duration-200',
+          'flex h-10 items-center rounded-xl border bg-fg/[0.04] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-200',
           value ? 'border-accent-green/60' : 'border-fg/[0.1] hover:border-fg/[0.18]',
         )}
       >

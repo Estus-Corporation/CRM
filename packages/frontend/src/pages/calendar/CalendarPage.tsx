@@ -2,8 +2,10 @@ import { useCalendarEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } fro
 import { EventManagerCalendar } from '@/components/calendar/EventManagerCalendar';
 import { Spinner } from '@/components/ui/Spinner';
 import type { CreateEventInput } from '@/services/calendar.service';
+import { usePageSubtitle } from '@/store/pageStore';
 
 export function CalendarPage() {
+  usePageSubtitle('Reuniões, compromissos e eventos da equipe');
   const { data: events = [], isLoading } = useCalendarEvents();
   const createEvent = useCreateEvent();
   const updateEvent = useUpdateEvent();

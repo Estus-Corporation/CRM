@@ -171,12 +171,15 @@
   }
 
   /* CSS puro (sem @apply de tokens): não depende do servidor ter recarregado o tailwind.config */
+  /* Campos (busca, filtros, selects, inputs): mesmo vidro do botão secundário */
   .input-base {
     width: 100%;
     border-radius: 10px;
-    border: 1px solid rgb(var(--fg) / 0.1);
-    background: rgb(var(--field-bg));
-    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    border: 1px solid rgb(var(--fg) / 0.08);
+    background: rgb(var(--fg) / 0.04);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
     padding: 0.5rem 0.875rem;
     font-size: 0.875rem;
     line-height: 1.25rem;
@@ -188,11 +191,17 @@
   }
   .input-base:hover {
     border-color: rgb(var(--fg) / 0.14);
+    background: rgb(var(--fg) / 0.07);
+  }
+  /* Lista do select nativo: fundo sólido (o vidro do campo deixaria as opções sem contraste) */
+  .input-base option {
+    background: rgb(var(--bg-surface));
+    color: rgb(var(--text-primary));
   }
   .input-base:focus {
     outline: none;
     border-color: rgb(var(--accent-green) / 0.5);
-    background: rgb(var(--field-bg));
+    background: rgb(var(--fg) / 0.06);
     box-shadow: 0 0 16px 0 rgb(var(--accent-green) / 0.22);
   }
 

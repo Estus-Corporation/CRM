@@ -192,9 +192,12 @@ export function DistributeTab({ leadsPerDay, onAddLead, onOpenSettings }: Props)
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)', transition: { ...listSpring, delay: Math.min(i * 0.03, 0.3) } }}
                   transition={listSpring}
                   onClick={() => navigate(`/captacao/lead/${c.id}`)}
+                  // Mesmo vidro leve dos cards do Acompanhamento (sem backdrop-blur: dentro da pasta ele deixa o fundo sólido)
                   className={cn(
-                    'card card-interactive group flex cursor-pointer items-center gap-4 overflow-hidden p-4 transition-colors md:px-5',
-                    isSelected && '!border-accent-green/50 bg-accent-green/[0.05]',
+                    'group flex cursor-pointer items-center gap-4 overflow-hidden rounded-2xl border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors md:px-5',
+                    isSelected
+                      ? 'border-accent-green/50 bg-accent-green/[0.06]'
+                      : 'border-fg/[0.1] bg-fg/[0.035] hover:border-fg/[0.16] hover:bg-fg/[0.055]',
                   )}
                 >
                   {/* Ícone do lead = botão de seleção: passar o mouse mostra o check; selecionado fica verde */}

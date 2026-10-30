@@ -14,6 +14,7 @@ import { RevenueChart } from '@/components/dashboard/RevenueChart';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { CardAction, CardHeader } from '@/components/dashboard/CardHeader';
 import { Spinner } from '@/components/ui/Spinner';
+import { usePageSubtitle } from '@/store/pageStore';
 
 function formatCurrency(v: number) {
   return new Intl.NumberFormat('pt-BR', {
@@ -33,6 +34,7 @@ const RANGE_OPTIONS = [
 ];
 
 export function DashboardPage() {
+  usePageSubtitle('Resumo do seu workspace hoje');
   const [range, setRange] = useState('today');
   const user = useAuthStore((s) => s.user);
   const { data: kpis, isLoading: kpisLoading } = useKpis();
@@ -51,7 +53,6 @@ export function DashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4 pt-1">
         <div>
           <h1 className="page-title">Olá, {user?.full_name?.split(' ')[0]}</h1>
-          <p className="mt-1.5 text-[14px] text-text-secondary">Resumo do seu workspace hoje</p>
         </div>
         {/* Período (por enquanto só visual — os dados ainda não filtram por ele) */}
         <SegmentedControl layoutId="dashboard-range-pill" options={RANGE_OPTIONS} value={range} onChange={setRange} />

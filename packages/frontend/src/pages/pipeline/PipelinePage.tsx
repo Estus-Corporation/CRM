@@ -45,6 +45,7 @@ import { dealsService, pipelineService } from '@/services/pipeline.service';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { cn } from '@/lib/utils';
+import { usePageSubtitle } from '@/store/pageStore';
 
 // Ao soltar, a cópia desliza até o encaixe; o card original reaparece no fim
 const dropAnimation: DropAnimation = {
@@ -77,6 +78,7 @@ const kanbanCollision: CollisionDetection = (args) => {
 };
 
 export function PipelinePage() {
+  usePageSubtitle('Arraste os negócios entre as etapas para acompanhar cada venda');
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { data: pipelines, isLoading: loadingPipelines } = usePipelines();
@@ -395,7 +397,6 @@ export function PipelinePage() {
             ))}
           </div>
         </div>
-          <p className="mt-1.5 text-sm text-text-secondary">Arraste os negócios entre as etapas para acompanhar cada venda.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="secondary" size="lg" onClick={() => setSettingsOpen(true)} aria-label="Configurações" className="px-5 text-[15px]">

@@ -38,6 +38,7 @@ import { CardAction, CardHeader } from '@/components/dashboard/CardHeader';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
+import { usePageSubtitle } from '@/store/pageStore';
 
 type Period = 'week' | 'month';
 
@@ -287,6 +288,7 @@ export function MyDashboardPage() {
 
   const changeLabel = period === 'week' ? 'Variação em relação à semana anterior' : 'Variação em relação ao mês anterior';
   const periodLabel = period === 'week' ? 'Últimos 7 dias' : 'Últimos 30 dias';
+  usePageSubtitle(`Seu desempenho nos ${periodLabel.toLowerCase()}, comparado ao período anterior`);
 
   return (
     // mobile-sections: no celular cada bloco vira um card translúcido separado (ver globals.css)
@@ -294,7 +296,6 @@ export function MyDashboardPage() {
       <div className="flex flex-wrap items-end justify-between gap-4 pt-1">
         <div>
           <h1 className="page-title">Olá{firstName ? `, ${firstName}` : ''}</h1>
-          <p className="mt-1.5 text-[14px] text-text-secondary">Seu desempenho nos {periodLabel.toLowerCase()}, comparado ao período anterior</p>
         </div>
         <SegmentedControl layoutId="my-dashboard-period" options={PERIOD_OPTIONS} value={period} onChange={setPeriod} />
       </div>

@@ -138,7 +138,7 @@ export function MyLeadsPage({ view = 'leads' }: { view?: View }) {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar lead…"
-                className="h-11 w-full rounded-xl border border-fg/[0.12] bg-field pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-green/50 focus:outline-none"
+                className="h-11 w-full rounded-xl border border-fg/[0.12] bg-fg/[0.04] backdrop-blur-md pl-9 pr-3 text-sm text-text-primary placeholder:text-text-muted focus:border-accent-green/50 focus:outline-none"
               />
             </div>
           )}

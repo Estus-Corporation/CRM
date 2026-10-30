@@ -69,7 +69,7 @@ export function SelectDropdown<T extends string>({ value, options, onChange, tit
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className={cn(
-          'flex h-10 w-full items-center justify-between gap-2 rounded-xl border bg-field px-3.5 text-[13.5px] font-medium text-text-primary shadow-[0_1px_2px_rgb(0_0_0/0.04)] transition-colors duration-200',
+          'flex h-10 w-full items-center justify-between gap-2 rounded-xl border bg-fg/[0.04] backdrop-blur-md px-3.5 text-[13.5px] font-medium text-text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors duration-200',
           open ? 'border-accent-green/60' : 'border-fg/[0.1] hover:border-fg/[0.18]',
         )}
       >

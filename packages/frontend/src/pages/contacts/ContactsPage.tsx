@@ -170,7 +170,7 @@ export function ContactsPage() {
           aria-label={editMode ? 'Sair do modo de edição' : 'Editar contatos'}
           className={cn(
             'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border transition-colors sm:hidden',
-            editMode ? 'border-accent-green/60 bg-accent-green/15 text-accent-green' : 'border-fg/[0.1] bg-field text-text-secondary',
+            editMode ? 'border-accent-green/60 bg-accent-green/15 text-accent-green' : 'border-fg/[0.1] bg-fg/[0.04] backdrop-blur-md text-text-secondary',
           )}
         >
           {editMode ? <Check size={16} /> : <Pencil size={16} />}

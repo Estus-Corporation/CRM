@@ -9,8 +9,11 @@ import {
   CalendarDays,
   ClipboardList,
   Globe,
+  Instagram,
   Lightbulb,
+  Mail,
   MapPin,
+  MessageSquare,
   Phone,
   PhoneOff,
   Send,
@@ -26,6 +29,7 @@ import {
   instagramHandle,
   instagramUrl,
   LEAD_PAIN_LABEL,
+  LEAD_PAIN_SCRIPT,
   leadPains,
   LOST_REASON_LABEL,
   websiteLabel,
@@ -38,9 +42,11 @@ import { LeadPeopleCard } from '@/components/captacao/LeadPeopleCard';
 import { GmailIcon, GoogleIcon, InstagramIcon, WhatsAppIcon } from '@/components/ui/BrandIcons';
 import { QuickLink } from '@/components/ui/QuickLink';
 import { Button } from '@/components/ui/Button';
+import { SelectDropdown } from '@/components/ui/SelectDropdown';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { cn, shortName } from '@/lib/utils';
+import { cn, formatPhone, shortName } from '@/lib/utils';
+import { SPLIT_CARD, SPLIT_CARD_BODY, SPLIT_CARD_HEAD } from '@/components/captacao/cardStyles';
 
 /**
  * Página de um lead vista pelo admin/gerente (aberta pela aba Distribuir): o mesmo cabeçalho,
@@ -147,6 +153,13 @@ export function ManagerLeadPage() {
     lead.job_title && { icon: User, label: 'Cargo', value: lead.job_title },
     lead.niche && { icon: Tag, label: 'Segmento', value: lead.niche },
     lead.address && { icon: MapPin, label: 'Endereço', value: lead.address, href: googleUrl(lead) },
+    // Mesmos dados dos atalhos do cabeçalho (igual à ficha da página do captador)
+    lead.phone && { icon: Phone, label: 'Telefone', value: formatPhone(lead.phone), href: `tel:${lead.phone.replace(/[^\d+]/g, '')}` },
+    lead.phone && { icon: MessageSquare, label: 'WhatsApp', value: formatPhone(lead.phone), href: whatsappUrl(lead.phone) },
+    lead.instagram && { icon: Instagram, label: 'Instagram', value: instagramHandle(lead.instagram), href: instagramUrl(lead.instagram) },
+    { icon: Star, label: 'Google', value: lead.maps_url ? 'Página no Google' : 'Buscar no Google Maps', href: googleUrl(lead) },
+    lead.website && { icon: Globe, label: 'Site', value: websiteLabel(lead.website), href: websiteUrl(lead.website) },
+    lead.email && { icon: Mail, label: 'E-mail', value: lead.email, href: `mailto:${lead.email}` },
     { icon: CalendarDays, label: 'Cadastrado em', value: format(new Date(lead.created_at), "d 'de' MMM 'de' yyyy", { locale: ptBR }) },
   ].filter(Boolean) as { icon: typeof Globe; label: string; value: string; href?: string }[];
 
@@ -164,7 +177,8 @@ export function ManagerLeadPage() {
       <div className="mobile-split grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         {/* Cabeçalho: identidade + atalhos + situação */}
         <div className="max-lg:order-1 lg:col-span-2">
-          <div className="card flex flex-wrap items-center gap-4 p-5 md:p-6">
+          {/* Mesmo vidro transparente do cabeçalho da página do lead do captador */}
+          <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-fg/[0.1] bg-fg/[0.035] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:p-6">
             <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-fg/[0.08] text-text-primary">
               <Building2 size={24} />
             </div>
@@ -212,100 +226,20 @@ export function ManagerLeadPage() {
           <div className="card grid auto-cols-fr grid-flow-col gap-2 p-2 [&>a]:!w-full">{quickLinks}</div>
         </div>
 
-        {/* Atribuir */}
-        <div className="max-lg:order-3">
-          <div className="card overflow-hidden">
-            <div className="flex items-center gap-2 border-b border-fg/[0.06] px-4 py-3.5 md:px-5">
-              <UserCheck size={16} className="text-accent-green" />
-              <h2 className="text-sm font-semibold text-text-primary">{free ? 'Atribuir lead' : 'Atribuição'}</h2>
-            </div>
-            <div className="p-4 md:p-5">
-              {free ? (
-                <>
-                  <p className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Entregar para</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select value={target} onChange={(e) => setTarget(e.target.value)} className="input-base h-11 min-w-[220px] flex-1">
-                      <option value="">Escolha um captador…</option>
-                      {active.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {shortName(c.full_name)}
-                        </option>
-                      ))}
-                    </select>
-                    <Button size="lg" onClick={handleAssign} disabled={!target || assign.isPending} className="max-sm:w-full">
-                      <Send size={15} />
-                      {assign.isPending ? 'Atribuindo…' : 'Atribuir'}
-                    </Button>
-                  </div>
-                  <p className="mt-3 text-xs text-text-muted">O lead sai da fila e entra nos leads de hoje do captador.</p>
-                </>
-              ) : (
-                // Andamento com o captador: situação, ligação, retorno, anotação e histórico de tentativas
-                <div className="space-y-3">
-                  <p className="text-sm text-text-secondary">
-                    Com <strong className="text-text-primary">{lead.captador_name ? shortName(lead.captador_name) : 'um captador'}</strong>
-                  </p>
-                  <dl className="grid gap-x-4 gap-y-2 text-[13.5px] sm:grid-cols-[120px_minmax(0,1fr)]">
-                    <dt className="text-text-muted">Situação</dt>
-                    <dd className="font-medium text-text-primary">
-                      {lead.lead_result === 'won'
-                        ? 'Ganhou'
-                        : lead.lead_result === 'lost'
-                          ? `Perdeu${lead.lost_reason ? ` · ${LOST_REASON_LABEL[lead.lost_reason]}` : ''}`
-                          : lead.on_hold_at && !lead.concluded_at
-                            ? 'Em aguardo'
-                            : 'Pendente'}
-                    </dd>
-                    <dt className="text-text-muted">Ligação</dt>
-                    <dd className="font-medium text-text-primary">
-                      {lead.call_status && lead.call_status !== 'pending' ? CALL_STATUS[lead.call_status].label : '—'}
-                    </dd>
-                    {lead.next_contact_at && (
-                      <>
-                        <dt className="text-text-muted">Retorno</dt>
-                        <dd className={cn('font-medium', new Date(lead.next_contact_at) < new Date() ? 'text-status-lost' : 'text-accent-amber')}>
-                          {format(new Date(lead.next_contact_at), "EEE, d 'de' MMM 'às' HH:mm", { locale: ptBR })}
-                        </dd>
-                      </>
-                    )}
-                    {lead.call_notes && (
-                      <>
-                        <dt className="text-text-muted">Anotação</dt>
-                        <dd className="whitespace-pre-line text-text-secondary">{lead.call_notes}</dd>
-                      </>
-                    )}
-                  </dl>
-                  {lead.attempts.length > 0 && (
-                    <div className="border-t border-fg/[0.06] pt-3">
-                      <p className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Histórico</p>
-                      <AttemptsTimeline attempts={lead.attempts} />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Contatos que o captador conseguiu (só leitura aqui) */}
-        <div className="max-lg:order-3">
-          <LeadPeopleCard people={lead.lead_people ?? []} />
-        </div>
-
         {/* Sobre o lead + Possíveis dores (cada um num bloco no celular) */}
         <div className="mobile-split flex flex-col gap-4 max-lg:order-2">
           <div>
-            <div className="card p-4 md:p-5">
-              <div className="flex items-center gap-2.5">
-                <ClipboardList size={18} strokeWidth={2} className="flex-shrink-0 text-accent-green" />
-                <h2 className="text-[15px] font-semibold text-text-primary">Sobre o lead</h2>
+            <div className={cn(SPLIT_CARD, SPLIT_CARD_BODY)}>
+              <div className={cn(SPLIT_CARD_HEAD, 'md:px-5')}>
+                <ClipboardList size={16} className="text-accent-green" />
+                <h2 className="text-[15px] font-semibold text-text-primary">Ficha</h2>
               </div>
-              <dl className="mt-4 divide-y divide-fg/[0.06] overflow-hidden rounded-xl border border-fg/[0.06]">
+              <dl className="divide-y divide-fg/[0.06] px-4 py-1 md:px-5">
                 {facts.map(({ icon: Icon, label, value, href }) => (
-                  <div key={label} className="grid grid-cols-[18px_minmax(0,0.9fr)_minmax(0,1.4fr)] items-center gap-3 px-3.5 py-3">
-                    <Icon size={16} className="text-text-muted" />
-                    <dt className="truncate text-[13px] text-text-muted">{label}</dt>
-                    <dd className="min-w-0 break-words text-[13px] font-medium text-text-primary">
+                  <div key={label} className="grid grid-cols-[16px_110px_minmax(0,1fr)] items-start gap-2.5 py-3">
+                    <Icon size={14} className="mt-0.5 text-text-muted" />
+                    <dt className="text-[13.5px] text-text-muted">{label}</dt>
+                    <dd className="min-w-0 break-words text-[13.5px] font-medium text-text-primary">
                       {href ? (
                         <a href={href} target="_blank" rel="noopener noreferrer" className="hover:text-accent-green hover:underline">
                           {value}
@@ -322,21 +256,21 @@ export function ManagerLeadPage() {
 
           {pains.length > 0 && (
             <div>
-              <div className="card p-4 md:p-5">
-                <div className="flex items-center gap-2.5">
-                  <Lightbulb size={18} strokeWidth={2} className="flex-shrink-0 text-accent-amber" />
+              <div className={cn(SPLIT_CARD, SPLIT_CARD_BODY)}>
+                <div className={SPLIT_CARD_HEAD}>
+                  <Lightbulb size={16} className="text-accent-amber" />
                   <h2 className="text-[15px] font-semibold text-text-primary">Possíveis dores</h2>
-                  <span className="ml-auto text-[11px] text-text-muted">argumentos pra ligação</span>
                 </div>
-                <ul className="mt-4 divide-y divide-fg/[0.06] overflow-hidden rounded-xl border border-fg/[0.06]">
+                <ul className="divide-y divide-fg/[0.06]">
                   {pains.map((pn) => {
                     const Icon = PAIN_ICON[pn];
                     return (
-                      <li key={pn} className="flex items-center gap-3 px-3.5 py-2.5">
-                        <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-fg/[0.05] text-accent-amber">
-                          <Icon size={14} />
-                        </span>
-                        <span className="text-[13px] font-medium text-text-primary">{LEAD_PAIN_LABEL[pn]}</span>
+                      <li key={pn} className="px-4 py-3">
+                        <p className="flex items-center gap-2 text-[13.5px] font-semibold text-text-primary">
+                          <Icon size={14} className="text-accent-amber" />
+                          {LEAD_PAIN_LABEL[pn]}
+                        </p>
+                        <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">"{LEAD_PAIN_SCRIPT[pn]}"</p>
                       </li>
                     );
                   })}
@@ -344,6 +278,86 @@ export function ManagerLeadPage() {
               </div>
             </div>
           )}
+        </div>
+        {/* Coluna da direita: contatos do lead e, embaixo, a atribuição */}
+        <div className="mobile-split flex flex-col gap-4 max-lg:order-3">
+          {/* Contatos que o captador conseguiu (só leitura aqui) */}
+          <div>
+            <LeadPeopleCard people={lead.lead_people ?? []} />
+          </div>
+          {/* Atribuir */}
+          <div>
+            <div className={cn(SPLIT_CARD, SPLIT_CARD_BODY)}>
+              <div className={cn(SPLIT_CARD_HEAD, 'md:px-5')}>
+                <UserCheck size={16} className="text-accent-green" />
+                <h2 className="text-sm font-semibold text-text-primary">{free ? 'Atribuir lead' : 'Atribuição'}</h2>
+              </div>
+              <div className="p-4 md:p-5">
+                {free ? (
+                  <>
+                    <p className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Entregar para</p>
+                    {/* Escolha, aviso logo abaixo e o botão na largura toda (a coluna é estreita) */}
+                    <SelectDropdown
+                      value={target}
+                      onChange={setTarget}
+                      placeholder="Escolha um captador…"
+                      title="Captador"
+                      options={active.map((c) => ({ value: c.id, label: shortName(c.full_name) }))}
+                      className="w-full"
+                    />
+                    <p className="mt-2 text-xs text-text-muted">O lead sai da fila e entra nos leads de hoje do captador.</p>
+                    <Button size="lg" onClick={handleAssign} disabled={!target || assign.isPending} className="mt-4 w-full">
+                      <Send size={15} />
+                      {assign.isPending ? 'Atribuindo…' : 'Atribuir'}
+                    </Button>
+                  </>
+                ) : (
+                  // Andamento com o captador: situação, ligação, retorno, anotação e histórico de tentativas
+                  <div className="space-y-3">
+                    <p className="text-sm text-text-secondary">
+                      Com <strong className="text-text-primary">{lead.captador_name ? shortName(lead.captador_name) : 'um captador'}</strong>
+                    </p>
+                    <dl className="grid gap-x-4 gap-y-2 text-[13.5px] sm:grid-cols-[120px_minmax(0,1fr)]">
+                      <dt className="text-text-muted">Situação</dt>
+                      <dd className="font-medium text-text-primary">
+                        {lead.lead_result === 'won'
+                          ? 'Ganhou'
+                          : lead.lead_result === 'lost'
+                            ? `Perdeu${lead.lost_reason ? ` · ${LOST_REASON_LABEL[lead.lost_reason]}` : ''}`
+                            : lead.on_hold_at && !lead.concluded_at
+                              ? 'Em aguardo'
+                              : 'Pendente'}
+                      </dd>
+                      <dt className="text-text-muted">Ligação</dt>
+                      <dd className="font-medium text-text-primary">
+                        {lead.call_status && lead.call_status !== 'pending' ? CALL_STATUS[lead.call_status].label : '—'}
+                      </dd>
+                      {lead.next_contact_at && (
+                        <>
+                          <dt className="text-text-muted">Retorno</dt>
+                          <dd className={cn('font-medium', new Date(lead.next_contact_at) < new Date() ? 'text-status-lost' : 'text-accent-amber')}>
+                            {format(new Date(lead.next_contact_at), "EEE, d 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                          </dd>
+                        </>
+                      )}
+                      {lead.call_notes && (
+                        <>
+                          <dt className="text-text-muted">Anotação</dt>
+                          <dd className="whitespace-pre-line text-text-secondary">{lead.call_notes}</dd>
+                        </>
+                      )}
+                    </dl>
+                    {lead.attempts.length > 0 && (
+                      <div className="border-t border-fg/[0.06] pt-3">
+                        <p className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">Histórico</p>
+                        <AttemptsTimeline attempts={lead.attempts} />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

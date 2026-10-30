@@ -97,7 +97,7 @@ function Popover({
 }
 
 const fieldButton =
-  'flex h-11 w-full items-center gap-2.5 rounded-xl border bg-field px-3 text-left text-sm transition-colors';
+  'flex h-11 w-full items-center gap-2.5 rounded-xl border bg-fg/[0.04] backdrop-blur-md px-3 text-left text-sm transition-colors';
 
 /** Data do evento ("YYYY-MM-DD"): calendário próprio no visual do app */
 export function DateField({ value, onChange }: { value: string; onChange: (v: string) => void }) {

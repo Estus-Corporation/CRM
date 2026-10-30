@@ -12,6 +12,7 @@ import { ThemeToggle } from './ThemeToggle';
 import { cn, shortName } from '@/lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { dropdownMotion } from '@/lib/motion';
+import { usePageStore } from '@/store/pageStore';
 
 const iconButton =
   'relative flex h-10 w-10 items-center justify-center rounded-[10px] text-text-secondary transition-colors duration-200 hover:bg-fg/[0.06] hover:text-text-primary';
@@ -84,6 +85,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
   };
 
   const title = pageTitle(pathname);
+  const subtitle = usePageStore((s) => s.subtitle);
 
   return (
     <>
@@ -103,7 +105,16 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
               {title && <ChevronRight size={14} className="flex-shrink-0 text-text-muted max-md:hidden" />}
             </>
           )}
-          {title && <span className="truncate font-semibold text-text-primary">{title}</span>}
+          {title && <span className="flex-shrink-0 truncate font-semibold text-text-primary">{title}</span>}
+          {/* Descrição da tela (vinha embaixo do título da página) */}
+          {title && subtitle && (
+            <>
+              <span className="mx-1.5 h-4 w-px flex-shrink-0 bg-fg/[0.14] max-lg:hidden" />
+              <span className="min-w-0 truncate text-text-muted max-lg:hidden" title={subtitle}>
+                {subtitle}
+              </span>
+            </>
+          )}
         </div>
 
         {user && (
@@ -148,13 +159,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                 aria-label="Minha conta"
                 aria-expanded={menuOpen}
               >
-                <span
-                  className="block rounded-full p-[1.5px] transition-[filter] duration-200 group-hover:brightness-110"
-                  style={{
-                    background:
-                      'conic-gradient(from 200deg, rgb(var(--accent-green)), rgb(var(--accent-green)) 55%, rgb(var(--accent-amber)) 80%, rgb(var(--accent-green)))',
-                  }}
-                >
+                <span className="block rounded-full transition-[filter] duration-200 group-hover:brightness-110">
                   <Avatar name={user.full_name} src={user.avatar_url} online className="h-10 w-10 bg-bg-surface text-sm ring-1 ring-fg/[0.12]" />
                 </span>
                 <span className="max-w-[180px] truncate text-sm font-medium text-text-primary max-md:hidden">{shortName(user.full_name)}</span>

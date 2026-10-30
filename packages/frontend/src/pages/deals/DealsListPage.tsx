@@ -173,7 +173,7 @@ export function DealsListPage() {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="rounded-lg border border-fg/[0.1] bg-field p-1.5 transition-colors hover:border-fg/[0.2] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-fg/[0.1] bg-fg/[0.04] backdrop-blur-md p-1.5 transition-colors hover:border-fg/[0.2] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Página anterior"
               >
                 <ChevronLeft size={15} />
@@ -181,7 +181,7 @@ export function DealsListPage() {
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="rounded-lg border border-fg/[0.1] bg-field p-1.5 transition-colors hover:border-fg/[0.2] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg border border-fg/[0.1] bg-fg/[0.04] backdrop-blur-md p-1.5 transition-colors hover:border-fg/[0.2] disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Próxima página"
               >
                 <ChevronRight size={15} />

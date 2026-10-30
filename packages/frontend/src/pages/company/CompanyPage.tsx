@@ -13,6 +13,7 @@ import { CompanyLogo } from '@/components/company/CompanyLogo';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
+import { usePageSubtitle } from '@/store/pageStore';
 
 function Section({ icon: Icon, title, text }: { icon: typeof Building2; title: string; text: string | null }) {
   if (!text) return null;
@@ -67,6 +68,7 @@ function FactSheet({ facts }: { facts: Fact[] }) {
 
 /** "Sobre a empresa": o material que a equipe (principalmente o captador) consulta pra vender */
 export function CompanyPage() {
+  usePageSubtitle('Quem somos, o que vendemos e como abordar o cliente');
   const navigate = useNavigate();
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin');
   const { data: tenant, isLoading } = useTenant();
