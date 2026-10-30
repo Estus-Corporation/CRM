@@ -812,8 +812,7 @@ export async function recordWhatsapp(tenantId: string, userId: string, id: strin
     .update({
       whatsapp_at: new Date(),
       whatsapp_count: db.raw('whatsapp_count + 1'),
-      // Abriu a conversa = mensagem enviada, aguardando resposta (se ainda não tinha situação)
-      whatsapp_status: db.raw("coalesce(whatsapp_status, 'waiting')"),
+      // A situação da mensagem (respondeu / sem resposta / em aguardo) é o captador quem marca
       updated_at: new Date(),
     });
   if (!updated) throw httpError('Lead not found', 404);

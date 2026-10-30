@@ -3,14 +3,16 @@ import type { CallStatus, LostReason, WhatsappStatus } from '@/services/captacao
 /** Resultados da ligação, na ordem em que aparecem para o captador */
 /** Plano B (WhatsApp): situação da mensagem */
 export const WHATSAPP_STATUS: Record<WhatsappStatus, { label: string; className: string; dot: string }> = {
-  // 'waiting' = mensagem enviada, sem resposta registrada ainda
-  waiting: { label: 'Mensagem enviada', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
+  // 'waiting' = em aguardo: mensagem enviada, esperando resposta (põe o lead em aguardo)
+  waiting: { label: 'Em aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
   replied: { label: 'Respondeu', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' },
   no_reply: { label: 'Sem resposta', className: 'bg-fg/[0.09] text-text-primary', dot: 'bg-text-secondary' },
   no_whatsapp: { label: 'Sem WhatsApp', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
+  // Perdeu pela mensagem: o lead fica concluído como perdido
+  lost: { label: 'Perdeu', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
 };
-// Opções do captador: só a resposta ('waiting' = enviada, marcado sozinho ao abrir o WhatsApp)
-export const WHATSAPP_STATUS_ORDER: WhatsappStatus[] = ['replied', 'no_reply', 'no_whatsapp'];
+// Opções do captador ('no_whatsapp' saiu: fica só pra leads antigos)
+export const WHATSAPP_STATUS_ORDER: WhatsappStatus[] = ['replied', 'waiting', 'no_reply', 'lost'];
 
 export const CALL_STATUS: Record<CallStatus, { label: string; short: string; className: string; dot: string }> = {
   // Paleta de 3 cores (esmeralda/âmbar/vermelho): "a ligar" tracejado = ainda não ligou; "não atendeu" neutro
@@ -20,15 +22,15 @@ export const CALL_STATUS: Record<CallStatus, { label: string; short: string; cla
   answered: { label: 'Atendeu', short: 'Atendeu', className: 'bg-accent-green/10 text-text-primary', dot: 'bg-accent-green' },
   callback: { label: 'Em aguardo', short: 'Aguardo', className: 'bg-accent-amber/15 text-accent-amber', dot: 'bg-accent-amber' },
   meeting: { label: 'Reunião marcada', short: 'Reunião', className: 'bg-accent-green/15 text-accent-green', dot: 'bg-accent-green' },
-  lost: { label: 'Perdido', short: 'Perdido', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
+  lost: { label: 'Perdeu', short: 'Perdeu', className: 'bg-status-lost/15 text-status-lost', dot: 'bg-status-lost' },
 };
 
 // Sem 'callback': o "Em aguardo" agora é o botão ao lado de "Concluir lead" (on_hold_at). O valor segue
 // existindo só pra leads antigos que já têm esse resultado.
 export const CALL_STATUS_ORDER: CallStatus[] = ['pending', 'no_answer', 'answered', 'wrong_number', 'meeting', 'lost'];
 
-// Opções do Resultado na página do lead (reunião sai da Agenda; perdido quem decide é o admin)
-export const CALL_RESULT_OPTIONS = ['no_answer', 'answered', 'wrong_number'] as const satisfies readonly CallStatus[];
+// Opções do Resultado na página do lead (reunião sai da Agenda; "Perdeu" conclui o lead como perdido)
+export const CALL_RESULT_OPTIONS = ['no_answer', 'answered', 'wrong_number', 'lost'] as const satisfies readonly CallStatus[];
 
 /** Motivos de perda (escolhidos ao marcar "Perdeu") */
 export const LOST_REASON_LABEL: Record<LostReason, string> = {

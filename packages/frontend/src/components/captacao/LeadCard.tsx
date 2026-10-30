@@ -1,17 +1,17 @@
-import { forwardRef, useEffect, useState, type ReactNode } from 'react';
+import { forwardRef, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Building2, ClipboardPen, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, CheckCircle2, ChevronDown, ChevronRight, Globe, Hourglass, MessageSquareOff, NotebookPen, X, PhoneOff, History, BellRing, Save, Send, PhoneIncoming, Instagram, Lock, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
+  Building2, ClipboardPen, Lightbulb, CalendarCheck, CalendarClock, CalendarDays, CheckCheck, PhoneForwarded, PhoneMissed, Clock, ClipboardList, XCircle, Tag, User, CalendarPlus, PhoneCall, CheckCircle2, ChevronDown, ChevronRight, Globe, MessageSquareOff, NotebookPen, X, PhoneOff, History, BellRing, Save, Send, PhoneIncoming, Instagram, Lock, Mail, MapPin, MapPinOff, Megaphone, MessageSquare, Pencil, Phone, Star, StarHalf, Trophy, Video,
   Kanban,
 } from 'lucide-react';
 import { useRecordWhatsapp, useUpdateMyLead } from '@/hooks/useCaptacao';
 import type { CallStatus, LeadAttempt, LostReason, MeetingGuest, MeetingMode, MyLead, WhatsappStatus } from '@/services/captacao.service';
-import { Modal } from '@/components/ui/Modal';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Modal } from '@/components/ui/Modal';
 import {
   CALL_STATUS,
   CALL_RESULT_OPTIONS,
@@ -20,7 +20,6 @@ import {
   LOST_REASONS,
   formatBRL,
   googleUrl,
-  hasStartedContact,
   instagramHandle,
   instagramUrl,
   LEAD_PAIN_LABEL,
@@ -40,7 +39,7 @@ import { LeadPeopleCard } from './LeadPeopleCard';
 import { SPLIT_CARD, SPLIT_CARD_BODY, SPLIT_CARD_HEAD } from './cardStyles';
 import { QuickLink } from '@/components/ui/QuickLink';
 import { listSpring } from '@/components/ui/DataList';
-import { cn } from '@/lib/utils';
+import { cn, formatPhone } from '@/lib/utils';
 
 const MEETING_MODES = [
   { value: 'online', label: 'Online', icon: Video },
@@ -80,6 +79,7 @@ const WA_STATUS_ICON: Record<WhatsappStatus, typeof Clock> = {
   replied: CheckCheck,
   no_reply: Clock,
   no_whatsapp: MessageSquareOff,
+  lost: XCircle,
 };
 
 // Resultado antigo "Em aguardo" da ligação (callback) saiu das opções: na tela vira "sem resultado" pro captador escolher de novo
@@ -115,21 +115,40 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
 ) {
   const navigate = useNavigate();
   const update = useUpdateMyLead();
-  // Concluir tem estado próprio: o salvamento da anotação (no blur, ao clicar no botão) não pode travá-lo
-  const concludeMutation = useUpdateMyLead();
   // Plano B: abrir o WhatsApp fica registrado (os admins veem quando o captador partiu pra mensagem)
   const recordWhatsapp = useRecordWhatsapp();
   const openWhatsapp = () => {
     recordWhatsapp.mutate(lead.id);
-    setWaStatus((cur) => cur ?? 'waiting');
   };
-  // Resposta da mensagem salva na hora (clicar de novo desmarca; se o WhatsApp já foi aberto volta pra "enviada")
-  // Respondeu / não respondeu tira o lead do aguardo; desmarcar zera a mensagem (só abrir o bloco de novo
-  // conta como enviada e põe em aguardo)
-  const chooseWaStatus = (ws: WhatsappStatus) => {
+  // Perdeu (pela ligação ou pela mensagem): pede o motivo num modal e conclui como perdido;
+  // sair do Perdeu reabre sem resultado
+  const [lostAsk, setLostAsk] = useState<'call' | 'whatsapp' | null>(null);
+  // "Outro" motivo: o captador justifica por escrito (vai pras anotações do lead)
+  const [lostOther, setLostOther] = useState<string | null>(null);
+  const closeLostAsk = () => {
+    setLostAsk(null);
+    setLostOther(null);
+  };
+  const lostChange = (lost: boolean, reason?: LostReason) =>
+    lost
+      ? { concluded: true, leadResult: 'lost' as const, lostReason: reason ?? 'other' }
+      : lead.lead_result === 'lost'
+        ? { leadResult: null, ...(lead.concluded_at && { concluded: false }) }
+        : {};
+  // Situação da mensagem salva na hora (clicar de novo desmarca). "Em aguardo" põe o lead em aguardo;
+  // respondeu / sem resposta (ou desmarcar) tiram do aguardo
+  // "Perdeu" conclui o lead como perdido; trocar/desmarcar tira o perdido
+  const chooseWaStatus = (ws: WhatsappStatus, reason?: LostReason, callNotes?: string) => {
     const next = waStatus === ws ? null : ws;
+    if (next === 'lost' && !reason) return setLostAsk('whatsapp');
     setWaStatus(next);
-    update.mutate({ id: lead.id, whatsappStatus: next, onHold: false });
+    update.mutate({
+      id: lead.id,
+      whatsappStatus: next,
+      onHold: next === 'waiting',
+      ...lostChange(next === 'lost', reason),
+      ...(callNotes !== undefined && { callNotes }),
+    });
   };
   const whatsappSent = lead.whatsapp_at
     ? `${format(new Date(lead.whatsapp_at), "d 'de' MMM 'às' HH:mm", { locale: ptBR })}${lead.whatsapp_count > 1 ? ` · ${lead.whatsapp_count}x` : ''}`
@@ -149,45 +168,30 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   const [showAgenda, setShowAgenda] = useState(false);
   const [showPlanA, setShowPlanA] = useState(false);
   const [showPlanB, setShowPlanB] = useState(false);
-  // Abrir a Ligação já conta como ligação feita: só falta dizer se o lead atendeu
-  const [callMade, setCallMade] = useState(lead.call_status !== 'pending');
-  // Escolheu um resultado nesta visita: o próximo salvamento entra como tentativa no histórico
-  const [callPicked, setCallPicked] = useState(false);
-  // "Perdeu" pede o motivo antes de salvar
-  const [lostOpen, setLostOpen] = useState(false);
   const toggleCall = () => {
     setShowPlanA((v) => !v);
-    setCallMade(true);
   };
-  // Abrir a Mensagem já conta como mensagem enviada: sem saber se respondeu, o lead fica em aguardo sozinho
-  const toggleMessage = () => {
-    const opening = !showPlanB;
-    setShowPlanB(opening);
-    if (!opening || waStatus || locked || messageLock) return;
-    setWaStatus('waiting');
-    update.mutate({ id: lead.id, whatsappStatus: 'waiting', onHold: true, callStatus: status, callNotes: notes });
-  };
+  // Abrir a Mensagem só mostra as opções: a situação (incluindo "Em aguardo") é o captador quem escolhe
+  const toggleMessage = () => setShowPlanB((v) => !v);
   const [showFollowup, setShowFollowup] = useState(false);
   // Aba da página do lead: o que fazer agora (Formulário) ou tudo que se sabe dele (Sobre o lead)
   const [view, setView] = useState<LeadView>('form');
   const [waStatus, setWaStatus] = useState<WhatsappStatus | null>(lead.whatsapp_status);
   const locked = lead.outcome !== null;
   const concluded = !!lead.concluded_at && !locked;
-  const isMeeting = status === 'meeting';
-  // Mensagem é o plano B: só quando o lead não atendeu (quem já tem mensagem registrada continua vendo)
-  const messageLock = waStatus
-    ? undefined
-    : status === 'pending'
-      ? 'Diga primeiro se o lead atendeu ou não'
-      : status === 'no_answer'
-        ? undefined
-        : status === 'wrong_number'
-          ? 'Número errado: não dá pra mandar mensagem'
-          : 'Só se o lead não atender';
-  const meetingMissing = isMeeting && (!meetingAt || !meetingMode);
+  // Agenda e Retorno só depois de um contato registrado (resultado da ligação ou da mensagem);
+  // quem já tem reunião/retorno salvo continua vendo
+  const contactLocked = status === 'pending' && !waStatus;
 
   // Mantém rascunho e resultado em sincronia quando o servidor devolve outro valor
-  useEffect(() => setNotes(lead.call_notes ?? ''), [lead.call_notes]);
+  // Anotação: só troca pelo valor do servidor se o captador não mexeu desde a última sincronização
+  // (senão a resposta de um salvamento antigo apagava o que ele continuou digitando)
+  const syncedNotes = useRef(lead.call_notes ?? '');
+  useEffect(() => {
+    const server = lead.call_notes ?? '';
+    setNotes((cur) => (cur === syncedNotes.current ? server : cur));
+    syncedNotes.current = server;
+  }, [lead.call_notes]);
   useEffect(() => setStatus(callStatusOnScreen(lead.call_status)), [lead.call_status]);
   useEffect(() => setWaStatus(lead.whatsapp_status), [lead.whatsapp_status]);
   useEffect(() => {
@@ -202,66 +206,14 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.meeting_at, lead.meeting_mode, lead.meeting_location, lead.meeting_duration, JSON.stringify(lead.meeting_attendee_ids), JSON.stringify(lead.meeting_guests)]);
 
-  const saveNotes = () => {
-    if (locked || notes.trim() === (lead.call_notes ?? '')) return;
-    update.mutate({ id: lead.id, callNotes: notes });
-  };
-
-  // Situação do lead escolhida acima do "Salvar": ganhou / perdeu (salva concluído) ou em aguardo
-  // 'qualifying' = em qualificação: tira do aguardo / reabre, sem resultado (acende sozinho quando o contato começou)
-  type Situation = 'won' | 'lost' | 'hold' | 'qualifying';
-  const [situationState, setSituation] = useState<Situation | null>(lead.lead_result ?? (lead.on_hold_at ? 'hold' : null));
-  useEffect(() => setSituation(lead.lead_result ?? (lead.on_hold_at ? 'hold' : null)), [lead.lead_result, lead.on_hold_at]);
-  const situation = situationState;
-
-  // Salvar: manda resultado + anotação + agenda + situação juntos (um único salvamento)
-  const save = (override?: Situation, lostReason?: LostReason) => {
-    const situation = override ?? situationState;
-    const finishing = situation === 'won' || situation === 'lost';
-    if (finishing && meetingMissing) {
-      toast.error('Informe dia, horário e formato da reunião');
-      return;
-    }
-    concludeMutation.mutate(
-      {
-        id: lead.id,
-        callStatus: status,
-        callNotes: notes,
-        onHold: situation === 'hold',
-        logCall: callPicked,
-        ...(finishing ? { concluded: true, leadResult: situation } : { leadResult: null, ...(lead.concluded_at && { concluded: false }) }),
-        ...(situation === 'lost' && { lostReason: lostReason ?? lead.lost_reason ?? 'other' }),
-        ...(isMeeting &&
-          !meetingMissing && {
-            meetingAt: new Date(meetingAt).toISOString(),
-            meetingMode,
-            meetingLocation: meetingLocation.trim() || null,
-            meetingDuration,
-            meetingAttendeeIds,
-            meetingGuests,
-          }),
-      },
-      {
-        onSuccess: (saved) => {
-          setCallPicked(false);
-          // Servidor sem a versão nova ignora a situação sem erro — avisa em vez de fingir que salvou
-          if ((situation === 'hold' && !saved.on_hold_at) || (finishing && saved.lead_result === undefined)) {
-            toast.error('Não foi possível salvar a situação: o servidor está desatualizado');
-            return;
-          }
-          toast.success(
-            situation === 'won'
-              ? `${lead.full_name}: ganhou`
-              : situation === 'lost'
-                ? `${lead.full_name}: perdeu`
-                : situation === 'hold'
-                  ? `${lead.full_name} em aguardo`
-                  : situation === 'qualifying'
-                    ? `${lead.full_name} em qualificação`
-                    : 'Lead salvo',
-          );
-        },
-      },
+  // Mutação própria: salvar a anotação não trava (nem é travado por) os outros salvamentos da página
+  const notesMutation = useUpdateMyLead();
+  const notesDirty = notes !== (lead.call_notes ?? '');
+  const saveNotes = (feedback = false) => {
+    if (locked || !notesDirty) return;
+    notesMutation.mutate(
+      { id: lead.id, callNotes: notes },
+      { onSuccess: () => feedback && toast.success('Anotação salva') },
     );
   };
 
@@ -287,11 +239,15 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
 
   // Montou a reunião na agenda → o resultado vira "Reunião marcada"
   // Salva sozinho: a reunião vai pro servidor assim que tiver data e formato (resultado vira "Reunião marcada")
+  // Reunião agendada = lead ganho: conclui como "Ganhou" junto (e o evento entra no calendário dos admins)
   const persistMeeting = (m: { at: string; mode: MeetingMode | null; location: string; duration: number; attendeeIds: string[]; guests: MeetingGuest[] }) => {
     if (locked || !m.at || !m.mode) return;
     update.mutate({
       id: lead.id,
       callStatus: 'meeting',
+      concluded: true,
+      leadResult: 'won',
+      onHold: false,
       meetingAt: new Date(m.at).toISOString(),
       meetingMode: m.mode,
       meetingLocation: m.location.trim() || null,
@@ -317,12 +273,13 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     setMeetingAttendeeIds([]);
     setMeetingGuests([]);
     if (status === 'meeting') setStatus('answered');
-    if (situation === 'won') setSituation(null);
     if (lead.meeting_at || lead.call_status === 'meeting') {
       update.mutate(
         {
           id: lead.id,
           ...(lead.call_status === 'meeting' && { callStatus: 'answered' as const }),
+          // Sem reunião o lead deixa de estar ganho (volta pra em qualificação)
+          ...(lead.lead_result === 'won' && { concluded: false, leadResult: null }),
           meetingAt: null,
           meetingMode: null,
           meetingLocation: null,
@@ -341,12 +298,12 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
   };
   // Outro resultado → a reunião preenchida sai na hora
   // Clicar de novo no resultado já marcado desmarca (volta a "a ligar")
-  const chooseStatus = (picked: CallStatus) => {
+  const chooseStatus = (picked: CallStatus, reason?: LostReason, callNotes?: string) => {
     // Com reunião marcada, "Atendeu" já está implícito: não apaga a agenda
     if (picked === 'answered' && status === 'meeting') return;
     const s = picked === status ? 'pending' : picked;
+    if (s === 'lost' && !reason) return setLostAsk('call');
     setStatus(s);
-    setCallPicked(s !== 'pending');
     if (s === 'meeting') setShowAgenda(true);
     if (s !== 'meeting') {
       setMeetingAt('');
@@ -363,6 +320,8 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         id: lead.id,
         callStatus: s,
         logCall: s !== 'pending',
+        ...lostChange(s === 'lost', reason),
+        ...(callNotes !== undefined && { callNotes }),
         ...(s !== 'meeting' &&
           lead.meeting_at && {
             meetingAt: null,
@@ -373,7 +332,6 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
             meetingGuests: [],
           }),
       },
-      { onSuccess: () => setCallPicked(false) },
     );
   };
 
@@ -452,77 +410,6 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     );
   }
 
-  // Em qualificação / ganhou / perdeu / em aguardo: salvam na hora; o botão aceso é a situação do lead
-  const started = status !== 'pending' || hasStartedContact(lead);
-  const qualifying = !concluded && !lead.on_hold_at && started;
-  const situationButtons = (full = false) => (
-    <div className={cn('flex divide-x divide-fg/[0.08] overflow-hidden rounded-xl border border-fg/[0.1] bg-fg/[0.03]', full && 'w-full [&>button]:flex-1')}>
-      <button
-        type="button"
-        onClick={() => {
-          if (qualifying) return;
-          setSituation('qualifying');
-          save('qualifying');
-        }}
-        disabled={concludeMutation.isPending || !started}
-        title={started ? 'Em qualificação' : 'Em qualificação: começa quando você liga ou manda mensagem'}
-        aria-pressed={qualifying}
-        className={cn(
-          'flex h-10 w-11 items-center justify-center transition-colors enabled:hover:bg-fg/[0.08] enabled:hover:text-text-primary disabled:opacity-40',
-          qualifying ? 'bg-fg/[0.12] text-text-primary' : 'text-text-secondary',
-        )}
-      >
-        <PhoneCall size={18} />
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setSituation('won');
-          save('won');
-        }}
-        disabled={concludeMutation.isPending}
-        title="Ganhou"
-        aria-pressed={concluded && lead.lead_result === 'won'}
-        className={cn(
-          'flex h-10 w-11 items-center justify-center transition-colors hover:bg-accent-green/10 hover:text-accent-green',
-          concluded && lead.lead_result === 'won' ? 'bg-accent-green/15 text-accent-green' : 'text-text-secondary',
-        )}
-      >
-        <Trophy size={19} />
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setLostOpen(true);
-        }}
-        disabled={concludeMutation.isPending}
-        title="Perdeu"
-        aria-pressed={concluded && lead.lead_result === 'lost'}
-        className={cn(
-          'flex h-10 w-11 items-center justify-center transition-colors hover:bg-status-lost/10 hover:text-status-lost',
-          concluded && lead.lead_result === 'lost' ? 'bg-status-lost/15 text-status-lost' : 'text-text-secondary',
-        )}
-      >
-        <XCircle size={19} />
-      </button>
-      <button
-        type="button"
-        onClick={() => {
-          setSituation('hold');
-          save('hold');
-        }}
-        disabled={concludeMutation.isPending}
-        title="Em aguardo"
-        aria-pressed={!concluded && !!lead.on_hold_at}
-        className={cn(
-          'flex h-10 w-11 items-center justify-center transition-colors hover:bg-accent-amber/10 hover:text-accent-amber',
-          !concluded && lead.on_hold_at ? 'bg-accent-amber/15 text-accent-amber' : 'text-text-secondary',
-        )}
-      >
-        <Hourglass size={18} />
-      </button>
-    </div>  );
-
   // Enviar para o pipeline do captador (entra em "Qualificando"; clicar de novo tira)
   const inPipeline = !!lead.pipeline_stage;
   const pipelineButton = (
@@ -587,6 +474,13 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
     lead.job_title && { icon: User, label: 'Cargo', value: lead.job_title },
     lead.niche && { icon: Tag, label: 'Segmento', value: lead.niche },
     lead.address && { icon: MapPin, label: 'Endereço', value: lead.address, href: googleUrl(lead) },
+    // Mesmos dados dos atalhos do cabeçalho (telefone, WhatsApp, Instagram, Google, site, e-mail)
+    lead.phone && { icon: Phone, label: 'Telefone', value: formatPhone(lead.phone), href: `tel:${lead.phone.replace(/[^\d+]/g, '')}` },
+    lead.phone && { icon: MessageSquare, label: 'WhatsApp', value: formatPhone(lead.phone), href: whatsappUrl(lead.phone) },
+    lead.instagram && { icon: Instagram, label: 'Instagram', value: instagramHandle(lead.instagram), href: instagramUrl(lead.instagram) },
+    { icon: Star, label: 'Google', value: lead.maps_url ? 'Página no Google' : 'Buscar no Google Maps', href: googleUrl(lead) },
+    lead.website && { icon: Globe, label: 'Site', value: websiteLabel(lead.website), href: websiteUrl(lead.website) },
+    lead.email && { icon: Mail, label: 'E-mail', value: lead.email, href: `mailto:${lead.email}` },
     { icon: CalendarDays, label: 'Recebido em', value: format(new Date(`${lead.assigned_for.slice(0, 10)}T12:00:00`), "d 'de' MMM 'de' yyyy", { locale: ptBR }) },
   ].filter(Boolean) as { icon: typeof Globe; label: string; value: string; href?: string }[];
 
@@ -601,19 +495,9 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
           {/* Celular: os atalhos vão pro bloco logo abaixo; o status fica no selo pequeno do cabeçalho */}
           <div className="flex flex-wrap items-center gap-2 max-sm:hidden">
             {quickLinks}
-            {/* Ganhou / perdeu / em aguardo direto do cabeçalho (salva na hora, como o "Salvar" com a situação);
-                o botão aceso é o status do lead */}
-            {locked ? (
-              <>
-                <span className="mx-1 h-6 w-px bg-fg/[0.1]" />
-                {stateIcon}
-              </>
-            ) : (
-              <>
-                <span className="mx-1 h-6 w-px bg-fg/[0.1]" />
-                {situationButtons()}
-              </>
-            )}
+            {/* Status do lead: um ícone só, muda sozinho conforme o captador registra (ligação, mensagem, reunião) */}
+            <span className="mx-1 h-6 w-px bg-fg/[0.1]" />
+            {stateIcon}
           </div>
           {pipelineButton}
         </div>
@@ -704,20 +588,52 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
             {/* Contato com o lead: primeiro a ligação; se não der certo, a mensagem */}
             <p className="-mx-4 -mt-4 mb-4 border-b border-fg/[0.06] bg-black/[0.18] px-4 py-2.5 md:-mx-5 md:-mt-5 md:px-5 flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">
               Contato com o lead
-              <span className="font-normal normal-case tracking-normal">| ligue primeiro; se não der certo, mande mensagem</span>
+              <span className="font-normal normal-case tracking-normal">| mande mensagem ou ligue, na ordem que preferir</span>
             </p>
             <div className="space-y-2">
 
-            {/* Plano A: a ligação — o que aconteceu ao ligar */}
+            {/* Mensagem no WhatsApp: primeiro meio de contato (fica registrado pros admins) */}
+            <PlanBlock
+              icon={<WhatsAppIcon size={15} />}
+              iconClassName="text-[#25D366]"
+              title="Mensagem"
+              tag={
+                waStatus && (
+                  <span className={cn('text-[13px]', waStatus === 'waiting' ? 'text-accent-amber' : waStatus === 'lost' ? 'text-status-lost' : 'text-text-muted')}>
+                    {WHATSAPP_STATUS[waStatus].label}
+                  </span>
+                )
+              }
+              // Feito quando tem uma situação que não é "em aguardo"
+              done={!!waStatus && waStatus !== 'waiting'}
+              // Livre: dá pra mandar a qualquer momento, sem depender do resultado da ligação
+              open={showPlanB}
+              onToggle={toggleMessage}
+            >
+              <div className="space-y-3 p-4">
+                    {/* Clicar de novo desmarca */}
+                    <StepRow label="Como ficou?">
+                      {WHATSAPP_STATUS_ORDER.map((ws) => (
+                        <ChoicePill
+                          key={ws}
+                          active={waStatus === ws}
+                          activeClass={WHATSAPP_STATUS[ws].className}
+                          icon={WA_STATUS_ICON[ws]}
+                          label={WHATSAPP_STATUS[ws].label}
+                          onClick={() => chooseWaStatus(ws)}
+                        />
+                      ))}
+                    </StepRow>
+              </div>
+            </PlanBlock>
+            {/* Ligação (opcional): o que aconteceu ao ligar */}
             <PlanBlock
               icon={<PhoneCall size={15} />}
               title="Ligação"
               tag={
-                callMade ? (
-                  <span className="text-[13px] text-text-muted">{status === 'pending' ? 'O lead atendeu?' : CALL_STATUS[status].label}</span>
-                ) : (
-                  <span className="text-[13px] font-medium text-accent-green">Obrigatório</span>
-                )
+                <span className={cn('text-[13px]', status === 'lost' ? 'text-status-lost' : 'text-text-muted')}>
+                  {status === 'pending' ? 'Opcional' : CALL_STATUS[status].label}
+                </span>
               }
               done={status !== 'pending'}
               open={showPlanA}
@@ -740,39 +656,6 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               </div>
             </PlanBlock>
 
-            {/* Plano B: não deu certo na ligação → mensagem no WhatsApp (fica registrado pros admins) */}
-            <PlanBlock
-              icon={<WhatsAppIcon size={15} />}
-              iconClassName="text-[#25D366]"
-              title="Mensagem"
-              tag={
-                <span className={cn('text-[13px]', waStatus === 'waiting' ? 'text-accent-amber' : 'text-text-muted')}>
-                  {waStatus === 'waiting' ? 'Enviada · em aguardo' : waStatus ? WHATSAPP_STATUS[waStatus].label : 'Se o lead não atender'}
-                </span>
-              }
-              // Só depois de registrar a ligação (quem já mandou mensagem antes continua vendo)
-              lockedHint={messageLock}
-              // Só fica feito quando diz se respondeu ou não (enviada sem resposta = em aguardo)
-              done={waStatus === 'replied' || waStatus === 'no_reply' || waStatus === 'no_whatsapp'}
-              open={showPlanB && !messageLock}
-              onToggle={toggleMessage}
-            >
-              <div className="space-y-3 p-4">
-                    {/* Clicar de novo desmarca */}
-                    <StepRow label="Como ficou?">
-                      {WHATSAPP_STATUS_ORDER.map((ws) => (
-                        <ChoicePill
-                          key={ws}
-                          active={waStatus === ws}
-                          activeClass={WHATSAPP_STATUS[ws].className}
-                          icon={WA_STATUS_ICON[ws]}
-                          label={WHATSAPP_STATUS[ws].label}
-                          onClick={() => chooseWaStatus(ws)}
-                        />
-                      ))}
-                    </StepRow>
-              </div>
-            </PlanBlock>
             </div>
 
 
@@ -796,8 +679,14 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
             <div className="flex-1 p-4">
               {/* Mesmo rótulo do "Contato com o lead": aqui é o que só acontece às vezes */}
               <p className="-mx-4 -mt-4 mb-4 border-b border-fg/[0.06] bg-black/[0.18] px-4 py-2.5 flex items-center gap-2 text-[11.5px] font-semibold uppercase tracking-[0.08em] text-text-muted">
-                Ocasional
-                <span className="font-normal normal-case tracking-normal">| reunião marcada ou retorno combinado</span>
+                {contactLocked && !meetingAt && !nextContact ? (
+                  <span className="font-normal normal-case tracking-normal">Registre antes pelo menos um meio de contato</span>
+                ) : (
+                  <>
+                    Ocasional
+                    <span className="font-normal normal-case tracking-normal">| reunião marcada ou retorno combinado</span>
+                  </>
+                )}
               </p>
               <div className="space-y-2">
                 {/* Agenda: confere a agenda dos admins e marca o horário da reunião */}
@@ -810,12 +699,9 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                     </span>
                   }
                   done={!!meetingAt && !!meetingMode}
-                  open={showAgenda}
-                  onToggle={() => {
-                    // Abrir a Reunião já conta como lead ganho (o captador ainda pode trocar na Situação)
-                    if (!showAgenda) setSituation('won');
-                    setShowAgenda(!showAgenda);
-                  }}
+                  locked={!meetingAt && contactLocked}
+                  open={showAgenda && (!!meetingAt || !contactLocked)}
+                  onToggle={() => setShowAgenda(!showAgenda)}
                 >
                   <div className="space-y-4 p-4">
                     <StepRow stacked label="Data e hora">
@@ -879,7 +765,8 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                     </span>
                   }
                   done={!!nextContact}
-                  open={showFollowup}
+                  locked={!nextContact && contactLocked}
+                  open={showFollowup && (!!nextContact || !contactLocked)}
                   onToggle={() => setShowFollowup((v) => !v)}
                 >
                   <div className="space-y-4 p-4">
@@ -937,7 +824,7 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                onBlur={saveNotes}
+                onBlur={() => saveNotes()}
                 rows={10}
                 maxLength={2000}
                 readOnly={locked}
@@ -946,9 +833,12 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
                 className="input-base min-h-[220px] resize-y border-fg/[0.12] bg-fg/[0.05] py-3 text-[14px] leading-relaxed shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
               />
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-xs text-text-muted">Salva sozinho quando você sai do campo. Os admins também veem.</p>
+                <p className="text-xs text-text-muted">
+                  {notesMutation.isPending ? 'Salvando…' : notesDirty ? 'Alterações não salvas' : 'Salva sozinho quando você sai do campo. Os admins também veem.'}
+                </p>
                 {!locked && (
-                  <Button onClick={saveNotes} disabled={update.isPending || notes.trim() === (lead.call_notes ?? '')}>
+                  // onMouseDown sem foco: o clique não dispara o blur do campo antes (que salvava e desativava o botão no meio do clique)
+                  <Button onMouseDown={(e) => e.preventDefault()} onClick={() => saveNotes(true)} disabled={notesMutation.isPending || !notesDirty}>
                     <Save size={15} />
                     Salvar anotação
                   </Button>
@@ -1030,26 +920,68 @@ export const LeadCard = forwardRef<HTMLLIElement, { lead: MyLead; index?: number
         </>
       )}
 
-      {/* Celular: Ganhou / Perdeu / Em aguardo embaixo do Formulário (no computador ficam no cabeçalho). Tudo salva sozinho */}
-      {view === 'form' && !locked && !concluded && <div className="max-lg:order-4 sm:hidden">{situationButtons(true)}</div>}
-
-      <Modal open={lostOpen} onClose={() => setLostOpen(false)} title="Por que o lead foi perdido?" className="max-w-md">
-        <div className="grid grid-cols-2 gap-2">
-          {LOST_REASONS.map((r) => (
-            <button
-              key={r}
-              type="button"
-              onClick={() => {
-                setLostOpen(false);
-                setSituation('lost');
-                save('lost', r);
-              }}
-              className="rounded-xl border border-fg/[0.1] px-3 py-3 text-left text-[14px] font-medium text-text-primary transition-colors hover:border-status-lost/40 hover:bg-status-lost/10"
-            >
-              {LOST_REASON_LABEL[r]}
-            </button>
-          ))}
-        </div>
+      {/* Perdeu: o captador diz o porquê (vai pro Acompanhamento e pros relatórios) */}
+      <Modal open={!!lostAsk} onClose={closeLostAsk} title="Por que o lead foi perdido?" className="max-w-md">
+        {lostOther === null ? (
+          <div className="grid grid-cols-2 gap-2">
+            {LOST_REASONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => {
+                  // "Outro" pede a justificativa antes de salvar
+                  if (r === 'other') return setLostOther('');
+                  const channel = lostAsk;
+                  closeLostAsk();
+                  if (channel === 'call') chooseStatus('lost', r);
+                  else chooseWaStatus('lost', r);
+                }}
+                className="rounded-xl border border-fg/[0.1] px-3 py-3 text-left text-[14px] font-medium text-text-primary transition-colors hover:border-status-lost/40 hover:bg-status-lost/10"
+              >
+                {LOST_REASON_LABEL[r]}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const text = lostOther.trim();
+              if (!text) return;
+              // Justificativa entra nas anotações do lead (sem passar do limite de 2000)
+              const line = `Perdeu (outro motivo): ${text}`;
+              const merged = (notes.trim() ? `${notes.trim()}\n\n${line}` : line).slice(0, 2000);
+              setNotes(merged);
+              const channel = lostAsk;
+              closeLostAsk();
+              if (channel === 'call') chooseStatus('lost', 'other', merged);
+              else chooseWaStatus('lost', 'other', merged);
+            }}
+          >
+            <label className="block text-sm font-medium text-text-secondary" htmlFor="lost-other">
+              Justifique nas anotações
+            </label>
+            <textarea
+              id="lost-other"
+              autoFocus
+              value={lostOther}
+              onChange={(e) => setLostOther(e.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="O que aconteceu com o lead?"
+              className="input-base resize-y py-3 text-[14px] leading-relaxed"
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setLostOther(null)}>
+                Voltar
+              </Button>
+              <Button type="submit" disabled={!lostOther.trim()}>
+                Salvar
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
 
       <AdminAgenda open={agendaOpen} onClose={() => setAgendaOpen(false)} onPick={pickMeeting}
@@ -1068,8 +1000,8 @@ const ATTEMPT_LABEL: Record<string, string> = {
   wrong_number: 'Número errado',
   meeting: 'Reunião marcada',
   callback: 'Em aguardo',
-  lost: 'Perdido',
-  waiting: 'Mensagem enviada',
+  lost: 'Perdeu',
+  waiting: 'Em aguardo',
   replied: 'Respondeu',
   no_reply: 'Sem resposta',
   no_whatsapp: 'Sem WhatsApp',
@@ -1216,7 +1148,7 @@ function PlanBlock({
   iconClassName,
   title,
   tag,
-  lockedHint,
+  locked,
   done,
   open,
   onToggle,
@@ -1228,8 +1160,8 @@ function PlanBlock({
   title: string;
   /** Selo ao lado do título (ex.: "Obrigatório") */
   tag?: ReactNode;
-  /** Bloqueado: não abre e mostra o motivo no lugar do selo */
-  lockedHint?: string;
+  /** Bloqueado: não abre (cadeado no lugar da seta; o motivo fica no rótulo do card) */
+  locked?: boolean;
   /** Já tem algo preenchido: ganha o check verde */
   done?: boolean;
   open: boolean;
@@ -1242,7 +1174,7 @@ function PlanBlock({
     <div
       className={cn(
         'overflow-hidden rounded-2xl border border-fg/[0.1] bg-fg/[0.035] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-colors hover:border-fg/[0.16]',
-        lockedHint && 'opacity-55',
+        locked && 'opacity-55',
         className,
       )}
     >
@@ -1250,7 +1182,7 @@ function PlanBlock({
       <button
         type="button"
         onClick={onToggle}
-        disabled={!!lockedHint}
+        disabled={locked}
         aria-expanded={open}
         className={cn(
           'flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-fg/[0.025] disabled:cursor-not-allowed disabled:hover:bg-transparent',
@@ -1268,9 +1200,9 @@ function PlanBlock({
         <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-text-primary">{title}</span>
         {/* Situação da etapa à direita (texto discreto) */}
         <span className="min-w-0 max-w-[55%] truncate text-right max-sm:hidden">
-          {lockedHint ? <span className="text-[13px] text-text-muted">{lockedHint}</span> : tag}
+          {!locked && tag}
         </span>
-        {lockedHint ? <Lock size={15} className="flex-shrink-0 text-text-muted" /> : <ChevronDown size={17} className={cn('flex-shrink-0 text-text-muted transition-transform duration-300', open && 'rotate-180')} />}
+        {locked ? <Lock size={15} className="flex-shrink-0 text-text-muted" /> : <ChevronDown size={17} className={cn('flex-shrink-0 text-text-muted transition-transform duration-300', open && 'rotate-180')} />}
       </button>
       <AnimatePresence initial={false}>
         {open && (

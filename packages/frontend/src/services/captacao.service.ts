@@ -12,7 +12,7 @@ export interface LeadAttempt {
   created_at: string;
 }
 /** Plano B (WhatsApp): situação da mensagem */
-export type WhatsappStatus = 'waiting' | 'replied' | 'no_reply' | 'no_whatsapp';
+export type WhatsappStatus = 'waiting' | 'replied' | 'no_reply' | 'no_whatsapp' | 'lost';
 /** Pessoa de contato conseguida na ligação (ex.: o dono, passado pelo atendente) */
 export interface LeadPerson {
   name: string;

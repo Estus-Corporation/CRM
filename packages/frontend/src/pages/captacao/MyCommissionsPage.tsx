@@ -4,33 +4,14 @@ import { CheckCircle2, Clock, HandCoins, Trophy, Wallet, Building2, CalendarDays
 import { useMyLeads, useMySummary } from '@/hooks/useCaptacao';
 import { formatBRL } from '@/lib/captacao';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { KpiCard } from '@/components/dashboard/KpiCard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { DataList, DataListBody, DataListHead, DataListRow, DataListSkeleton, listSpring } from '@/components/ui/DataList';
-import { cn } from '@/lib/utils';
 
 const GRID =
   'grid-cols-[minmax(0,1fr)_110px_100px] md:grid-cols-[minmax(0,1.6fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,0.9fr)]';
 
 const formatDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
-
-function Stat({ icon: Icon, label, value, accent }: { icon: typeof Wallet; label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="card p-4">
-      <div className="flex items-center gap-2 text-xs font-medium text-text-secondary">
-        <Icon size={14} />
-        {label}
-      </div>
-      <p
-        className={cn(
-          'mt-2 truncate text-2xl font-semibold tabular-nums sm:text-3xl',
-          accent ? 'text-accent-amber' : 'text-text-primary',
-        )}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
 
 /** Captador: leads que fecharam negócio e a comissão de cada um (a receber / paga) */
 export function MyCommissionsPage() {
@@ -46,10 +27,11 @@ export function MyCommissionsPage() {
       />
 
       {/* Celular: 2 colunas, o último card ocupa a linha inteira — tudo visível, sem arrastar */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-sm:[&>*:last-child]:col-span-2">
-        <Stat icon={Wallet} label="A receber" value={formatBRL(summary?.commission_pending)} accent />
-        <Stat icon={HandCoins} label="Já recebido" value={formatBRL(summary?.commission_paid)} />
-        <Stat icon={Trophy} label="Negócios fechados" value={String(summary?.won ?? 0)} />
+      {/* Mesmo card de KPI do Dashboard (ícone no quadrado à esquerda) */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 max-sm:[&>*:last-child]:col-span-2">
+        <KpiCard icon={Wallet} highlight label="A receber" value={formatBRL(summary?.commission_pending)} />
+        <KpiCard icon={HandCoins} label="Já recebido" value={formatBRL(summary?.commission_paid)} />
+        <KpiCard icon={Trophy} label="Negócios fechados" value={summary?.won ?? 0} />
       </div>
 
       {/* div: no celular vira o bloco translúcido e a lista fica dentro */}
