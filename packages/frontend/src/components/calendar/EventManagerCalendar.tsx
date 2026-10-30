@@ -604,7 +604,7 @@ function DayTag({ events, members }: { events: CalendarEvent[]; members: Member[
         {people.length > 0 ? (
           <div className="flex flex-shrink-0 -space-x-1.5">
             {people.slice(0, 2).map((m) => (
-              <Avatar key={m.id} name={m.full_name} src={m.avatar_url} className="h-[18px] w-[18px] text-[8px] ring-[1.5px] ring-bg-surface" />
+              <Avatar key={m.id} name={m.full_name} src={m.avatar_url} className="h-[18px] w-[18px] text-[8px] ring-1 ring-fg/[0.12]" />
             ))}
           </div>
         ) : (
@@ -650,7 +650,7 @@ function DayEventCard({ event, members, onClick }: { event: CalendarEvent; membe
             {people.length > 0 && (
               <span className="flex flex-shrink-0 -space-x-1.5">
                 {people.map((m) => (
-                  <Avatar key={m.id} name={m.full_name} src={m.avatar_url} className="h-5 w-5 text-[9px] ring-2 ring-bg-surface" />
+                  <Avatar key={m.id} name={m.full_name} src={m.avatar_url} className="h-5 w-5 text-[9px] ring-1 ring-fg/[0.12]" />
                 ))}
               </span>
             )}

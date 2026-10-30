@@ -28,7 +28,7 @@ const AvatarCircles = ({ className, people, max = 5 }: AvatarCirclesProps) => {
         {shown.map((p) => (
           <Tooltip.Root key={p.id}>
             <Tooltip.Trigger asChild>
-              <span className="relative rounded-full border-2 border-bg-primary bg-bg-surface transition-all duration-200 ease-out hover:z-20 hover:-translate-y-1.5 hover:scale-110 hover:border-accent-green">
+              <span className="relative rounded-full border border-fg/[0.12] bg-bg-surface transition-all duration-200 ease-out hover:z-20 hover:-translate-y-1.5 hover:scale-110 hover:border-accent-green">
                 <Avatar name={p.name} src={p.src} className="h-10 w-10 text-sm" />
               </span>
             </Tooltip.Trigger>
@@ -47,7 +47,7 @@ const AvatarCircles = ({ className, people, max = 5 }: AvatarCirclesProps) => {
         {rest.length > 0 && (
           <Tooltip.Root>
             <Tooltip.Trigger asChild>
-              <span className="relative flex h-10 w-10 cursor-default items-center justify-center rounded-full border-2 border-bg-primary bg-fg text-center text-xs font-medium text-bg-primary transition-all duration-200 ease-out hover:z-20 hover:-translate-y-1.5 hover:scale-110">
+              <span className="relative flex h-10 w-10 cursor-default items-center justify-center rounded-full border border-fg/[0.12] bg-fg text-center text-xs font-medium text-bg-primary transition-all duration-200 ease-out hover:z-20 hover:-translate-y-1.5 hover:scale-110">
                 +{rest.length}
               </span>
             </Tooltip.Trigger>

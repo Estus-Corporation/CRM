@@ -155,7 +155,7 @@ export function Topbar({ onOpenMenu }: { onOpenMenu: () => void }) {
                       'conic-gradient(from 200deg, rgb(var(--accent-green)), rgb(var(--accent-green)) 55%, rgb(var(--accent-amber)) 80%, rgb(var(--accent-green)))',
                   }}
                 >
-                  <Avatar name={user.full_name} src={user.avatar_url} online className="h-10 w-10 bg-bg-surface text-sm ring-2 ring-bg-primary" />
+                  <Avatar name={user.full_name} src={user.avatar_url} online className="h-10 w-10 bg-bg-surface text-sm ring-1 ring-fg/[0.12]" />
                 </span>
                 <span className="max-w-[180px] truncate text-sm font-medium text-text-primary max-md:hidden">{shortName(user.full_name)}</span>
                 <ChevronDown size={15} className={cn('text-text-muted transition-transform', menuOpen && 'rotate-180')} />

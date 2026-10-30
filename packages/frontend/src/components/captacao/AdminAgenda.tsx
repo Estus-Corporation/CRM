@@ -52,7 +52,7 @@ function BusyDay({
         {people.length > 0 ? (
           <div className="flex flex-shrink-0 -space-x-1.5">
             {people.slice(0, 2).map((p) => (
-              <Avatar key={p.id} name={p.full_name} src={p.avatar_url} className="h-[18px] w-[18px] text-[8px] ring-[1.5px] ring-bg-surface" />
+              <Avatar key={p.id} name={p.full_name} src={p.avatar_url} className="h-[18px] w-[18px] text-[8px] ring-1 ring-fg/[0.12]" />
             ))}
           </div>
         ) : (
@@ -365,7 +365,7 @@ export function AdminAgenda({
                           <div className="mt-1.5 flex items-center gap-1.5">
                             <div className="flex -space-x-1.5">
                               {people.map((p) => (
-                                <Avatar key={p.id} name={p.full_name} src={p.avatar_url} className="h-5 w-5 text-[9px] ring-2 ring-bg-surface" />
+                                <Avatar key={p.id} name={p.full_name} src={p.avatar_url} className="h-5 w-5 text-[9px] ring-1 ring-fg/[0.12]" />
                               ))}
                             </div>
                             <span className="truncate text-xs text-text-secondary">{sl.admins.join(' e ')}</span>
