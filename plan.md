@@ -870,3 +870,8 @@ Spec: `docs/superpowers/specs/2026-10-29-dashboard-financeiro-design.md` · Plan
 - [x] **T14** (29/10/2026) Página do lead: status só por ícone (automático: reunião = Ganhou, Perdeu pela ligação ou mensagem com motivo, "Em aguardo" na mensagem); Mensagem antes da Ligação (opcional) e livre; Agenda/Retorno trancados até haver contato; "Salvar anotação" corrigido; contatos na ficha "Sobre o lead"; Minhas comissões com KpiCard. Migration **20240047** (`whatsapp_status` aceita `lost`; renumerada porque a 20240046 é do M29).
 - [x] **T15** (29/10/2026) Descrições das telas foram para o topo, ao lado de "espaço › tela" (`usePageSubtitle`); Calendário e Sobre a empresa ganharam descrição. Campos de busca/filtro/select com o vidro do botão secundário. Página do lead do admin no padrão da do captador (Atribuir abaixo de Contatos). Distribuir leads com os cards do Acompanhamento. Foto da conta sem anel colorido.
 - [x] **T16** (29/10/2026) Admin trata os próprios leads: aba "Meus leads" na Captação e opção "Eu (admin)"/outros admins em "Atribuir para" (Distribuir e página do lead livre); backend aceita admin como destinatário. Abas do LeadHunter na extrema direita da barra.
+
+## M26 T17 — Atribuir leads (correção)
+
+- [x] Toast de erro ao atribuir mostra o motivo; "Entregar para" do Adicionar lead inclui admins
+- [ ] **Pendente**: conferir se o Railway publicou o M26-T16/T17 ("Deploy Latest Commit") — sem o backend do T16, atribuir a admin dá 404
