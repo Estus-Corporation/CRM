@@ -35,6 +35,15 @@ O `.env` local do backend **aponta para o banco de produção**: `npm run dev`/`
 
 ---
 
+## Branch `rpg-life` — Life RPG (separado do CRM)
+
+Esta branch transforma o frontend no **Life RPG** (evolução pessoal), reaproveitando o visual do CRM. **Não fazer merge na `main`** sem o usuário pedir.
+- Código em `packages/frontend/src/rpg/`: `data.ts` (catálogo de áreas/autocuidado/atributos, `levelFromXp` = 250 × n por nível, `attrLevel` = 100 × n, `ACHIEVEMENTS` derivadas), `store.ts` (zustand `persist` no localStorage, chave `life-rpg`; `useStats()` calcula nível, sequência, médias e conquistas), `ui.tsx` (`Panel`, `ProgressBar`, `Ring`, `RadarPanelChart` com escala fixa 0–100 e sem animação — a animação deixava o polígono no centro, `PercentList`, `PageTitle`, `Slider`), `RpgShell.tsx` (Silk + menu lateral + topo com XP + pasta; barra inferior no celular) e `pages/` (Overview, Missions, `pages.tsx` com Áreas/Autocuidado/Metas/Conquistas/Histórico/Configurações).
+- `app/router.tsx` só tem as rotas do RPG; as telas do CRM continuam no código, sem rota. `App.tsx` envolve tudo em `MotionConfig reducedMotion="never"`.
+- **Sem backend**: nada chama a API. Próximos passos possíveis: levar os dados para o banco, editar o radar direto na Visão geral, notificações de missão.
+
+---
+
 ## Project Overview
 
 **TitanFlow** (formerly Titan Labs CRM) is a multi-tenant SaaS CRM for managing leads, contacts, deals, and sales pipelines. Companies sign up and get an isolated workspace. The product replaces scattered tools (WhatsApp, spreadsheets) with a centralized Kanban-first platform.

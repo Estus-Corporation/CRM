@@ -882,3 +882,8 @@ Spec: `docs/superpowers/specs/2026-10-29-dashboard-financeiro-design.md` · Plan
 - [x] Lead ganho vira negócio na 1ª etapa automaticamente; "Confirmar reunião" com endereço/link; card de lead ganho
 - [ ] **Pendente**: "Deploy Latest Commit" no Railway e conferir a tela (não foi vista no navegador)
 - [ ] Ideias: arrastar lead da pré-venda direto para uma etapa de negócio; converter leads ganhos antigos
+
+## RPG T1 — Life RPG (branch `rpg-life`)
+
+- [x] App pessoal com o visual do CRM: Visão geral, Áreas da vida, Autocuidado, Missões, Metas, Conquistas, Histórico, Configurações; dados no navegador
+- [ ] Ideias: dados no banco, missões com horário/lembrete, gráfico de XP por semana
