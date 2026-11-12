@@ -8,7 +8,7 @@ import {
 import { idbStorage } from './idb';
 
 export type ItemInput = Pick<Item, 'collectionId' | 'name' | 'note' | 'image' | 'status' | 'current' | 'target' | 'price' | 'link'>;
-export type WishInput = Pick<WishItem, 'category' | 'name' | 'image' | 'price' | 'link' | 'note'>;
+export type WishInput = Pick<WishItem, 'category' | 'name' | 'image' | 'imageOriginal' | 'price' | 'link' | 'note'>;
 export type ExpenseInput = Pick<Expense, 'description' | 'amount' | 'date' | 'category' | 'note'>;
 export type CollectionInput = Pick<Collection, 'group' | 'name' | 'kind' | 'stages'>;
 

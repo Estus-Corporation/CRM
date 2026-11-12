@@ -1,15 +1,14 @@
 import { useRef, useState, type ClipboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Check, CheckCircle2, ExternalLink, Gift, ImagePlus, Link2, Loader2, Plus, RotateCcw, ShoppingBag, Trash2, Wand2, X } from 'lucide-react';
+import { AlertTriangle, Check, Eraser, ImageIcon, CheckCircle2, ExternalLink, Gift, ImagePlus, Link2, Loader2, Plus, RotateCcw, ShoppingBag, Trash2, Wand2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { cn } from '@/lib/utils';
 import { type WishCategory, type WishItem, WISH_CATEGORIES, brl, parseMoney, wishCategoryOf } from '../data';
-import { compressImage } from '../idb';
-import { type PreviewError, fetchLinkPreview, importImage, looksLikeUrl } from '../linkPreview';
+import { type BgStage, type PreviewError, compressWishImage, fetchLinkPreview, importImage, looksLikeUrl, removeImageBackground } from '../linkPreview';
 import { type WishInput, useRpg } from '../store';
 import { ItemImage, PageTitle } from '../ui';
 
@@ -113,7 +112,7 @@ function WishCard({ item, onOpen }: { item: WishItem; onOpen: () => void }) {
     <motion.li layout initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="min-w-0">
       <button type="button" onClick={onOpen} className="group block w-full text-left">
         <div className="relative">
-          <ItemImage src={item.image} icon={c.icon} dim={!!item.boughtAt}
+          <ItemImage src={item.image} icon={c.icon} dim={!!item.boughtAt} contain={!!item.imageOriginal}
             className="aspect-square w-full rounded-2xl border border-fg/[0.08] transition-transform duration-300 group-hover:scale-[1.02]" />
           <span className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10.5px] font-medium text-white backdrop-blur">
             <c.icon size={11} /> {c.label}
@@ -137,11 +136,11 @@ function WishCard({ item, onOpen }: { item: WishItem; onOpen: () => void }) {
   );
 }
 
-interface Draft { category: WishCategory; name: string; image: string | null; price: string; link: string; note: string }
+interface Draft { category: WishCategory; name: string; image: string | null; imageOriginal: string | null; price: string; link: string; note: string }
 
 function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean; editing: WishItem | null; defaultCategory: WishCategory; onClose: () => void }) {
   const { addWish, updateWish, removeWish } = useRpg();
-  const [d, setD] = useState<Draft>({ category: defaultCategory, name: '', image: null, price: '', link: '', note: '' });
+  const [d, setD] = useState<Draft>({ category: defaultCategory, name: '', image: null, imageOriginal: null, price: '', link: '', note: '' });
   const [urlMode, setUrlMode] = useState(false);
   const [loadingImg, setLoadingImg] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -150,6 +149,9 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
   const [autoUrl, setAutoUrl] = useState('');
   const [fetching, setFetching] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
+  // Tirar fundo: etapa em andamento (baixando o modelo na 1ª vez / recortando)
+  const [bg, setBg] = useState<{ stage: BgStage; pct: number | null } | null>(null);
+  const [bgError, setBgError] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [openedFor, setOpenedFor] = useState<string | null>(null);
   const key = open ? editing?.id ?? `new-${defaultCategory}` : null;
@@ -157,14 +159,16 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
     setOpenedFor(key);
     if (open) {
       setD(editing
-        ? { category: editing.category, name: editing.name, image: editing.image, price: editing.price != null ? String(editing.price).replace('.', ',') : '', link: editing.link, note: editing.note }
-        : { category: defaultCategory, name: '', image: null, price: '', link: '', note: '' });
+        ? { category: editing.category, name: editing.name, image: editing.image, imageOriginal: editing.imageOriginal ?? null, price: editing.price != null ? String(editing.price).replace('.', ',') : '', link: editing.link, note: editing.note }
+        : { category: defaultCategory, name: '', image: null, imageOriginal: null, price: '', link: '', note: '' });
       setUrlMode(false);
       setConfirm(false);
       setMode(editing ? 'manual' : 'auto');
       setAutoUrl('');
       setFetching(false);
       setNotice(null);
+      setBg(null);
+      setBgError(false);
     }
   }
 
@@ -192,13 +196,14 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
       return;
     }
     const p = result.data;
-    const image = p.image ? await importImage(p.image) : null;
+    const image = p.images?.length || p.image ? await importImage(p.images?.length ? p.images : [p.image!]) : null;
     setD((x) => ({
       ...x,
       link: url,
       name: p.title ?? x.name,
       price: p.price != null ? String(p.price).replace('.', ',') : x.price,
       image: image ?? x.image,
+      imageOriginal: image ? null : x.imageOriginal,
     }));
     const missing = [!p.title && 'nome', !p.price && 'preço', !p.image && 'foto'].filter(Boolean);
     setNotice({
@@ -213,8 +218,8 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
     if (!file || !file.type.startsWith('image/')) return;
     setLoadingImg(true);
     try {
-      const image = await compressImage(file);
-      setD((x) => ({ ...x, image }));
+      const image = await compressWishImage(file);
+      setD((x) => ({ ...x, image, imageOriginal: null }));
     } finally {
       setLoadingImg(false);
     }
@@ -224,6 +229,23 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
     if (file) {
       e.preventDefault();
       void takeFile(file);
+    }
+  };
+
+  /** Sem fundo: recorta no navegador e guarda a original para poder voltar. Com fundo: volta à original. */
+  const toggleBackground = async (cut: boolean) => {
+    setBgError(false);
+    if (!d.image || cut === !!d.imageOriginal) return;
+    if (!cut) return setD((x) => ({ ...x, image: x.imageOriginal, imageOriginal: null }));
+    const original = d.image;
+    setBg({ stage: 'download', pct: null });
+    try {
+      const cutout = await removeImageBackground(original, (stage, pct) => setBg({ stage, pct }));
+      setD((x) => (x.image === original ? { ...x, image: cutout, imageOriginal: original } : x));
+    } catch {
+      setBgError(true);
+    } finally {
+      setBg(null);
     }
   };
 
@@ -295,27 +317,56 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
           <button type="button" onClick={() => fileRef.current?.click()}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void takeFile(e.dataTransfer.files[0]); }}
             className="relative flex h-28 w-28 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-fg/[0.18] bg-fg/[0.03] text-text-muted transition-colors hover:border-fg/[0.3] hover:text-text-primary">
-            {d.image ? <img src={d.image} alt="" className="h-full w-full object-cover" /> : <ImagePlus size={24} />}
-            {loadingImg && <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs text-white">Carregando…</span>}
+            {d.image ? (
+              <img src={d.image} alt="" className={cn('h-full w-full', d.imageOriginal ? 'object-contain p-2 drop-shadow-[0_8px_14px_rgba(0,0,0,0.45)]' : 'object-cover')} />
+            ) : <ImagePlus size={24} />}
+            {(loadingImg || bg) && (
+              <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 px-2 text-center text-[11px] leading-tight text-white">
+                <Loader2 size={16} className="animate-spin" />
+                {bg ? (bg.stage === 'download' ? `Preparando${bg.pct != null ? ` ${bg.pct}%` : '…'}` : 'Recortando…') : 'Carregando…'}
+              </span>
+            )}
           </button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void takeFile(e.target.files?.[0]); e.target.value = ''; }} />
           <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 text-xs text-text-muted">
             <p>Clique para enviar, arraste ou cole uma imagem (Ctrl+V).</p>
             {urlMode ? (
               <input autoFocus placeholder="https://…" defaultValue={d.image?.startsWith('http') ? d.image : ''}
-                onBlur={(e) => setD({ ...d, image: e.target.value.trim() || d.image })} className="input-base h-9 w-full text-xs" />
+                onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== d.image) setD({ ...d, image: v, imageOriginal: null }); }} className="input-base h-9 w-full text-xs" />
             ) : (
               <button type="button" onClick={() => setUrlMode(true)} className="flex w-fit items-center gap-1 text-text-secondary hover:text-text-primary">
                 <Link2 size={13} /> Usar link da imagem
               </button>
             )}
             {d.image && (
-              <button type="button" onClick={() => setD({ ...d, image: null })} className="flex w-fit items-center gap-1 text-text-secondary hover:text-status-lost">
+              <button type="button" onClick={() => setD({ ...d, image: null, imageOriginal: null })} className="flex w-fit items-center gap-1 text-text-secondary hover:text-status-lost">
                 <X size={13} /> Tirar foto
               </button>
             )}
           </div>
         </div>
+
+        {d.image && (
+          <div>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { cut: false, label: 'Com fundo', icon: ImageIcon },
+                { cut: true, label: 'Sem fundo', icon: Eraser },
+              ].map((o) => {
+                const active = !!d.imageOriginal === o.cut;
+                return (
+                  <button key={o.label} type="button" disabled={!!bg || loadingImg} onClick={() => void toggleBackground(o.cut)}
+                    className={cn('flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-60',
+                      active ? 'border-accent-green/50 bg-accent-green/15 text-accent-green' : 'border-fg/[0.1] text-text-secondary hover:bg-fg/[0.05]')}>
+                    <o.icon size={14} /> {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            {bg?.stage === 'download' && <p className="mt-1.5 text-[11px] text-text-muted">Na primeira vez o recorte baixa um modelo (~40 MB). Depois fica salvo no navegador.</p>}
+            {bgError && <p className="mt-1.5 text-[11px] text-accent-amber">Não consegui tirar o fundo dessa foto. Tente de novo ou use outra imagem.</p>}
+          </div>
+        )}
 
         <div className="grid grid-cols-[minmax(0,1fr)_130px] gap-3">
           <div>
@@ -373,7 +424,7 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
           ))}
           <div className="ml-auto flex gap-2">
             <Button variant="secondary" onClick={onClose}>Cancelar</Button>
-            <Button onClick={save} disabled={!d.name.trim() || loadingImg || fetching}>{editing ? <><Check size={15} /> Salvar</> : 'Adicionar'}</Button>
+            <Button onClick={save} disabled={!d.name.trim() || loadingImg || fetching || !!bg}>{editing ? <><Check size={15} /> Salvar</> : 'Adicionar'}</Button>
           </div>
         </div>
         </>

@@ -167,11 +167,12 @@ export function Slider({ value, onChange, tone = 'green' }: { value: number; onC
 // ── Itens ───────────────────────────────────────────────────────────────────
 
 /** Foto do item (ou ícone do universo quando não tem foto) */
-export function ItemImage({ src, icon: Icon, className, dim = false }: { src: string | null; icon: LucideIcon; className?: string; dim?: boolean }) {
+/** `contain`: foto recortada (sem fundo) aparece inteira, com respiro, em vez de cortada */
+export function ItemImage({ src, icon: Icon, className, dim = false, contain = false }: { src: string | null; icon: LucideIcon; className?: string; dim?: boolean; contain?: boolean }) {
   return (
     <div className={cn('relative overflow-hidden bg-fg/[0.04]', className)}>
       {src ? (
-        <img src={src} alt="" loading="lazy" className={cn('h-full w-full object-cover transition-[filter]', dim && 'grayscale-[0.85] brightness-[0.55]')} />
+        <img src={src} alt="" loading="lazy" className={cn('h-full w-full transition-[filter]', contain ? 'object-contain p-[8%] drop-shadow-[0_10px_18px_rgba(0,0,0,0.45)]' : 'object-cover', dim && 'grayscale-[0.85] brightness-[0.55]')} />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-text-muted">
           <Icon size={26} strokeWidth={1.6} />

@@ -55,7 +55,7 @@ export const idbStorage: StateStorage = {
 };
 
 /** Reduz a foto (lado maior 720px, WebP) antes de guardar: ~30–80 KB por item */
-export async function compressImage(file: Blob, max = 720): Promise<string> {
+export async function compressImage(file: Blob, max = 720, quality = 0.82): Promise<string> {
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
   const canvas = document.createElement('canvas');
@@ -63,5 +63,5 @@ export async function compressImage(file: Blob, max = 720): Promise<string> {
   canvas.height = Math.round(bmp.height * scale);
   canvas.getContext('2d')!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
   bmp.close();
-  return canvas.toDataURL('image/webp', 0.82);
+  return canvas.toDataURL('image/webp', quality);
 }

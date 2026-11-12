@@ -22,6 +22,8 @@ export interface LinkPreview {
   site: string;
   title: string | null;
   image: string | null;
+  /** Mesma foto em resoluções maiores (melhor primeiro); o navegador tenta em ordem */
+  images: string[];
   price: number | null;
   currency: string | null;
 }
@@ -126,6 +128,40 @@ function offerPrice(offers: any): { price: number | null; currency: string | nul
 const firstImage = (img: any): string | null =>
   typeof img === 'string' ? img : Array.isArray(img) ? firstImage(img[0]) : img?.url ?? img?.contentUrl ?? null;
 
+/**
+ * Versões maiores da mesma foto nos CDNs mais comuns (o og:image costuma ser miniatura).
+ * Se a versão maior não existir, o navegador cai na próxima e por fim na original.
+ */
+export function hiResCandidates(src: string): string[] {
+  const out: string[] = [];
+  const add = (u: string) => u !== src && !out.includes(u) && out.push(u);
+  // Kabum: _m / _p / _g → _gg
+  if (/images\.kabum\.com\.br/.test(src)) add(src.replace(/_(p|m|g)\.(jpe?g|png|webp)$/i, '_gg.$2'));
+  // Mercado Livre (mlstatic): sufixo de tamanho → -F (maior)
+  if (/mlstatic\.com/.test(src)) add(src.replace(/-[A-Z]\.(webp|jpe?g)$/i, '-F.$1'));
+  // Amazon: ._AC_SX300_. → sem o modificador de tamanho
+  if (/media-amazon\.com|ssl-images-amazon/.test(src)) add(src.replace(/\._[^/]*?_\.(jpe?g|png|webp)$/i, '.$1'));
+  // VTEX (muitas lojas brasileiras): /ids/123-300-300/ → /ids/123-1200-1200/
+  if (/\/arquivos\/ids\/\d+-\d+-\d+/.test(src)) add(src.replace(/(\/arquivos\/ids\/\d+)-\d+-\d+/, '$1-1200-1200'));
+  // Shopify: _300x300. / _small. → original
+  if (/cdn\.shopify\.com|\/cdn\/shop\//.test(src)) add(src.replace(/_(\d+x\d*|\d*x\d+|pico|icon|thumb|small|compact|medium|large|grande)(@2x)?(?=\.[a-z]+(\?|$))/i, ''));
+  // Parâmetros de largura comuns (?w=300, ?width=300, ?imwidth=300)
+  try {
+    const u = new URL(src);
+    let changed = false;
+    for (const k of ['w', 'width', 'imwidth', 'wid', 'resize', 'size', 'h', 'height', 'hei']) {
+      if (u.searchParams.has(k)) {
+        u.searchParams.delete(k);
+        changed = true;
+      }
+    }
+    if (changed) add(u.href);
+  } catch {
+    /* URL estranha: fica só a original */
+  }
+  return [...out, src];
+}
+
 /** Tira o nome da loja do fim do título ("Tênis X | Mercado Livre" → "Tênis X") */
 function cleanTitle(t: string | null, site: string) {
   if (!t) return null;
@@ -156,6 +192,7 @@ export function extractPreview(html: string, pageUrl: URL): LinkPreview {
     meta.get('og:title') || meta.get('twitter:title') ||
     decode(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? '') || null;
 
+  const productImage = abs(firstImage(product?.image));
   const image = abs(
     meta.get('og:image') || meta.get('og:image:secure_url') || meta.get('twitter:image') || firstImage(product?.image) ||
     html.match(/<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i)?.[1] ||
@@ -177,7 +214,9 @@ export function extractPreview(html: string, pageUrl: URL): LinkPreview {
     price = parsePrice(m?.[1]);
   }
 
-  return { url: pageUrl.href, site, title: cleanTitle(title, site), image, price, currency: currency ?? (price ? 'BRL' : null) };
+  // Foto do produto (JSON-LD) costuma ser maior que a do og:image: entra antes
+  const images = [...new Set([productImage, image].filter((x): x is string => !!x).flatMap(hiResCandidates))].slice(0, 6);
+  return { url: pageUrl.href, site, title: cleanTitle(title, site), image, images, price, currency: currency ?? (price ? 'BRL' : null) };
 }
 
 async function readLimited(res: Response, limit: number) {

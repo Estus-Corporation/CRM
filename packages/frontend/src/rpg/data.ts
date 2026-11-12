@@ -275,6 +275,8 @@ export interface WishItem {
   price: number | null;
   link: string;
   note: string;
+  /** Foto com fundo, guardada quando o fundo foi tirado (para poder voltar) */
+  imageOriginal?: string | null;
   /** Comprado: sai da lista de pendentes (e, se tinha valor, vira gasto) */
   boughtAt: string | null;
   /** Gasto criado ao marcar como comprado (para desfazer junto) */
