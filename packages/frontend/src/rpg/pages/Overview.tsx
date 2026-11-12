@@ -1,164 +1,129 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BarChart3, Check, Flag, Flame, Heart, Layers, ListChecks, Zap } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { AREAS, ATTRIBUTES, CARE, dayKey, titleFor } from '../data';
-import { useRpg, useStats } from '../store';
-import { Panel, PercentList, ProgressBar, RadarPanelChart, Ring } from '../ui';
-import { todaysMissions } from './Missions';
+import { Gift, LayoutGrid, PackageCheck, Radar, Receipt, Sparkles } from 'lucide-react';
+import { EXPENSE_CATEGORIES, UNIVERSES, brl, dayKey, wishCategoryOf } from '../data';
+import { monthOf, useRpg, useStats } from '../store';
+import { ItemImage, Panel, ProgressBar, RadarPanelChart } from '../ui';
+
+const short = (label: string) => label.split(' ')[0];
 
 export function Overview() {
   const s = useRpg();
   const st = useStats();
-  const today = dayKey();
-  const missions = todaysMissions(s.missions).slice(0, 5);
-  const goal = s.goals.find((g) => !g.completedAt);
+  const universeOfCol = new Map(s.collections.map((c) => [c.id, c.universe]));
+  const iconOf = (collectionId: string) => UNIVERSES.find((u) => u.key === universeOfCol.get(collectionId))?.icon ?? Sparkles;
+  const thingIds = new Set(s.collections.filter((c) => c.kind === 'things').map((c) => c.id));
+  const recent = s.items.filter((i) => thingIds.has(i.collectionId)).sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 6);
+  const wishes = s.wishlist.filter((w) => !w.boughtAt).slice(0, 4);
+
+  const month = dayKey().slice(0, 7);
+  const monthExpenses = s.expenses.filter((e) => monthOf(e.date) === month);
+  const topCategories = EXPENSE_CATEGORIES.map((c) => ({ ...c, value: monthExpenses.filter((e) => e.category === c.key).reduce((n, e) => n + e.amount, 0) }))
+    .filter((c) => c.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 4);
+
+  const stats = [
+    { label: 'Coisas', value: st.things },
+    { label: 'Em andamento', value: st.doing },
+    { label: 'Na wishlist', value: st.wishes },
+    { label: st.monthlyIncome ? 'Saldo do mês' : 'Gastos no mês', value: brl(st.monthlyIncome ? st.monthBalance : st.monthSpent) },
+  ];
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-      {/* Herói: nome, nível e XP */}
-      <section className="relative overflow-hidden rounded-[22px] border border-fg/[0.08] bg-gradient-to-br from-accent-green/[0.1] via-bg-surface/70 to-bg-surface/70 p-5 md:p-6 lg:col-span-12">
-        <div aria-hidden className="pointer-events-none absolute -right-20 -top-24 h-64 w-64 rounded-full bg-accent-green/15 blur-3xl" />
-        <div className="relative flex flex-wrap items-center gap-x-10 gap-y-4">
-          <div className="min-w-0">
-            <h1 className="font-display text-[26px] font-semibold tracking-[-0.01em] text-text-primary md:text-[30px]">{s.name}</h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              Nível {st.level} <span className="mx-1.5 text-text-muted">·</span> {titleFor(st.level)}
-            </p>
-          </div>
-          <div className="flex gap-6 text-sm">
-            <div>
-              <p className="text-xs text-text-muted">Sequência</p>
-              <p className="mt-0.5 flex items-center gap-1.5 font-semibold text-text-primary">
-                <Flame size={15} className="text-accent-amber" />
-                {st.streak} {st.streak === 1 ? 'dia' : 'dias'}
-              </p>
+      <section className="relative overflow-hidden rounded-[22px] border border-fg/[0.1] bg-[radial-gradient(ellipse_at_85%_0%,rgba(40,80,200,0.25),transparent_60%),#05070D] p-5 md:p-7 lg:col-span-12">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">Visão geral</p>
+        <h1 className="mt-2 font-display text-[28px] font-semibold tracking-[-0.01em] text-text-primary md:text-[34px]">{s.name}</h1>
+        <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {stats.map((x) => (
+            <div key={x.label} className="min-w-0">
+              <p className="truncate text-xl font-semibold tabular-nums text-text-primary">{x.value}</p>
+              <p className="text-[11px] text-text-muted">{x.label}</p>
             </div>
-            <div>
-              <p className="text-xs text-text-muted">Missões feitas</p>
-              <p className="mt-0.5 font-semibold tabular-nums text-text-primary">{st.totalMissions}</p>
-            </div>
-          </div>
-          <div className="min-w-[220px] flex-1">
-            <div className="mb-2 flex items-baseline justify-between text-sm">
-              <span className="font-medium text-text-secondary">XP</span>
-              <span className="tabular-nums text-text-secondary">
-                {st.inLevel.toLocaleString('pt-BR')} / {st.needed.toLocaleString('pt-BR')}
-              </span>
-            </div>
-            <ProgressBar value={st.inLevel} max={st.needed} tone="white" className="h-2.5" />
-          </div>
+          ))}
         </div>
       </section>
 
-      <Panel icon={Layers} title="Áreas da vida" subtitle="Seu progresso nas principais áreas" className="lg:col-span-4"
-        action={<Link to="/areas" className="text-xs font-medium text-accent-green hover:underline">Ajustar</Link>}>
-        <RadarPanelChart data={AREAS.map((a) => ({ label: a.label, value: s.areas[a.key] }))} />
-      </Panel>
-
-      <Panel icon={Heart} title="Autocuidado" subtitle="Seu bem-estar físico e mental" className="lg:col-span-4"
-        action={
-          <Link to="/autocuidado" className={cn('text-xs font-medium hover:underline', st.checkedInToday ? 'text-text-muted' : 'text-accent-amber')}>
-            {st.checkedInToday ? 'Check-in feito' : 'Fazer check-in'}
-          </Link>
-        }>
-        <RadarPanelChart tone="amber" data={CARE.map((c) => ({ label: c.label, value: s.care[c.key] }))} />
-      </Panel>
-
-      <div className="grid gap-4 lg:col-span-4">
-        <Panel icon={BarChart3} title="Progresso geral">
-          <div className="flex items-center gap-5">
-            <Ring value={st.areaAvg} />
-            <PercentList items={AREAS.map((a) => ({ label: a.label, value: s.areas[a.key], icon: a.icon }))} />
-          </div>
-        </Panel>
-        <Panel icon={Heart} title="Autocuidado">
-          <div className="flex items-center gap-5">
-            <Ring value={st.careAvg} tone="amber" />
-            <PercentList items={CARE.map((c) => ({ label: c.label, value: s.care[c.key], icon: c.icon }))} />
-          </div>
-        </Panel>
-      </div>
-
-      <Panel icon={Zap} title="Atributos principais" className="lg:col-span-4">
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-          {ATTRIBUTES.map(({ key, label, icon: Icon }) => {
-            const a = st.attrLevels[key];
+      <Panel icon={LayoutGrid} title="Universos" subtitle="Registros e progresso das listas e metas" className="lg:col-span-7">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {UNIVERSES.map((u, i) => {
+            const us = st.universes[u.key];
+            const Icon = u.icon;
             return (
-              <div key={key} className="flex flex-col items-center rounded-2xl border border-fg/[0.08] bg-fg/[0.03] px-2 pb-3 pt-4 text-center">
-                <Icon size={22} className="text-text-primary" />
-                <p className="mt-2 text-sm font-semibold text-text-primary">{label}</p>
-                <p className="text-xs text-text-muted">Nv. {a.level}</p>
-                <ProgressBar value={a.inLevel} max={a.needed} className="mt-2.5 h-1 w-full" />
-              </div>
+              <motion.div key={u.key} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: { delay: i * 0.03 } }}>
+                <Link to={`/universos/${u.key}`} className="flex h-full flex-col rounded-2xl border border-fg/[0.08] bg-fg/[0.03] p-3 transition-colors hover:bg-fg/[0.06]">
+                  <Icon size={20} strokeWidth={1.8} className="text-text-primary" />
+                  <p className="mt-2 line-clamp-1 text-[13px] font-semibold text-text-primary">{u.label}</p>
+                  <p className="text-[11px] text-text-muted">{us.total} {us.total === 1 ? 'registro' : 'registros'}{us.done + us.doing + us.todo ? ` · ${us.pct}%` : ''}</p>
+                  <div className="mt-auto pt-2.5"><ProgressBar value={us.pct} max={100} tone="white" className="h-1" /></div>
+                </Link>
+              </motion.div>
             );
           })}
         </div>
       </Panel>
 
-      <Panel icon={ListChecks} title="Missões de hoje" className="lg:col-span-4"
-        action={<Link to="/missoes" className="text-xs font-medium text-accent-green hover:underline">Ver todas</Link>}>
-        {missions.length ? (
-          <ul className="space-y-1.5">
-            {missions.map((m) => {
-              const done = m.doneDates.includes(today);
+      <Panel icon={Radar} title="Quem você é hoje" subtitle={`Progresso nas listas e metas: ${st.lifePct}%`} className="lg:col-span-5">
+        <RadarPanelChart height={300} data={UNIVERSES.map((u) => ({ label: short(u.label), value: st.universes[u.key].pct }))} />
+      </Panel>
+
+      <Panel icon={Gift} title="Wishlist" subtitle={st.wishes ? `${brl(st.wishTotal)} no total` : undefined} className="lg:col-span-4"
+        action={<Link to="/wishlist" className="text-xs font-medium text-accent-green hover:underline">Ver tudo</Link>}>
+        {wishes.length ? (
+          <ul className="space-y-2">
+            {wishes.map((w) => {
+              const c = wishCategoryOf(w.category);
               return (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    onClick={() => s.toggleMission(m.id)}
-                    className={cn(
-                      'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors',
-                      done ? 'bg-accent-green/[0.08]' : 'hover:bg-fg/[0.04]',
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border transition-colors',
-                        done ? 'border-accent-green bg-accent-green text-[rgb(var(--on-accent))]' : 'border-fg/[0.25]',
-                      )}
-                    >
-                      {done && (
-                        <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                          <Check size={13} strokeWidth={3} />
-                        </motion.span>
-                      )}
-                    </span>
-                    <span className={cn('min-w-0 flex-1 truncate', done ? 'text-text-secondary line-through decoration-fg/30' : 'text-text-primary')}>{m.title}</span>
-                    <span className="flex-shrink-0 text-xs tabular-nums text-text-muted">+{m.xp} XP</span>
-                  </button>
+                <li key={w.id}>
+                  <Link to={`/wishlist?cat=${w.category}`} className="flex items-center gap-3 rounded-xl transition-colors hover:bg-fg/[0.03]">
+                    <ItemImage src={w.image} icon={c.icon} className="h-11 w-11 flex-shrink-0 rounded-xl" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm text-text-primary">{w.name}</p>
+                      <p className="truncate text-xs text-text-muted">{c.label}{w.price != null ? ` · ${brl(w.price)}` : ''}</p>
+                    </div>
+                  </Link>
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="py-6 text-center text-sm text-text-muted">Nenhuma missão para hoje.</p>
+          <p className="py-6 text-center text-sm text-text-muted">Sua wishlist está vazia. <Link to="/wishlist" className="text-text-secondary underline">Adicionar desejo</Link></p>
         )}
       </Panel>
 
-      <Panel icon={Flag} title="Meta atual" className="lg:col-span-4"
-        action={<Link to="/metas" className="text-xs font-medium text-accent-green hover:underline">Metas</Link>}>
-        {goal ? (
-          <div>
-            <p className="text-sm text-text-secondary">{goal.title}</p>
-            <div className="mt-4 flex items-center gap-3">
-              <ProgressBar value={goal.current} max={goal.target} tone="white" className="flex-1" />
-              <span className="text-sm tabular-nums text-text-secondary">
-                {goal.current} / {goal.target}
-              </span>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button type="button" onClick={() => s.stepGoal(goal.id, 1)} className="rounded-lg bg-accent-green/15 px-3 py-1.5 text-xs font-semibold text-accent-green hover:bg-accent-green/25">
-                +1 progresso
-              </button>
-              <span className="self-center text-xs text-text-muted">Bônus ao concluir: +{goal.rewardXp} XP</span>
-            </div>
+      <Panel icon={Receipt} title="Gastos do mês" subtitle={brl(st.monthSpent)} className="lg:col-span-4"
+        action={<Link to="/universos/finance" className="text-xs font-medium text-accent-green hover:underline">Abrir</Link>}>
+        {topCategories.length ? (
+          <ul className="space-y-3">
+            {topCategories.map((c) => (
+              <li key={c.key}>
+                <div className="mb-1.5 flex items-center gap-2 text-[13px]">
+                  <c.icon size={14} className="flex-shrink-0 text-text-muted" />
+                  <span className="min-w-0 flex-1 truncate text-text-secondary">{c.label}</span>
+                  <span className="tabular-nums text-text-primary">{brl(c.value)}</span>
+                </div>
+                <ProgressBar value={c.value} max={topCategories[0].value} tone="white" className="h-1.5" />
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="py-6 text-center text-sm text-text-muted">Nenhum gasto lançado este mês. <Link to="/universos/finance" className="text-text-secondary underline">Lançar gasto</Link></p>
+        )}
+      </Panel>
+
+      <Panel icon={PackageCheck} title="Últimas coisas adicionadas" className="lg:col-span-4">
+        {recent.length ? (
+          <div className="grid grid-cols-3 gap-2.5">
+            {recent.map((i) => (
+              <div key={i.id} className="min-w-0">
+                <ItemImage src={i.image} icon={iconOf(i.collectionId)} className="aspect-square w-full rounded-xl border border-fg/[0.08]" />
+                <p className="mt-1 truncate text-center text-[11.5px] text-text-secondary">{i.name}</p>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="py-4 text-center">
-            <p className="text-sm text-text-muted">Nenhuma meta em andamento.</p>
-            <Link to="/metas" className="mt-2 inline-block text-sm font-medium text-accent-green hover:underline">Criar uma meta</Link>
-          </div>
+          <p className="py-6 text-center text-sm text-text-muted">Nada por aqui ainda. Abra um universo (Auto-Cuidado, Ambiente…) e cadastre o que você tem.</p>
         )}
       </Panel>
     </div>

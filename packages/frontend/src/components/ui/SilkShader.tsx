@@ -288,7 +288,8 @@ function compile(gl: WebGLRenderingContext, type: number, source: string) {
 }
 
 /** `resolution` < 1 desenha em resolução menor (ex.: 0.5 pra fundos desfocados de tela inteira). */
-export function SilkShader({ className, resolution = 1 }: { className?: string; resolution?: number }) {
+/** `colors`: até 8 cores RGB 0–1 achatadas (12 floats = 4 cores); padrão = verde da marca */
+export function SilkShader({ className, resolution = 1, colors = COLORS }: { className?: string; resolution?: number; colors?: Float32Array }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -319,7 +320,7 @@ export function SilkShader({ className, resolution = 1 }: { className?: string; 
 
     const loc = (name: string) => gl.getUniformLocation(program, name);
     const uScene = loc('u_scene');
-    gl.uniform3fv(loc('u_colors'), COLORS);
+    gl.uniform3fv(loc('u_colors'), colors);
     gl.uniform4fv(loc('u_shape'), SHAPE);
     gl.uniform4fv(loc('u_surface'), SURFACE);
     gl.uniform4fv(loc('u_finish'), FINISH);

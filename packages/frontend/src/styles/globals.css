@@ -618,3 +618,42 @@
   from { clip-path: inset(0 100% 0 0 round 999px); }
   to { clip-path: inset(0 0 0 0 round 999px); }
 }
+
+
+/* ── Life RPG · identidade "Núcleo" ─────────────────────────────────────────
+   Preto, azul-marinho e branco. Escopado em html.rpg-theme (o RpgShell liga a classe),
+   então o visual do CRM não muda. O token accent-green vira o azul de destaque. */
+html.rpg-theme,
+html.rpg-theme .force-dark {
+  --bg-primary: 8 11 20;          /* #080B14 */
+  --bg-darker: 5 7 13;
+  --bg-surface: 16 22 38;         /* #101626 */
+  --bg-border: 31 40 64;
+  --text-primary: 240 243 250;
+  --text-secondary: 166 176 199;
+  --text-muted: 110 121 148;
+  --accent-green: 77 120 236;     /* azul cobalto #4D78EC */
+  --accent-green-dim: 58 98 208;
+  --accent-amber: 201 216 255;    /* azul-gelo #C9D8FF (destaques secundários) */
+  --on-accent: 255 255 255;
+  --field-bg: 20 27 45;
+  --panel-bg: rgba(14, 19, 33, 0.96);
+  --chrome-bg: rgba(8, 11, 20, 0.55);
+  --sidebar-bg: rgba(5, 7, 13, 0.72);
+}
+html.rpg-theme .font-display,
+html.rpg-theme .page-title,
+html.rpg-theme .page-title-sm {
+  font-family: 'Unbounded', 'Geist', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+html.rpg-theme .brand-bar {
+  background: linear-gradient(180deg, #ffffff 0%, rgb(var(--accent-green)) 100%);
+}
+html.rpg-theme .sidebar-ink {
+  --text-secondary: 226 233 248;
+  --text-muted: 150 166 204;
+  text-shadow: 0 1px 2px rgba(2, 5, 14, 0.6);
+}
+

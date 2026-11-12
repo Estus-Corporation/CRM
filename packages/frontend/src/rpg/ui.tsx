@@ -74,7 +74,7 @@ export function Ring({ value, tone = 'green', size = 96 }: { value: number; tone
           cy={size / 2}
           r={r}
           fill="none"
-          stroke={tone === 'green' ? c.brand : c.amber}
+          stroke={tone === 'green' ? '#6E93F5' : '#C9D8FF'}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={len}
@@ -91,7 +91,7 @@ export function Ring({ value, tone = 'green', size = 96 }: { value: number; tone
 /** Radar de 6 eixos (uma série só: a cor vem do painel, os rótulos ficam na cor do texto) */
 export function RadarPanelChart({ data, tone = 'green', height = 300 }: { data: { label: string; value: number }[]; tone?: 'green' | 'amber'; height?: number }) {
   const c = useChartColors();
-  const color = tone === 'green' ? c.brand : c.amber;
+  const color = tone === 'green' ? '#6E93F5' : '#C9D8FF';
   return (
     <div style={{ height }} className="w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -104,7 +104,7 @@ export function RadarPanelChart({ data, tone = 'green', height = 300 }: { data: 
             cursor={false}
             contentStyle={{ background: c.tooltipBg, border: `1px solid ${c.tooltipBorder}`, borderRadius: 12, color: c.tooltipText, fontSize: 12 }}
             itemStyle={{ color: c.tooltipText }}
-            formatter={(v: number) => [`${v}%`, 'Nível']}
+            formatter={(v: number) => [`${v}%`, 'Colecionado']}
           />
           <Radar
             dataKey="value"
@@ -161,5 +161,22 @@ export function Slider({ value, onChange, tone = 'green' }: { value: number; onC
       onChange={(e) => onChange(Number(e.target.value))}
       className={cn('h-2 w-full cursor-pointer', tone === 'green' ? 'accent-[rgb(var(--accent-green))]' : 'accent-[rgb(var(--accent-amber))]')}
     />
+  );
+}
+
+// ── Itens ───────────────────────────────────────────────────────────────────
+
+/** Foto do item (ou ícone do universo quando não tem foto) */
+export function ItemImage({ src, icon: Icon, className, dim = false }: { src: string | null; icon: LucideIcon; className?: string; dim?: boolean }) {
+  return (
+    <div className={cn('relative overflow-hidden bg-fg/[0.04]', className)}>
+      {src ? (
+        <img src={src} alt="" loading="lazy" className={cn('h-full w-full object-cover transition-[filter]', dim && 'grayscale-[0.85] brightness-[0.55]')} />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-text-muted">
+          <Icon size={26} strokeWidth={1.6} />
+        </div>
+      )}
+    </div>
   );
 }
