@@ -219,6 +219,45 @@ export function extractPreview(html: string, pageUrl: URL): LinkPreview {
   return { url: pageUrl.href, site, title: cleanTitle(title, site), image, images, price, currency: currency ?? (price ? 'BRL' : null) };
 }
 
+/**
+ * O que dá para tirar do próprio link, sem abrir a página. Lojas que bloqueiam robôs ou montam a
+ * página só com JavaScript (Shopee, Mercado Livre, Magalu…) quase sempre põem o nome do produto no
+ * caminho; a Shopee ainda manda a foto em `image_ids`.
+ */
+export function previewFromUrl(u: URL): LinkPreview {
+  const site = u.hostname.replace(/^www\./, '');
+  const images: string[] = [];
+  // Shopee: ?image_ids=<id> → foto no CDN deles
+  const shopeeImage = /(^|\.)shopee\.com\.br$/.test(u.hostname) ? u.searchParams.get('image_ids')?.split(',')[0] : null;
+  if (shopeeImage && /^[\w-]+$/.test(shopeeImage)) images.push(`https://down-br.img.susercontent.com/file/${shopeeImage}`);
+
+  const segments = u.pathname.split('/').map((s) => {
+    try {
+      return decodeURIComponent(s);
+    } catch {
+      return s;
+    }
+  });
+  // Amazon: /<nome>/dp/<ASIN> — o nome vem antes do "dp"
+  const dp = segments.findIndex((s) => s === 'dp' || s === 'gp');
+  const candidates = dp > 0 ? [segments[dp - 1]] : segments;
+  const slug = candidates
+    .map((s) =>
+      s
+        .replace(/\.html?$/i, '')
+        .replace(/-i\.\d+\.\d+$/, '') // Shopee: -i.<loja>.<item>
+        .replace(/^ML[A-Z]-?\d+-?/, '') // Mercado Livre: MLB-123-
+        .replace(/[-_]JM$/, '')
+        .replace(/[-_]\d{5,}$/, ''), // código numérico no fim
+    )
+    .filter((s) => (s.match(/[-_]/g) ?? []).length >= 2 && /[a-zA-ZÀ-ú]{3}/.test(s))
+    .sort((a, b) => b.length - a.length)[0];
+  let title = slug ? slug.replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim() : null;
+  if (title && title === title.toLowerCase()) title = title.charAt(0).toUpperCase() + title.slice(1);
+  if (title && title.length < 8) title = null;
+  return { url: u.href, site, title: title?.slice(0, 140) ?? null, image: images[0] ?? null, images, price: null, currency: null };
+}
+
 async function readLimited(res: Response, limit: number) {
   const reader = res.body?.getReader();
   if (!reader) return new Uint8Array(await res.arrayBuffer()).slice(0, limit);
@@ -286,6 +325,10 @@ export default async function handler(req: Req, res: Res) {
 
   const target = safeUrl(params.get('url'));
   if (!target) return send(res, 400, { error: 'invalid_url' });
+  // Página bloqueada ou sem dados: o que o próprio link diz (nome no caminho, foto da Shopee) é melhor que nada
+  const fromLink = previewFromUrl(target);
+  const fail = (status: number, body: Record<string, unknown>) =>
+    fromLink.title || fromLink.image ? send(res, 200, fromLink) : send(res, status, body);
   try {
     const got = await fetchSafe(target, {
       headers: {
@@ -297,16 +340,19 @@ export default async function handler(req: Req, res: Res) {
     });
     if (!got) return send(res, 400, { error: 'invalid_url' });
     const r = got.res;
-    if (!r.ok) return send(res, 502, { error: 'page_status', status: r.status });
+    if (!r.ok) return fail(502, { error: 'page_status', status: r.status });
     const html = new TextDecoder('utf-8').decode(await readLimited(r, MAX_HTML));
     // Loja mandou para captcha/verificação: não deu para ler a página
-    if (/captcha|account-verification|challenge|validatecaptcha/i.test(got.url.pathname + got.url.search)) return send(res, 422, { error: 'blocked' });
+    if (/captcha|account-verification|challenge|validatecaptcha/i.test(got.url.pathname + got.url.search)) return fail(422, { error: 'blocked' });
     const preview = extractPreview(html, got.url);
-    if (!preview.price && !preview.image && (!preview.title || preview.title.length < 20)) return send(res, 422, { error: 'blocked' });
+    if (!preview.price && !preview.image && (!preview.title || preview.title.length < 20)) return fail(422, { error: 'blocked' });
+    // Completa o que faltou na página com o que veio no link
+    if (!preview.image && fromLink.image) Object.assign(preview, { image: fromLink.image, images: fromLink.images });
+    if (!preview.title && fromLink.title) preview.title = fromLink.title;
     res.setHeader('Cache-Control', 'public, max-age=600');
     // O link guardado é o que a pessoa colou (não o destino de redirecionamentos)
     return send(res, 200, { ...preview, url: target.href });
   } catch {
-    return send(res, 502, { error: 'fetch_failed' });
+    return fail(502, { error: 'fetch_failed' });
   }
 }

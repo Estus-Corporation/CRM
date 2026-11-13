@@ -1,16 +1,17 @@
 import { useRef, useState, type ClipboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, Check, Eraser, ImageIcon, CheckCircle2, ExternalLink, Gift, ImagePlus, Link2, Loader2, Plus, RotateCcw, ShoppingBag, Trash2, Wand2, X } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import { AlertTriangle, Check, ChevronDown, Eraser, ImageIcon, CheckCircle2, ExternalLink, Gift, ImagePlus, Link2, Loader2, Pencil, Plus, RotateCcw, ShoppingBag, Trash2, Wand2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { cn } from '@/lib/utils';
-import { type WishCategory, type WishItem, WISH_CATEGORIES, brl, parseMoney, wishCategoryOf } from '../data';
+import { type WishCategory, type WishCategoryInfo, type WishColor, type WishItem, WISH_COLORS, WISH_ICONS, allWishCategories, brl, parseMoney, wishCategoryOf } from '../data';
 import { type BgStage, type PreviewError, compressWishImage, fetchLinkPreview, importImage, looksLikeUrl, removeImageBackground } from '../linkPreview';
 import { type WishInput, useRpg } from '../store';
-import { ItemImage, PageTitle } from '../ui';
+import { ItemImage, PageTitle, PANEL_HEAD } from '../ui';
 
 type Filter = WishCategory | 'all';
 type Show = 'pending' | 'bought';
@@ -19,8 +20,12 @@ const totalOf = (list: WishItem[]) => list.reduce((n, w) => n + (w.price ?? 0), 
 
 export function Wishlist() {
   const wishlist = useRpg((s) => s.wishlist);
+  const custom = useRpg((s) => s.wishCategories);
+  const categories = allWishCategories(custom);
   const [params, setParams] = useSearchParams();
-  const filter = (WISH_CATEGORIES.some((c) => c.key === params.get('cat')) ? params.get('cat') : 'all') as Filter;
+  const filter = (categories.some((c) => c.key === params.get('cat')) ? params.get('cat') : 'all') as Filter;
+  // Criar (null) ou editar uma categoria do usuário
+  const [catModal, setCatModal] = useState<{ open: boolean; editing: WishCategoryInfo | null }>({ open: false, editing: null });
   const [show, setShow] = useState<Show>('pending');
   const [modal, setModal] = useState<{ open: boolean; editing: WishItem | null }>({ open: false, editing: null });
 
@@ -40,43 +45,29 @@ export function Wishlist() {
         actions={<Button onClick={() => open()}><Plus size={16} /> Adicionar</Button>}
       />
 
-      {/* Categorias */}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
-        {[{ key: 'all' as const, label: 'Todas', icon: Gift }, ...WISH_CATEGORIES].map((c) => {
-          const items = pending.filter((w) => c.key === 'all' || w.category === c.key);
-          const active = filter === c.key;
-          return (
-            <button key={c.key} type="button" onClick={() => setFilter(c.key)}
-              className={cn('flex flex-col items-start gap-2 rounded-2xl border p-3 text-left transition-colors',
-                active ? 'border-fg/[0.22] bg-fg/[0.09]' : 'border-fg/[0.08] bg-fg/[0.03] hover:bg-fg/[0.06]')}>
-              <c.icon size={19} strokeWidth={1.8} className={active ? 'text-text-primary' : 'text-text-secondary'} />
-              <span className="w-full">
-                <span className={cn('block truncate text-[13px] font-semibold', active ? 'text-text-primary' : 'text-text-secondary')}>{c.label}</span>
-                <span className="block text-[11px] tabular-nums text-text-muted">
-                  {items.length} {items.length === 1 ? 'item' : 'itens'}{totalOf(items) ? ` · ${brl(totalOf(items))}` : ''}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <section className="rounded-[20px] border border-fg/[0.08] bg-bg-surface/70 p-4 md:p-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-[15.5px] font-semibold text-text-primary">{filter === 'all' ? 'Todas as categorias' : wishCategoryOf(filter).label}</h2>
+      <section className="rounded-[20px] border border-fg/[0.08] bg-bg-surface/70">
+        <div className={cn(PANEL_HEAD, 'flex flex-wrap items-center gap-3 px-4 py-3.5 md:px-5')}>
+          <CategoryPicker
+            categories={[ALL_CATEGORY, ...categories]}
+            pending={pending}
+            value={filter}
+            onChange={setFilter}
+            onEdit={(c) => setCatModal({ open: true, editing: c })}
+            onCreate={() => setCatModal({ open: true, editing: null })}
+          />
           <SegmentedControl
             layoutId="wish-show"
             value={show}
             onChange={setShow}
             className="ml-auto max-sm:w-full max-sm:[&>button]:flex-1"
             options={[
-              { value: 'pending', label: `Quero ${wishlist.filter((w) => inFilter(w) && !w.boughtAt).length || ''}`.trim() },
-              { value: 'bought', label: `Comprados ${wishlist.filter((w) => inFilter(w) && w.boughtAt).length || ''}`.trim() },
+              { value: 'pending', label: `Lista de Desejos ${wishlist.filter((w) => inFilter(w) && !w.boughtAt).length || ''}`.trim() },
+              { value: 'bought', label: `Adquiridos ${wishlist.filter((w) => inFilter(w) && w.boughtAt).length || ''}`.trim() },
             ]}
           />
         </div>
 
-        <div className="mt-5">
+        <div className="p-4 md:p-5">
           {list.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-fg/[0.12] py-12 text-center">
               <p className="mx-auto max-w-xs text-sm text-text-secondary">
@@ -95,13 +86,187 @@ export function Wishlist() {
       </section>
 
       <WishModal open={modal.open} editing={modal.editing} defaultCategory={filter === 'all' ? 'lifestyle' : filter} onClose={() => setModal({ open: false, editing: null })} />
+      <CategoryModal
+        open={catModal.open}
+        editing={catModal.editing}
+        onClose={() => setCatModal({ open: false, editing: null })}
+        onRemoved={() => setFilter('all')}
+      />
     </div>
+  );
+}
+
+const ALL_CATEGORY: WishCategoryInfo = { key: 'all', label: 'Todas', icon: Gift, iconName: 'gift', color: 'emerald', custom: false };
+
+const countLabel = (items: WishItem[]) =>
+  `${items.length} ${items.length === 1 ? 'item' : 'itens'}${totalOf(items) ? ` · ${brl(totalOf(items))}` : ''}`;
+
+/** Ícone da categoria num quadrado com a cor dela */
+function CategoryIcon({ category: c, size = 'md' }: { category: WishCategoryInfo; size?: 'sm' | 'md' }) {
+  const color = WISH_COLORS[c.color];
+  return (
+    <span className={cn('flex flex-shrink-0 items-center justify-center rounded-lg', size === 'sm' ? 'h-8 w-8' : 'h-9 w-9')} style={{ backgroundColor: `${color}1f`, color }}>
+      <c.icon size={size === 'sm' ? 16 : 18} strokeWidth={1.9} />
+    </span>
+  );
+}
+
+/** Escolha da categoria em dropdown: cada opção com ícone, cor, quantidade e total; as criadas pelo usuário têm lápis */
+function CategoryPicker({ categories, pending, value, onChange, onEdit, onCreate }: {
+  categories: WishCategoryInfo[]; pending: WishItem[]; value: Filter;
+  onChange: (key: Filter) => void; onEdit: (c: WishCategoryInfo) => void; onCreate: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const itemsOf = (key: WishCategory) => pending.filter((w) => key === 'all' || w.category === key);
+  const current = categories.find((c) => c.key === value) ?? categories[0];
+  return (
+    <DropdownMenu.Root open={open} onOpenChange={setOpen} modal={false}>
+      <DropdownMenu.Trigger asChild>
+        <button type="button"
+          className="flex min-w-0 items-center gap-2.5 rounded-xl border border-fg/[0.1] bg-fg/[0.04] py-1.5 pl-1.5 pr-3 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] transition-colors hover:border-fg/[0.16] hover:bg-fg/[0.07] data-[state=open]:border-fg/[0.2] max-sm:w-full sm:min-w-[240px]">
+          <CategoryIcon category={current} />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[14.5px] font-semibold text-text-primary">{current.key === 'all' ? 'Todas as categorias' : current.label}</span>
+            <span className="block truncate text-[11.5px] tabular-nums text-text-muted">{countLabel(itemsOf(current.key))}</span>
+          </span>
+          <ChevronDown size={16} className={cn('flex-shrink-0 text-text-muted transition-transform duration-200', open && 'rotate-180')} />
+        </button>
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content align="start" sideOffset={8} collisionPadding={12}
+          className="z-50 max-h-[min(70vh,var(--radix-dropdown-menu-content-available-height))] w-[min(320px,calc(100vw-24px))] overflow-y-auto rounded-2xl border border-fg/[0.1] bg-bg-surface p-1.5 shadow-[0_18px_40px_-12px_rgba(0,0,0,0.55)]">
+          {categories.map((c) => {
+            const active = c.key === value;
+            return (
+              <DropdownMenu.Item key={c.key} onSelect={() => onChange(c.key)}
+                className={cn('group flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 outline-none transition-colors data-[highlighted]:bg-fg/[0.06]', active && 'bg-fg/[0.05]')}>
+                <CategoryIcon category={c} size="sm" />
+                <span className="min-w-0 flex-1">
+                  <span className={cn('block truncate text-[13.5px] font-medium', active ? 'text-text-primary' : 'text-text-secondary group-data-[highlighted]:text-text-primary')}>{c.label}</span>
+                  <span className="block truncate text-[11px] tabular-nums text-text-muted">{countLabel(itemsOf(c.key))}</span>
+                </span>
+                {c.custom && (
+                  <button type="button" aria-label={`Editar ${c.label}`} title="Editar categoria"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(false); onEdit(c); }}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg text-text-muted opacity-0 transition-opacity hover:bg-fg/[0.08] hover:text-text-primary group-data-[highlighted]:opacity-100 max-md:opacity-100">
+                    <Pencil size={13} />
+                  </button>
+                )}
+                {active && <Check size={15} className="flex-shrink-0 text-accent-green" />}
+              </DropdownMenu.Item>
+            );
+          })}
+          <DropdownMenu.Separator className="mx-1 my-1.5 h-px bg-fg/[0.07]" />
+          <DropdownMenu.Item onSelect={onCreate}
+            className="flex cursor-pointer items-center gap-3 rounded-xl px-2 py-1.5 text-[13.5px] font-medium text-text-secondary outline-none transition-colors data-[highlighted]:bg-fg/[0.06] data-[highlighted]:text-text-primary">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-dashed border-fg/[0.2]"><Plus size={15} /></span>
+            Nova categoria
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+function CategoryModal({ open, editing, onClose, onRemoved }: {
+  open: boolean; editing: WishCategoryInfo | null; onClose: () => void; onRemoved: () => void;
+}) {
+  const { addWishCategory, updateWishCategory, removeWishCategory } = useRpg();
+  const count = useRpg((s) => (editing ? s.wishlist.filter((w) => w.category === editing.key).length : 0));
+  const [label, setLabel] = useState('');
+  const [icon, setIcon] = useState('gift');
+  const [color, setColor] = useState<WishColor>('emerald');
+  const [confirm, setConfirm] = useState(false);
+  const [openedFor, setOpenedFor] = useState<string | null>(null);
+  const key = open ? editing?.key ?? 'new' : null;
+  if (key !== openedFor) {
+    setOpenedFor(key);
+    if (open) {
+      setLabel(editing?.label ?? '');
+      setIcon(editing?.iconName ?? 'gift');
+      setColor(editing?.color ?? 'emerald');
+      setConfirm(false);
+    }
+  }
+
+  const save = () => {
+    if (!label.trim()) return;
+    // A seleção não muda: a lista continua em "Todas" (ou na categoria aberta)
+    if (editing) updateWishCategory(editing.key, { label, icon, color });
+    else addWishCategory({ label, icon, color });
+    onClose();
+  };
+  const remove = () => {
+    if (!editing) return;
+    removeWishCategory(editing.key, 'lifestyle');
+    onRemoved();
+    onClose();
+  };
+
+  const hex = WISH_COLORS[color];
+  const Icon = WISH_ICONS[icon] ?? Gift;
+  return (
+    <Modal open={open} onClose={onClose} title={editing ? 'Editar categoria' : 'Nova categoria'} className="max-w-md">
+      <div className="space-y-4">
+        {/* Prévia do card, com o nome digitado nela */}
+        <div className="flex items-center gap-3 rounded-2xl border p-3.5"
+          style={{ borderColor: `${hex}55`, backgroundImage: `radial-gradient(120% 90% at 0% 0%, ${hex}26, transparent 70%)` }}>
+          <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl" style={{ backgroundColor: `${hex}1f`, color: hex }}>
+            <Icon size={20} strokeWidth={1.9} />
+          </span>
+          <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && save()}
+            maxLength={30} placeholder="Nome da categoria"
+            className="min-w-0 flex-1 bg-transparent text-[15px] font-semibold text-text-primary placeholder:text-text-muted focus:outline-none" />
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Cor</label>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(WISH_COLORS) as WishColor[]).map((k) => (
+              <button key={k} type="button" onClick={() => setColor(k)} aria-label={k}
+                className={cn('h-8 w-8 rounded-full ring-offset-2 ring-offset-bg-surface transition-transform hover:scale-110', color === k && 'ring-2 ring-fg/60')}
+                style={{ backgroundColor: WISH_COLORS[k] }} />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-text-secondary">Ícone</label>
+          <div className="grid grid-cols-7 gap-1.5">
+            {Object.entries(WISH_ICONS).map(([name, I]) => (
+              <button key={name} type="button" onClick={() => setIcon(name)} aria-label={name}
+                style={icon === name ? { backgroundColor: `${hex}26`, color: hex, borderColor: `${hex}66` } : undefined}
+                className={cn('flex aspect-square items-center justify-center rounded-xl border transition-colors',
+                  icon !== name && 'border-transparent text-text-secondary hover:bg-fg/[0.06] hover:text-text-primary')}>
+                <I size={17} />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-fg/[0.06] pt-4">
+          {editing && (confirm ? (
+            <div className="min-w-0">
+              <Button variant="danger" onClick={remove}>Excluir categoria</Button>
+              {count > 0 && <p className="mt-1 text-[11px] text-text-muted">{count} {count === 1 ? 'desejo vai' : 'desejos vão'} para Lifestyle.</p>}
+            </div>
+          ) : (
+            <Button variant="secondary" onClick={() => setConfirm(true)} aria-label="Excluir categoria"><Trash2 size={15} /></Button>
+          ))}
+          <div className="ml-auto flex gap-2">
+            <Button variant="secondary" onClick={onClose}>Cancelar</Button>
+            <Button onClick={save} disabled={!label.trim()}>{editing ? <><Check size={15} /> Salvar</> : 'Criar'}</Button>
+          </div>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
 function WishCard({ item, onOpen }: { item: WishItem; onOpen: () => void }) {
   const { buyWish, unbuyWish } = useRpg();
-  const c = wishCategoryOf(item.category);
+  const c = wishCategoryOf(item.category, useRpg((s) => s.wishCategories));
   const buy = () => {
     buyWish(item.id);
     toast.success(item.price ? `Comprado: ${item.name} · lançado nos gastos` : `Comprado: ${item.name}`, {
@@ -140,6 +305,7 @@ interface Draft { category: WishCategory; name: string; image: string | null; im
 
 function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean; editing: WishItem | null; defaultCategory: WishCategory; onClose: () => void }) {
   const { addWish, updateWish, removeWish } = useRpg();
+  const categories = allWishCategories(useRpg((s) => s.wishCategories));
   const [d, setD] = useState<Draft>({ category: defaultCategory, name: '', image: null, imageOriginal: null, price: '', link: '', note: '' });
   const [urlMode, setUrlMode] = useState(false);
   const [loadingImg, setLoadingImg] = useState(false);
@@ -383,11 +549,12 @@ function WishModal({ open, editing, defaultCategory, onClose }: { open: boolean;
         <div>
           <label className="mb-1.5 block text-xs font-medium text-text-secondary">Categoria</label>
           <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-            {WISH_CATEGORIES.map((c) => (
+            {categories.map((c) => (
               <button key={c.key} type="button" onClick={() => setD({ ...d, category: c.key })}
+                style={d.category === c.key ? { borderColor: `${WISH_COLORS[c.color]}80`, backgroundColor: `${WISH_COLORS[c.color]}1f`, color: WISH_COLORS[c.color] } : undefined}
                 className={cn('flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-left text-[11.5px] font-medium transition-colors',
-                  d.category === c.key ? 'border-accent-green/50 bg-accent-green/15 text-accent-green' : 'border-fg/[0.1] text-text-secondary hover:bg-fg/[0.05]')}>
-                <c.icon size={14} className="flex-shrink-0" /> <span className="truncate">{c.label}</span>
+                  d.category !== c.key && 'border-fg/[0.1] text-text-secondary hover:bg-fg/[0.05]')}>
+                <c.icon size={14} className="flex-shrink-0" style={d.category === c.key ? undefined : { color: WISH_COLORS[c.color] }} /> <span className="truncate">{c.label}</span>
               </button>
             ))}
           </div>

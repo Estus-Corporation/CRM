@@ -5,14 +5,22 @@ import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, Responsi
 import { useChartColors } from '@/hooks/useChartColors';
 import { cn } from '@/lib/utils';
 
-/** Card padrão do app: cabeçalho com ícone + título (+ subtítulo e ação à direita) */
+/** Faixa do título dos cards: fundo levemente mais claro que o corpo, separada por uma linha */
+export const PANEL_HEAD = 'rounded-t-[20px] border-b border-fg/[0.06] bg-fg/[0.035]';
+
+/**
+ * Card padrão do app: faixa de cabeçalho (ícone + título, subtítulo e ação à direita, ou `header` livre)
+ * e o conteúdo embaixo
+ */
 export function Panel({
-  icon: Icon, title, subtitle, action, className, bodyClassName, children,
+  icon: Icon, title, subtitle, action, header, className, bodyClassName, children,
 }: {
   icon?: LucideIcon;
   title?: string;
   subtitle?: string;
   action?: ReactNode;
+  /** Conteúdo próprio da faixa do título (no lugar de ícone/título/subtítulo) */
+  header?: ReactNode;
   className?: string;
   bodyClassName?: string;
   children: ReactNode;
@@ -24,17 +32,21 @@ export function Panel({
         className,
       )}
     >
-      {title && (
-        <header className="flex items-start gap-3 px-5 pt-4">
-          {Icon && <Icon size={19} strokeWidth={2.1} className="mt-0.5 flex-shrink-0 text-text-primary" />}
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[15.5px] font-semibold text-text-primary">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-xs text-text-muted">{subtitle}</p>}
-          </div>
-          {action}
-        </header>
+      {header ? (
+        <header className={cn(PANEL_HEAD, 'px-4 py-4 md:px-5')}>{header}</header>
+      ) : (
+        title && (
+          <header className={cn(PANEL_HEAD, 'flex items-start gap-3 px-5 py-3.5')}>
+            {Icon && <Icon size={19} strokeWidth={2.1} className="mt-0.5 flex-shrink-0 text-text-primary" />}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[15.5px] font-semibold text-text-primary">{title}</h2>
+              {subtitle && <p className="mt-0.5 text-xs text-text-muted">{subtitle}</p>}
+            </div>
+            {action}
+          </header>
+        )
       )}
-      <div className={cn('flex-1 p-5', title && 'pt-4', bodyClassName)}>{children}</div>
+      <div className={cn('flex-1 p-5', bodyClassName)}>{children}</div>
     </section>
   );
 }

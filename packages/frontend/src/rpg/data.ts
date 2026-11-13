@@ -1,6 +1,7 @@
 import {
   Brain, Briefcase, ListChecks, NotebookPen, Package, PiggyBank, Target, TrendingUp, Car, CircleDollarSign, Coffee, Compass, Dumbbell, Gamepad2, Gem, GraduationCap, Headphones, HeartPulse, Home, Lamp,
   Receipt, Repeat, Shirt, ShoppingBag, Sparkles, Users, UtensilsCrossed, Wallet,
+  Baby, Bike, BookOpen, Camera, Dog, Gift, Heart, Laptop, Music, Palette, Plane, Smartphone, Sprout, Star, Watch, Wrench,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -253,19 +254,71 @@ export function guessKind(universe: UniverseKey, name: string): CollectionKind {
 
 // ── Wishlist ────────────────────────────────────────────────────────────────
 
-export type WishCategory = 'lifestyle' | 'fitness' | 'ambiente' | 'colecionaveis' | 'tech' | 'autocuidado' | 'roupas';
+/** Chave da categoria: uma das fixas abaixo ou `c-<id>` das criadas pelo usuário */
+export type WishCategory = string;
 
-export const WISH_CATEGORIES: { key: WishCategory; label: string; icon: LucideIcon }[] = [
-  { key: 'lifestyle', label: 'Lifestyle', icon: Coffee },
-  { key: 'fitness', label: 'Fitness', icon: Dumbbell },
-  { key: 'ambiente', label: 'Ambiente', icon: Lamp },
-  { key: 'colecionaveis', label: 'Colecionáveis', icon: Gem },
-  { key: 'tech', label: 'Tech & Gadgets', icon: Headphones },
-  { key: 'autocuidado', label: 'Auto-Cuidado', icon: Sparkles },
-  { key: 'roupas', label: 'Roupas & Acessórios', icon: Shirt },
+/** Cores das categorias (tom do ícone, brilho do card ativo) */
+export const WISH_COLORS = {
+  emerald: '#4FD69C',
+  amber: '#F2B84B',
+  sky: '#5DB4F0',
+  violet: '#A88BFA',
+  rose: '#F2789A',
+  teal: '#3CC8C0',
+  orange: '#F28C4B',
+  slate: '#A3ADC2',
+} as const;
+export type WishColor = keyof typeof WISH_COLORS;
+
+/** Ícones que dá para escolher numa categoria nova (nome guardado no lugar do componente) */
+export const WISH_ICONS: Record<string, LucideIcon> = {
+  coffee: Coffee, dumbbell: Dumbbell, lamp: Lamp, gem: Gem, headphones: Headphones, sparkles: Sparkles, shirt: Shirt,
+  gift: Gift, book: BookOpen, gamepad: Gamepad2, car: Car, home: Home, plane: Plane, camera: Camera, music: Music,
+  palette: Palette, watch: Watch, bike: Bike, utensils: UtensilsCrossed, baby: Baby, dog: Dog, plant: Sprout,
+  laptop: Laptop, smartphone: Smartphone, shopping: ShoppingBag, heart: Heart, star: Star, tool: Wrench,
+};
+export const wishIcon = (name: string): LucideIcon => WISH_ICONS[name] ?? Gift;
+
+/** Categoria criada pelo usuário (guardada no store) */
+export interface CustomWishCategory {
+  key: WishCategory;
+  label: string;
+  icon: string;
+  color: WishColor;
+}
+
+export interface WishCategoryInfo {
+  key: WishCategory;
+  label: string;
+  icon: LucideIcon;
+  iconName: string;
+  color: WishColor;
+  custom: boolean;
+}
+
+const BUILTIN_WISH: [WishCategory, string, string, WishColor][] = [
+  ['lifestyle', 'Lifestyle', 'coffee', 'amber'],
+  ['fitness', 'Fitness', 'dumbbell', 'emerald'],
+  ['ambiente', 'Ambiente', 'lamp', 'orange'],
+  ['colecionaveis', 'Colecionáveis', 'gem', 'violet'],
+  ['tech', 'Tech & Gadgets', 'headphones', 'sky'],
+  ['autocuidado', 'Auto-Cuidado', 'sparkles', 'rose'],
+  ['roupas', 'Roupas & Acessórios', 'shirt', 'teal'],
 ];
 
-export const wishCategoryOf = (key: WishCategory) => WISH_CATEGORIES.find((c) => c.key === key) ?? WISH_CATEGORIES[0];
+export const WISH_CATEGORIES: WishCategoryInfo[] = BUILTIN_WISH.map(([key, label, icon, color]) => ({
+  key, label, icon: wishIcon(icon), iconName: icon, color, custom: false,
+}));
+
+/** Fixas + as criadas pelo usuário */
+export const allWishCategories = (custom: CustomWishCategory[]): WishCategoryInfo[] => [
+  ...WISH_CATEGORIES,
+  ...custom.map((c) => ({ key: c.key, label: c.label, icon: wishIcon(c.icon), iconName: c.icon, color: c.color, custom: true })),
+];
+
+/** Categoria de uma chave (cai na primeira fixa se a categoria foi apagada) */
+export const wishCategoryOf = (key: WishCategory, custom: CustomWishCategory[] = []) =>
+  allWishCategories(custom).find((c) => c.key === key) ?? WISH_CATEGORIES[0];
 
 export interface WishItem {
   id: string;

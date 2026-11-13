@@ -115,7 +115,7 @@ function UniverseView({ u }: { u: Universe }) {
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <Panel title={u.label} subtitle={`${collections.length + (isFinance ? 1 : 0)} coleções`} bodyClassName="px-3 pb-3"
+        <Panel title={u.label} subtitle={`${collections.length + (isFinance ? 1 : 0)} coleções`} bodyClassName="p-3"
           action={
             <button type="button" onClick={() => setColModal({ open: true, editing: null })} aria-label="Nova coleção"
               className="rounded-lg p-1.5 text-text-secondary hover:bg-fg/[0.06] hover:text-text-primary">
@@ -190,7 +190,9 @@ function CollectionView({ collection, universe, onEdit }: { collection: Collecti
   const KindIcon = info.icon;
 
   return (
-    <Panel bodyClassName="p-4 md:p-5">
+    <Panel
+      bodyClassName="p-4 md:p-5"
+      header={
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
           <p className="text-xs text-text-muted">
@@ -208,8 +210,9 @@ function CollectionView({ collection, universe, onEdit }: { collection: Collecti
         </div>
         <Button onClick={() => open(null, hasStates(collection.kind) ? 'wish' : 'owned')}><Plus size={16} /> Adicionar</Button>
       </div>
-
-      <div className="mt-5">
+      }
+    >
+      <div>
         {hasStates(collection.kind) ? (
           <StagesBody collection={collection} items={items} universe={universe} pct={cs.pct} onOpen={open} />
         ) : items.length === 0 ? (

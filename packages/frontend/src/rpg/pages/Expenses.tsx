@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/lib/utils';
 import { type Expense, type ExpenseCategory, EXPENSE_CATEGORIES, brl, dayKey, expenseCategoryOf, parseMoney } from '../data';
 import { type ExpenseInput, monthOf, useRpg } from '../store';
-import { Panel, ProgressBar } from '../ui';
+import { Panel, PANEL_HEAD, ProgressBar } from '../ui';
 
 const monthLabel = (m: string) => {
   const t = format(parseISO(`${m}-01`), 'MMMM yyyy', { locale: ptBR });
@@ -55,8 +55,8 @@ export function ExpensesView() {
   return (
     <div className="space-y-4">
       {/* Mês + resumo */}
-      <section className="rounded-[20px] border border-fg/[0.08] bg-bg-surface/70 p-5">
-        <div className="flex flex-wrap items-center gap-3">
+      <section className="rounded-[20px] border border-fg/[0.08] bg-bg-surface/70">
+        <div className={cn(PANEL_HEAD, 'flex flex-wrap items-center gap-3 px-5 py-3.5')}>
           <div className="flex items-center gap-1">
             <button type="button" onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mês anterior"
               className="rounded-lg p-1.5 text-text-secondary hover:bg-fg/[0.06] hover:text-text-primary"><ChevronLeft size={18} /></button>
@@ -70,7 +70,7 @@ export function ExpensesView() {
           <Button className="ml-auto" onClick={() => open()}><Plus size={16} /> Novo gasto</Button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 p-5 xl:grid-cols-4">
           <div className="col-span-2 xl:col-span-1">
             <p className="text-xs text-text-muted">Total do mês</p>
             <p className="mt-1 font-display text-[28px] font-semibold tabular-nums leading-none text-text-primary">{brl(total)}</p>

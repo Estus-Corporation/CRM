@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import {
-  type Collection, type CollectionKind, type Expense, type Item, type Mission, type UniverseKey, type WishCategory, type WishItem,
+  type Collection, type CollectionKind, type CustomWishCategory, type Expense, type Item, type Mission, type UniverseKey, type WishCategory, type WishItem,
   UNIVERSES, dayKey, guessKind, hasStates, uid, universeStats,
 } from './data';
 import { idbStorage } from './idb';
@@ -17,6 +17,8 @@ interface Data {
   collections: Collection[];
   items: Item[];
   wishlist: WishItem[];
+  /** Categorias da wishlist criadas pelo usuário (as fixas ficam em data.ts) */
+  wishCategories: CustomWishCategory[];
   expenses: Expense[];
   /** Da primeira versão, sem tela (guardado para não perder) */
   missions: Mission[];
@@ -40,6 +42,10 @@ interface RpgState extends Data {
   buyWish: (id: string) => void;
   /** Volta para a lista (e apaga o gasto criado pela compra) */
   unbuyWish: (id: string) => void;
+  addWishCategory: (c: Omit<CustomWishCategory, 'key'>) => WishCategory;
+  updateWishCategory: (key: WishCategory, c: Partial<Omit<CustomWishCategory, 'key'>>) => void;
+  /** Apaga a categoria; os desejos dela vão para `moveTo` */
+  removeWishCategory: (key: WishCategory, moveTo: WishCategory) => void;
 
   addExpense: (e: ExpenseInput) => void;
   updateExpense: (id: string, e: Partial<ExpenseInput>) => void;
@@ -60,6 +66,7 @@ const initial = (): Data => ({
   collections: seedCollections(),
   items: [],
   wishlist: [],
+  wishCategories: [],
   expenses: [],
   missions: [],
 });
@@ -122,6 +129,7 @@ function toV5(d: Data & Record<string, any>): Data {
     collections,
     items,
     wishlist,
+    wishCategories: rest.wishCategories ?? [],
     expenses: rest.expenses ?? [],
     missions: rest.missions ?? [],
   };
@@ -142,7 +150,7 @@ function migrate(old: any, version: number): Data {
   return { ...base, name: old?.name ?? base.name, missions: old?.missions ?? [], items };
 }
 
-const DATA_KEYS: (keyof Data)[] = ['name', 'collections', 'items', 'wishlist', 'expenses', 'missions'];
+const DATA_KEYS: (keyof Data)[] = ['name', 'collections', 'items', 'wishlist', 'wishCategories', 'expenses', 'missions'];
 const pickData = (s: RpgState): Data => Object.fromEntries(DATA_KEYS.map((k) => [k, s[k]])) as unknown as Data;
 
 const cleanExpense = <T extends Partial<ExpenseInput>>(e: T): T => ({
@@ -210,6 +218,20 @@ export const useRpg = create<RpgState>()(
             expenses: expense ? [expense, ...s.expenses] : s.expenses,
           };
         }),
+      addWishCategory: (c) => {
+        const key = `c-${uid()}`;
+        set((s) => ({ wishCategories: [...s.wishCategories, { ...c, label: c.label.trim(), key }] }));
+        return key;
+      },
+      updateWishCategory: (key, c) =>
+        set((s) => ({
+          wishCategories: s.wishCategories.map((x) => (x.key === key ? { ...x, ...c, ...(c.label !== undefined && { label: c.label.trim() }) } : x)),
+        })),
+      removeWishCategory: (key, moveTo) =>
+        set((s) => ({
+          wishCategories: s.wishCategories.filter((x) => x.key !== key),
+          wishlist: s.wishlist.map((w) => (w.category === key ? { ...w, category: moveTo } : w)),
+        })),
       unbuyWish: (id) =>
         set((s) => {
           const w = s.wishlist.find((x) => x.id === id);

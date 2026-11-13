@@ -73,7 +73,7 @@ export function Overview() {
         {wishes.length ? (
           <ul className="space-y-2">
             {wishes.map((w) => {
-              const c = wishCategoryOf(w.category);
+              const c = wishCategoryOf(w.category, s.wishCategories);
               return (
                 <li key={w.id}>
                   <Link to={`/wishlist?cat=${w.category}`} className="flex items-center gap-3 rounded-xl transition-colors hover:bg-fg/[0.03]">
